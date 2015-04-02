@@ -1,0 +1,271 @@
+#! /usr/bin/perl
+
+# getcode
+# 
+# This script will get portions of the 346 code for the students. 
+
+use Getopt::Std;
+
+getopts('hvu');
+
+$usage = "Usage: setup [-u -h -v] <HW #>\n";
+
+$hwnum = $ARGV[0];
+
+if ( $#ARGV ==0 & ($hwnum < 1 | $hwnum > 4 )) {
+  printf STDERR "\nInvalid HW #\n";
+}
+
+
+if ( $opt_h | $#ARGV != 0 | $hwnum < 1 | $hwnum > 4 ) {
+  printf STDERR "\n$usage";
+  printf STDERR " \
+    This script sets up the directory structure and all needed files 
+    for the students of 346.
+
+    The HW # limits the amount of files transfered to those that are
+    needed for a specific component.  Valid values are:
+
+      1 -- PF and RM files
+      2 -- IX files
+      3 -- SM, Parser, and QL stub files
+      4 -- QL files.
+
+    Additional arguments:
+
+    u - an update facility - you only need to run setup -u if the 
+        TA tells you to
+    h - help message
+    v - verbose mode
+
+    In verbose mode additional diagnostic information will be shown.
+    \n";
+  exit();
+} 
+
+print "Synching src directory for homework number $hwnum.\n";
+
+$srcdir = "/usr/class/cs346/redbase";
+
+if ( $opt_u ) {
+   DoUpdate();
+} else {
+   Directories();
+   CreateLinks($srcdir);
+}
+
+exit;
+
+# ######################
+# Initial setup routines
+# ######################
+
+sub Directories {
+   @files = ("src", "build", "lib");
+
+   print "Setup::Dealing with the directories.\n" if ($opt_v);
+
+   foreach $files (@files) {
+      if (-d $files) {
+         print "Setup::Verified existence of directory $files.\n" if ($opt_v);
+      } else {
+         print "Setup::Creating directory $files.\n" if ($opt_v);
+         mkdir $files,0777;
+      }
+   }
+}
+
+sub CreateLinks {
+   local($srcdir) = @_;  
+
+   print "Creating the links to files.\n" if ($opt_v);
+
+   $pfdir = "$srcdir/pf";
+   $rmdir = "$srcdir/rm";
+   $ixdir = "$srcdir/ix";
+   $smdir = "$srcdir/sm";
+   $qldir = "$srcdir/ql";
+
+   $destdir = "src/";
+
+   # #################################
+   # Files are separated into two groups.  The first are "soft" links
+   # and these are files that the student shouldn't need to modify.
+   # The second are "hard" links, or just copies.  These are files,
+   # like many of the .h files that the student will be modifying.
+   # #################################
+
+   # #################################
+   # Transfer for HW 1
+   # Includes PF and RM files
+   # #################################
+   if ($hwnum == 1) {
+
+      @softfiles = ( ) ;
+
+      @hardfiles = (
+          "$pfdir/linkedlist.h",
+          "$pfdir/pf.h",
+          "$pfdir/pf_buffermgr.cc",
+          "$pfdir/pf_buffermgr.h",
+          "$pfdir/pf_error.cc",
+          "$pfdir/pf_filehandle.cc",
+          "$pfdir/pf_hashtable.cc",
+          "$pfdir/pf_hashtable.h",
+          "$pfdir/pf_internal.h",
+          "$pfdir/pf_manager.cc",
+          "$pfdir/pf_pagehandle.cc",
+          "$pfdir/pf_statistics.cc",
+          "$pfdir/pf_test1.cc",
+          "$pfdir/pf_test2.cc",
+          "$pfdir/pf_test3.cc",
+          "$pfdir/statistics.cc",
+          "$pfdir/statistics.h",
+          "$pfdir/redbase.h",
+          "$rmdir/rm.h",
+          "$rmdir/rm_rid.h",
+          "$rmdir/rm_test.cc"
+          );
+   }
+
+
+   # #################################
+   # Transfer for HW 2
+   # Includes IX files
+   # #################################
+   if ($hwnum == 2) {
+
+      @softfiles = (
+
+#          "$ixdir/hashfn.h",
+#          "$ixdir/hashfn.cc"
+          );
+      @hardfiles = (
+          "$ixdir/ix.h",
+          "$ixdir/ix_test.cc"
+          );
+   }
+
+
+   # #################################
+   # Transfer for HW 3
+   # Includes SM, Parser and QL stub 
+   #  files
+   # #################################
+   if ($hwnum == 3) {
+
+      @softfiles = ( );
+
+      @hardfiles = (
+
+          "$pfdir/redbase.h",
+          "$smdir/interp.c",
+          "$smdir/nodes.c",
+          "$smdir/parse.y",
+          "$smdir/Parser.HowTo",
+          "$smdir/parser.h",
+          "$smdir/parser_internal.h",
+          "$smdir/parser_test.cc",
+#         "$smdir/scan.c",
+          "$smdir/scan.l",
+          "$smdir/scanhelp.c",
+          "$smdir/printer.cc",
+          "$smdir/printer.h",
+          "$smdir/dbcreate.cc",
+          "$smdir/ql.h",
+          "$smdir/ql_manager_stub.cc",
+          "$smdir/redbase.cc",
+          "$smdir/sm.h",
+          "$smdir/sm_stub.cc",
+          "$smdir/sm_test.tester",
+          "$smdir/sm_test.1",
+
+          );
+   }
+
+   # #################################
+   # Transfer for HW 4
+   # Includes QL files.  This is really
+   # just the tester.
+   # #################################
+   if ($hwnum == 4) {
+
+      @softfiles = ( );
+
+      @hardfiles = (
+          # 1998 ::  RECOPY the ql.h and ql_manager_stub.cc because I have made
+          # changed between the SM and QL.
+          # Shouldn't normally do this since the students may have made
+          # changes to these files already.
+#          "$smdir/ql.h",                  
+#          "$smdir/ql_manager_stub.cc",
+          "$qldir/ql_test.tester",
+          "$qldir/ql_test.1"
+          );
+   }
+
+
+   # I have to special case the Makefile since there is no
+   # <string>.<string>
+   if ($hwnum == 1) {
+      MyHardLink("$pfdir/Makefile", "$destdir/Makefile");
+   }
+
+   foreach $files (@softfiles) {
+      $srcfile = $files;
+      $files =~ /.*\/(.*)\.(.*)/;
+      $destfile = "$destdir$1.$2";
+      MySoftLink($srcfile, $destfile);
+   }
+
+   foreach $files (@hardfiles) {
+      $srcfile = $files;
+      $files =~ /.*\/(.*)\.(.*)/;
+      $destfile = "$destdir$1.$2";
+      MyHardLink($srcfile, $destfile);
+   }
+}
+
+
+# ###############
+# Update routines
+# ###############
+
+sub DoUpdate {
+
+# No updates so far!
+   print "Setup::No updates.\n";
+
+}
+
+sub MySoftLink {
+   local($srcfile, $destfile) = @_;
+
+   if (! -e $srcfile) {
+      print "Setup::Source file: '$srcfile' doesn't exist!\n";
+   } else {
+      if (-e $destfile) {
+         print "Setup::$destfile already exists.\n" if ($opt_v);
+      } else {
+         print "Setup::Creating link from '$srcfile' to '$destfile'.\n" if ($opt_v);
+         $rv = symlink $srcfile,$destfile;
+         print "Setup::Unix error reported during linking.\n" if ($rv == 0);
+      }
+   }
+}
+
+sub MyHardLink {
+   local($srcfile, $destfile) = @_;
+
+   if (! -e $srcfile) {
+      print "Setup::Source file: '$srcfile' doesn't exist!\n";
+   } else {
+      #if (-e $destfile) {
+         #print "Setup::$destfile already exists.\n" if ($opt_v);
+      #} else {
+         print "Setup::Copying from '$srcfile' to '$destfile'.\n" if ($opt_v);
+         $rv = 0xffff & system ("cp -i $srcfile $destfile");
+         print "Setup::Unix error reported during copy.\n" if ($rv != 0);
+      #}
+   }
+}

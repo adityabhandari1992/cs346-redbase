@@ -1,0 +1,442 @@
+#!/bin/sh 
+
+# Usage: submit <-c or -s> <HW #>'
+#
+# The "HW #" should be the homework number for the current '
+# submission.  The submit program uses the homework number to '
+# automatically locate most of the files in the submission.'  
+#
+# c - Collect the files that are to be submitted.  '
+#     This argument causes the file submit.<Component Initials> to be 
+#     created and displayed containing a list of the files that will get'
+#     submitted by this script.'
+# 
+# s - Submit the files. '
+#     This argument causes the files listed in submit.<Component Initials>
+#     to be submitted.  If submit.<Component Initials> does not exist, it is'
+#     created as for argument c.'
+# 
+#     It is possible to call this script with argument "-c", edit the'
+#     temporary file in case it does not contain the correct files,'
+#     and then call the script with argument "-s" to submit the files.
+#
+# The number should be:'
+#   1 - RM (Record Manager)'
+#   2 - IX (Index Manager)'
+#   3 - SM (Session Manager)'
+#   4 - QL (Query Language)'
+#   5 - EX (Extension)'
+#
+# The HW # is required every time that submit is run.'
+#
+
+# make sure all commands in this script always runs the expected executables
+PATH=/usr/bin:/bin:$PATH
+
+# HWNUM is the second argument to this shell script
+HWNUM=$2
+
+if [ "$2" = "1" ]
+then
+  PREFIX=rm
+  PREFIXU=RM
+elif [ "$2" = "2" ]
+then
+  PREFIX=ix
+  PREFIXU=IX
+elif [ "$2" = "3" ]
+then
+  PREFIX=sm
+  PREFIXU=SM
+elif [ "$2" = "4" ]
+then
+  PREFIX=ql
+  PREFIXU=QL
+elif [ "$2" = "5" ]
+then
+  PREFIX=ex
+  PREFIXU=EX
+else
+  echo
+  echo "submit::HW # argument not correctly specified"
+  echo
+  PREFIX=NONE
+fi
+
+SUBMIT_FILE='submit.'$PREFIX
+README=$PREFIX'_DOC'
+SOURCE_PATTERN=$PREFIX'.*\.[c|h]c?x*$'
+MAKEFILE_PATTERN='[M|m]ake'
+DOT_H_PATTERN='\.h$'
+INCLUDE=$PREFIX'.h'
+
+REDBASE=redbase.h
+
+# Corn machine does not have /usr/tmp
+#BUFHOME=/usr/tmp
+BUFHOME=/tmp
+
+STUDENT=$USER
+BUFDIR=$BUFHOME/$STUDENT.cs346.$$.dir
+BUFTAR=$BUFHOME/$STUDENT.cs346.$$.tar
+
+umask 077
+
+# Check for just one of the options - either "-c" or "-s"!
+if [ "$1" = '-c' ]
+then
+  VERIFY=yes
+else
+  VERIFY=no
+fi
+
+if [ "$1" = '-s' ]
+then
+  SUBMIT=yes
+else
+  SUBMIT=no
+fi
+
+# Verify we're doing either a verify or a submit and that
+# the user has entered a valid Homework number.
+
+if [ $VERIFY = no -a $SUBMIT = no -o $PREFIX = "NONE" ]
+then
+  echo 'Usage: submit <-c or -s> <HW #>'
+  echo
+  echo 'c - Collect the files that are to be submitted.  '
+  echo '    This argument causes the file submit.<Component Initials> to be '
+  echo '    created and displayed containing a list of the files that will get'
+  echo '    submitted by this script.'
+  echo
+  echo 's - Submit the files. '
+  echo '    This argument causes the files listed in submit.<Component Initials>'
+  echo '    to be submitted.  If submit.<Component Initials> does not exist, it is'
+  echo '    created as for argument c.'
+  echo
+  echo '    It is possible to call this script with argument "-c", edit the'
+  echo '    temporary file in case it does not contain the correct files,'
+  echo '    and then call the script with argument "-s" to submit the files.'
+  echo 
+  echo 'The "HW #" should be the homework number for the current '
+  echo 'submission.  The submit program uses the homework number to '
+  echo 'automatically locate most of the files in the submission.'  
+  echo
+  echo 'The number should be:'
+  echo '  1 - RM (Record Manager)'
+  echo '  2 - IX (Index Manager)'
+  echo '  3 - SM (Session Manager)'
+  echo '  4 - QL (Query Language)'
+  echo '  5 - EX (Extension)'
+  echo
+  echo 'The HW # is required every time that submit is run.'
+  echo
+  exit 1
+fi
+
+# Verify we're in the correct directory (doesn't apply to extension)
+
+if [ ! -r $README ]
+then
+  echo 'Error: ' $README ' file not found.'
+  echo 'You should first "cd" to the directory containing your source code.'
+  exit 1
+fi
+
+if [ $HWNUM -le 4 ]
+then
+  if [ ! -r $INCLUDE ]
+  then
+    echo 'Error: ' $INCLUDE ' file not found.'
+    exit 1
+  fi
+fi
+
+# Should we create the $SUBMIT_FILE file?
+
+if [ $VERIFY = yes -o ! -r $SUBMIT_FILE ]
+then
+  rm $SUBMIT_FILE
+  echo 'Creating ' $SUBMIT_FILE
+
+  # Get documentation file
+
+  echo $README > $SUBMIT_FILE
+
+  # Get main include file
+
+  if [ $HWNUM -le 2 ]
+  then 
+    if [ -r $REDBASE ]
+    then
+      echo $REDBASE >> $SUBMIT_FILE
+    elif [ -r ../$REDBASE ]
+    then
+      echo ../$REDBASE >> $SUBMIT_FILE
+    elif [ -r ../pf/$REDBASE ]
+    then
+      echo ../pf/$REDBASE >> $SUBMIT_FILE
+    else
+      echo 'Error: ' $REDBASE ' file not found.'
+      echo 'Searched current directory, ../, and ../pf/.'
+      exit 1
+    fi
+  fi
+
+  # Get include files for previous components
+
+  if [ $HWNUM -le 2 ]
+  then
+    if [ -r pf.h ]
+    then
+      echo pf.h >> $SUBMIT_FILE
+    elif [ -r ../pf/pf.h ]
+    then
+      echo ../pf/pf.h >> $SUBMIT_FILE
+    elif [ -r ../include/pf.h ]
+    then
+      echo ../include/pf.h >> $SUBMIT_FILE
+    else
+      echo 'Error: pf.h file not found.'
+      echo 'Searched current directory, ../pf/, and ../include/.'
+      exit 1
+    fi
+  fi
+
+  if [ $HWNUM -eq 2 ]
+  then
+    if [ -r rm_rid.h ]
+    then
+      echo rm_rid.h >> $SUBMIT_FILE
+    else
+      echo 'Error: rm_rid.h file not found in current directory.'
+      exit 1
+    fi
+  fi
+
+  if [ $HWNUM -eq 2 ]
+  then
+    if [ -r rm.h ]
+    then
+      echo rm.h >> $SUBMIT_FILE
+    elif [ -r ../rm/rm.h ]
+    then
+      echo ../rm/rm.h >> $SUBMIT_FILE
+    elif [ -r ../include/rm.h ]
+    then
+      echo ../include/rm.h >> $SUBMIT_FILE
+    else
+      echo 'Error: rm.h file not found.'
+      echo 'Searched current directory, ../rm/, and ../include/.'
+      exit 1
+    fi
+  fi
+
+  # Get libraries
+
+  if [ $HWNUM -le 2 ]
+  then
+    if [ -r libpf.a ]
+    then
+      echo libpf.a >> $SUBMIT_FILE
+    elif [ -r ../pf/libpf.a ]
+    then
+      echo ../pf/libpf.a >> $SUBMIT_FILE
+    elif [ -r ../lib/libpf.a ]
+    then
+      echo ../lib/libpf.a >> $SUBMIT_FILE
+    else
+      echo 'Error: libpf.a file not found.'
+      echo 'Searched current directory, ../pf/, and ../lib/.'
+      exit 1
+    fi
+  fi
+
+  if [ $HWNUM -le 2 ]
+  then
+    if [ -r librm.a ]
+    then
+      echo librm.a >> $SUBMIT_FILE
+    elif [ -r ../rm/librm.a ]
+    then
+      echo ../rm/librm.a >> $SUBMIT_FILE
+    elif [ -r ../lib/librm.a ]
+    then
+      echo ../lib/librm.a >> $SUBMIT_FILE
+    else
+      echo 'Error: librm.a file not found.'
+      echo 'Searched current directory, ../rm/, and ../lib/.'
+      exit 1
+    fi
+  fi
+
+  if [ $HWNUM -eq 2 ]
+  then
+    if [ -r libix.a ]
+    then
+      echo libix.a >> $SUBMIT_FILE
+    elif [ -r ../ix/libix.a ]
+    then
+      echo ../ix/libix.a >> $SUBMIT_FILE
+    elif [ -r ../lib/libix.a ]
+    then
+      echo ../lib/libix.a >> $SUBMIT_FILE
+    else
+      echo 'Error: libix.a file not found.'
+      echo 'Searched current directory, ../ix/, and ../lib/.'
+      exit 1
+    fi
+  fi
+
+  # Get redbase executables
+
+  if [ $HWNUM -eq 3 -o $HWNUM -eq 4 ]
+  then
+    if [ -r redbase ]
+    then 
+      echo redbase >> $SUBMIT_FILE
+    elif [ -r ../redbase ]
+    then
+      echo ../redbase >> $SUBMIT_FILE
+    elif [ -r ../dm/redbase ]
+    then
+      echo ../dm/redbase >> $SUBMIT_FILE
+    else
+      echo 'Error: redbase executable not found.'
+      echo 'Searched current directory, ../, and ../dm/.'
+      exit 1
+    fi
+
+    if [ -r dbcreate ]
+    then 
+      echo dbcreate >> $SUBMIT_FILE
+    elif [ -r ../dbcreate ]
+    then
+      echo ../dbcreate >> $SUBMIT_FILE
+    elif [ -r ../dm/dbcreate ]
+    then
+      echo ../dm/dbcreate >> $SUBMIT_FILE
+    else
+      echo 'Error: dbcreate executable not found.'
+      echo 'Searched current directory, ../, and ../dm/.'
+      exit 1
+    fi
+
+    if [ -r dbdestroy ]
+    then 
+      echo dbdestroy >> $SUBMIT_FILE
+    elif [ -r ../dbdestroy ]
+    then
+      echo ../dbdestroy >> $SUBMIT_FILE
+    elif [ -r ../dm/dbdestroy ]
+    then
+      echo ../dm/dbdestroy >> $SUBMIT_FILE
+    else
+      echo 'Error: dbdestroy executable not found.'
+      echo 'Searched current directory, ../, and ../dm/.'
+      exit 1
+    fi
+  fi
+
+  # Get redbase executable sources (files might not start with dm)
+
+  if [ $HWNUM -eq 3 ]
+  then
+    if [ -r redbase.cc ]
+    then
+      echo redbase.cc >> $SUBMIT_FILE
+    elif [ -r redbase.C ]
+    then
+      echo redbase.C >> $SUBMIT_FILE
+    fi
+    if [ -r dbcreate.cc ]
+    then
+      echo dbcreate.cc >> $SUBMIT_FILE
+    elif [ -r dbcreate.C ]
+    then
+      echo dbcreate.C >> $SUBMIT_FILE
+    fi
+    if [ -r dbdestroy.cc ]
+    then
+      echo dbdestroy.cc >> $SUBMIT_FILE
+    elif [ -r dbdestroy.C ]
+    then
+      echo dbdestroy.C >> $SUBMIT_FILE
+    fi
+  fi
+
+  # Get source files
+
+# SOURCE_PATTERN=$PREFIX'.*\.[c|h]c?x*$'
+  ls | egrep -iw $SOURCE_PATTERN >> $SUBMIT_FILE
+  ls | egrep -i $MAKEFILE_PATTERN >> $SUBMIT_FILE
+  ls | egrep -i $DOT_H_PATTERN >> $SUBMIT_FILE
+
+fi
+
+# Cat $SUBMIT_FILE
+
+echo
+cat $SUBMIT_FILE
+echo
+
+# Should we submit the files?
+
+if [ $SUBMIT = yes ]
+then
+
+  # Copy the files to $BUFDIR
+
+  echo Copying your files to '"'$BUFDIR/'"'
+
+  mkdir $BUFDIR
+  cat $SUBMIT_FILE | while read s
+  do
+    cp -p $s $BUFDIR
+  done
+
+  # Tar the files
+
+  SRCDIR=`pwd`
+  cd $BUFDIR
+  echo Collecting in '"'$BUFTAR'"'
+  tar cfv $BUFTAR *
+  cd $SRCDIR
+
+  echo -n '(Removing "'$BUFDIR/'" ...)'
+  rm -r $BUFDIR
+  echo
+
+  echo 'Compressing the submission.'
+  # Compress the files
+ 
+  gzip $BUFTAR
+
+  # Submit the files to the submission directory
+  echo 'Placing your submitted files.'
+
+  cp $BUFTAR'.gz' /usr/class/cs346/redbase/submissions
+
+  echo
+  echo Work for assignment '#'$HWNUM submitted.
+  echo
+
+  # remove the tar file
+  echo -n '(Removing "'$BUFTAR/'" ...)'
+  rm $BUFTAR'.gz'
+  echo
+
+  case $(hostname) in
+    "corn"[0-9]*".stanford.edu") ;;
+    *)echo "#############################################################"
+      echo "##   !!! WARNING : This seems to be not corn machine !!!   ##"
+      echo "#############################################################" ;;
+  esac
+
+else
+  echo 'Verify that all of your source files and libraries (*.a) are listed.'
+  echo 'Edit the file "'$SUBMIT_FILE'" to include files that are missing.'
+  echo 'Execute "submit -s [HW #]" to submit the files.'
+  echo
+fi
+
