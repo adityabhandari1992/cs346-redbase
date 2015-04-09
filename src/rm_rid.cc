@@ -10,7 +10,7 @@ using namespace std;
 // Default constructor
 RID::RID() {
     // Set the viable flag to false
-    this->isViable = false;
+    this->isViable = FALSE;
 }
 
 // Constructor with PageNum and SlotNum given
@@ -20,7 +20,7 @@ RID::RID(PageNum pageNum, SlotNum slotNum) {
     this->slotNumber = slotNum;
 
     // Set the viable flag to true
-    this->isViable = true;
+    this->isViable = TRUE;
 }
 
 // Destructor
