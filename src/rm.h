@@ -26,6 +26,7 @@
 // RM_Record: RM Record interface
 //
 class RM_Record {
+    friend class RM_FileHandle;
 public:
     RM_Record ();
     ~RM_Record();
@@ -36,6 +37,11 @@ public:
 
     // Return the RID associated with the record
     RC GetRid (RID &rid) const;
+
+private:
+    char* pData;        // Data in the record
+    RID rid;            // RID of the record
+    int isValid;        // Flag to store validity of record
 };
 
 //
@@ -46,6 +52,12 @@ class RM_FileHandle {
 public:
     RM_FileHandle ();
     ~RM_FileHandle();
+
+   // Copy constructor
+   RM_FileHandle  (const RM_FileHandle &fileHandle);
+
+   // Overload =
+   RM_FileHandle& operator=(const RM_FileHandle &fileHandle);
 
     // Given a RID, return the record
     RC GetRec     (const RID &rid, RM_Record &rec) const;
@@ -61,7 +73,9 @@ public:
 
 private:
     PF_FileHandle pfFH;             // PF file handle
-    bool isOpen;                    // File handle open flag
+    int isOpen;                     // File handle open flag
+    int headerModified;             // Modified flag for the file header
+    char* fileHeader;               // File header information
 };
 
 //
@@ -106,10 +120,19 @@ private:
 //
 void RM_PrintError(RC rc);
 
-// Error codes
+// Warnings
 #define RM_LARGE_RECORD     (START_RM_WARN + 1) // Record size is too large
 #define RM_SMALL_RECORD     (START_RM_WARN + 2) // Record size is too small
 #define RM_FILE_OPEN        (START_RM_WARN + 3) // File is already open
-#define RM_CLOSED_FILE      (START_RM_WARN + 4) // File is not open
+#define RM_FILE_CLOSED      (START_RM_WARN + 4) // File is closed
+#define RM_RECORD_NOT_VALID (START_RM_WARN + 5) // Record is not valid
+#define RM_LASTWARN         RM_RECORD_NOT_VALID
+
+// Errors
+#define RM_INVALIDNAME     (START_RM_ERR - 0) // invalid PC file name
+
+// Error in UNIX system call or library routine
+#define RM_UNIX            (START_RM_ERR - 1) // Unix error
+#define RM_LASTERROR       RM_UNIX
 
 #endif

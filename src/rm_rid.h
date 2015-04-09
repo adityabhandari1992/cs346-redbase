@@ -42,7 +42,7 @@ public:
 private:
     PageNum pageNumber;         // Page number
     SlotNum slotNumber;         // Slot number
-    bool isViable;              // Viable flag
+    int isViable;               // Viable flag
 };
 
 // Error codes
