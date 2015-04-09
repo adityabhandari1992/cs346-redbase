@@ -31,10 +31,22 @@ public:
     RID(PageNum pageNum, SlotNum slotNum);
     ~RID();                                        // Destructor
 
+   RID  (const RID &rid);                          // Copy constructor
+
+   RID& operator=(const RID &rid);                 // Overload =
+
+
     RC GetPageNum(PageNum &pageNum) const;         // Return page number
     RC GetSlotNum(SlotNum &slotNum) const;         // Return slot number
 
 private:
+    PageNum pageNumber;         // Page number
+    SlotNum slotNumber;         // Slot number
+    bool isViable;              // Viable flag
 };
+
+// Error codes
+#define RID_NOT_VIABLE      (START_RM_WARN + 0) // RID is not viable
+
 
 #endif

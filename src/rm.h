@@ -42,6 +42,7 @@ public:
 // RM_FileHandle: RM File interface
 //
 class RM_FileHandle {
+    friend class RM_Manager;
 public:
     RM_FileHandle ();
     ~RM_FileHandle();
@@ -57,6 +58,10 @@ public:
     // Forces a page (along with any contents stored in this class)
     // from the buffer pool to disk.  Default value forces all pages.
     RC ForcePages (PageNum pageNum = ALL_PAGES);
+
+private:
+    PF_FileHandle pfFH;             // PF file handle
+    bool isOpen;                    // File handle open flag
 };
 
 //
@@ -91,11 +96,20 @@ public:
     RC OpenFile   (const char *fileName, RM_FileHandle &fileHandle);
 
     RC CloseFile  (RM_FileHandle &fileHandle);
+
+private:
+    PF_Manager pfManager;       // PF_Manager object
 };
 
 //
 // Print-error function
 //
 void RM_PrintError(RC rc);
+
+// Error codes
+#define RM_LARGE_RECORD     (START_RM_WARN + 1) // Record size is too large
+#define RM_SMALL_RECORD     (START_RM_WARN + 2) // Record size is too small
+#define RM_FILE_OPEN        (START_RM_WARN + 3) // File is already open
+#define RM_CLOSED_FILE      (START_RM_WARN + 4) // File is not open
 
 #endif
