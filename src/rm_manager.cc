@@ -16,7 +16,7 @@ RM_Manager::RM_Manager(PF_Manager &pfm) {
 // Destructor
 RM_Manager::~RM_Manager() {
     // Delete the PF Manager object
-    delete pfManager;
+    delete &pfManager;
 }
 
 // Create a file with the given filename and record size
@@ -31,7 +31,7 @@ RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
 
     // Declare an integer for the return code
     int rc;
-    if (rc = pfm.CreateFile(filename)) {
+    if ((rc = pfManager.CreateFile(fileName))) {
         // Return the same error from the PF manager
         return rc;
     }
@@ -42,7 +42,7 @@ RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
     PF_FileHandle pfFH;
 
     // Open the file
-    if (rc = pfm.OpenFile(filename, pfFH)) {
+    if ((rc = pfManager.OpenFile(fileName, pfFH))) {
         // Return the error code from the PF Manager
         return rc;
     }
@@ -51,27 +51,27 @@ RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
     PF_PageHandle pfPH;
 
     // Allocate a page in the created file
-    if (rc = pfFH.AllocatePage(pfPH)) {
+    if ((rc = pfFH.AllocatePage(pfPH))) {
         // Return the error code from the PF FileHandle
         return rc;
     }
 
     // Get the data in the newly allocated page
     char* pData;
-    if (rc = pfPH.GetData(pData)) {
+    if ((rc = pfPH.GetData(pData))) {
         // Return the error from the PF PageHandle
         return rc;
     }
 
     // Get the page number of the header page
     PageNum pNum;
-    if (rc = pfPH.GetPageNum(pNum)) {
+    if ((rc = pfPH.GetPageNum(pNum))) {
         // Return the error from the PF PageHandle
         return rc;
     }
 
     // Mark the header page as dirty
-    if (rc = pfFH.MarkDirty(pNum)) {
+    if ((rc = pfFH.MarkDirty(pNum))) {
         // Return the error from the PF FileHandle
         return rc;
     }
@@ -91,7 +91,7 @@ RC RM_Manager::DestroyFile(const char *fileName) {
     int rc;
 
     // Destroy the file using the PF Manager
-    if (rc = pfm.DestroyFile(filename)) {
+    if ((rc = pfManager.DestroyFile(fileName))) {
         // Return the error from the PF Manager
         return rc;
     }
@@ -114,7 +114,7 @@ RC RM_Manager::OpenFile(const char *fileName, RM_FileHandle &fileHandle) {
     PF_FileHandle pfFH;
 
     // Open the file using the PF Manager
-    if (rc = pfm.OpenFile(filename, pfFH)) {
+    if ((rc = pfManager.OpenFile(fileName, pfFH))) {
         // Return the error from the PF Manager
         return rc;
     }
@@ -131,14 +131,14 @@ RC RM_Manager::OpenFile(const char *fileName, RM_FileHandle &fileHandle) {
     // Store the file header information
     // Get the page handle for the first page
     PF_PageHandle pfPH;
-    if (rc = pfFH.GetFirstPage(pfPH)) {
+    if ((rc = pfFH.GetFirstPage(pfPH))) {
         // Return the error from the PF FileHandle
         return rc;
     }
 
     // Get data from the first page
     char* pData;
-    if (rc = pfPH.GetData(pData)) {
+    if ((rc = pfPH.GetData(pData))) {
         // Return the error from the PF PageHandle
         return rc;
     }
@@ -167,21 +167,21 @@ RC RM_Manager::CloseFile(RM_FileHandle &fileHandle) {
     if (fileHandle.headerModified) {
         // Get the page handle for the header page
         PF_PageHandle pfPH;
-        if (rc = pfFH.GetFirstPage(pfPH)) {
+        if ((rc = pfFH.GetFirstPage(pfPH))) {
             // Return the error from the PF FileHandle
             return rc;
         }
 
         // Get the page number of the header page
         PageNum pNum;
-        if (rc = pfPH.GetPageNum(pNum)) {
+        if ((rc = pfPH.GetPageNum(pNum))) {
             // Return the error from the PF PageHandle
             return rc;
         }
 
         // Get the data from the header page
-        char* pData
-        if (rc = pfPH.GetData(pData)) {
+        char* pData;
+        if ((rc = pfPH.GetData(pData))) {
             // Return the error from the PF PageHandle
             return rc;
         }
@@ -190,14 +190,14 @@ RC RM_Manager::CloseFile(RM_FileHandle &fileHandle) {
         pData = fileHandle.fileHeader;
 
         // Flush the modified header page
-        if (rc = pfFH.ForcePages(pNum)) {
+        if ((rc = pfFH.ForcePages(pNum))) {
             // Return the error from the PF FileHandle
             return rc;
         }
     }
 
     // Close the file using the PF Manager
-    if (rc = pfm.CloseFile(fileHandle)) {
+    if ((rc = pfManager.CloseFile(pfFH))) {
         // Return the error from the PF Manager
         return rc;
     }

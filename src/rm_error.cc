@@ -6,8 +6,10 @@
 
 #include <cerrno>
 #include <cstdio>
+#include <cstring>
 #include <iostream>
 #include "rm.h"
+
 using namespace std;
 
 //
