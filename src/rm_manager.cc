@@ -5,6 +5,7 @@
 //
 
 #include "rm.h"
+#include <cstring>
 using namespace std;
 
 // Constructor
@@ -13,13 +14,24 @@ RM_Manager::RM_Manager(PF_Manager &pfm) {
     this->pfManager = pfm;
 }
 
+
 // Destructor
 RM_Manager::~RM_Manager() {
     // Delete the PF Manager object
     delete &pfManager;
 }
 
+
+// Method: CreateFile(const char *fileName, int recordSize)
 // Create a file with the given filename and record size
+/* Steps:
+    1) Check for valid record size
+    2) Create file using the PF Manager
+    3) Allocate a header page by opening the file
+    4) Get the header page number and mark page as dirty
+    5) Create a file header object
+    6) Copy the file header to the file header page
+*/
 RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
     // Check for a valid record size
     if (recordSize < 0) {
@@ -76,16 +88,28 @@ RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
         return rc;
     }
 
-    // Modify the data in the header page
-    // TODO
-    // strcpy(pData, recordSize);
-    // strcat(pData, );
+    // Create a file header page
+    RM_FileHeaderPage* fileHeader;
+
+    // Set the file header fields
+    fileHeader->recordSize = recordSize;
+    fileHeader->numberRecordsOnPage = findNumberRecords(recordSize);
+    fileHeader->numberPages = 0;
+    fileHeader->firstFreePage = -1;
+
+    // Copy the file header in the header page
+    char* fileData = (char*) fileHeader;
+    memcpy(pData, fileData, sizeof(RM_FileHeaderPage));
 
     // Return OK
     return OK_RC;
 }
 
+// Method: DestroyFile(const char *fileName)
 // Destroy the file with the given filename
+/* Steps:
+    1) Destroy the file using the PF Manager
+*/
 RC RM_Manager::DestroyFile(const char *fileName) {
     // Declare an integer for the return code
     int rc;
@@ -100,7 +124,19 @@ RC RM_Manager::DestroyFile(const char *fileName) {
     return OK_RC;
 }
 
+
+// Method: OpenFile(const char *fileName, RM_FileHandle &fileHandle)
 // Open the file with the given filename with the specified filehandle
+/* Steps:
+    1) Check if the file handle is already open
+    2) Open the file using the PF Manager
+    3) Update the file handle members
+    4) Store the file header in memory
+        - Create a PF PageHandle to the header page
+        - Get the data from the header page
+        - Store the data in a RM FileHeaderPage object
+    5) Unpin the file header page
+*/
 RC RM_Manager::OpenFile(const char *fileName, RM_FileHandle &fileHandle) {
     // Check if the file handle is already open
     if (fileHandle.isOpen) {
@@ -128,7 +164,7 @@ RC RM_Manager::OpenFile(const char *fileName, RM_FileHandle &fileHandle) {
     // Set the modified flag to false
     fileHandle.headerModified = FALSE;
 
-    // Store the file header information
+    // Store the file header information in memory
     // Get the page handle for the first page
     PF_PageHandle pfPH;
     if ((rc = pfFH.GetFirstPage(pfPH))) {
@@ -143,14 +179,36 @@ RC RM_Manager::OpenFile(const char *fileName, RM_FileHandle &fileHandle) {
         return rc;
     }
 
-    // Store the data in the header variable
-    fileHandle.fileHeader = pData;
+    // Store the data in the file header object
+    RM_FileHeaderPage* fH = (RM_FileHeaderPage*) pData;
+    memcpy(&fileHandle.fileHeader, fH, sizeof(RM_FileHeaderPage));
+
+    // Unpin the header page
+    PageNum headerPageNum;
+    if ((rc = pfPH.GetPageNum(headerPageNum))) {
+        // Return the error from the PF PageHandle
+        return rc;
+    }
+    if ((rc = pfFH.UnpinPage(headerPageNum))) {
+        // Return the error from the PF FileHandle
+        return rc;
+    }
 
     // Return OK
     return OK_RC;
 }
 
+
+// Method: CloseFile(RM_FileHandle &fileHandle)
 // Close the file with the given filehandle
+/* Steps:
+    1) Check if the file handle is open
+    2) Update the file header page if modified
+        - Get the PF PageHandle for the header page
+        - Copy the modified data to the header page
+        - Flush/force the page on to the disk
+    5) Close the file using the PF Manager
+*/
 RC RM_Manager::CloseFile(RM_FileHandle &fileHandle) {
     // Check if the file handle refers to an open file
     if (!fileHandle.isOpen) {
@@ -187,7 +245,8 @@ RC RM_Manager::CloseFile(RM_FileHandle &fileHandle) {
         }
 
         // Copy the modified page header to pData
-        pData = fileHandle.fileHeader;
+        char* pD = (char*) &fileHandle.fileHeader;
+        memcpy(pData, pD, sizeof(RM_FileHeaderPage));
 
         // Flush the modified header page
         if ((rc = pfFH.ForcePages(pNum))) {
@@ -204,4 +263,20 @@ RC RM_Manager::CloseFile(RM_FileHandle &fileHandle) {
 
     // Return OK
     return OK_RC;
+}
+
+
+// Method: findNumberRecords(int recordSize)
+// Find the number of records that can fit in a page
+int RM_Manager::findNumberRecords(int recordSize) {
+    int headerSize = sizeof(RM_PageHeader);
+    int n = 1;
+    while(true) {
+        int bitmapSize = n/8;
+        if (n%8 != 0) bitmapSize++;
+        int size = headerSize + bitmapSize + n*recordSize;
+        if (size > PF_PAGE_SIZE) break;
+        n++;
+    }
+    return (n-1);
 }
