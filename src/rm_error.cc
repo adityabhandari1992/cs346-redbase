@@ -20,11 +20,13 @@ static char *RM_WarnMsg[] = {
   (char*)"record size is too small",
   (char*)"file is already open",
   (char*)"file is closed",
-  (char*)"record is not valid"
+  (char*)"record is not valid",
+  (char*)"slot number is not valid"
 };
 
 static char *RM_ErrorMsg[] = {
-  (char*)"invalid file name"
+  (char*)"invalid file name",
+  (char*)"inconsistent bitmap on file page"
 };
 
 //

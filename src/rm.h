@@ -106,7 +106,7 @@ private:
     RM_FileHeaderPage fileHeader;   // File header information
 
     int getRecordOffset(int slotNumber) const;          // Get the record offset from slot number
-    RC SetBit(int bitNumer, char* bitmap);              // Set bit in the bitmap to 1
+    RC SetBit(int bitNumber, char* bitmap);             // Set bit in the bitmap to 1
     RC UnsetBit(int bitNumber, char* bitmap);           // Set bit in the bitmap to 0
     int getFirstZeroBit(char* bitmap, int bitmapSize);  // Get the first 0 bit in the bitmap
     bool isBitmapFull(char* bitmap, int bitmapSize);    // Check if the bitmap is all 1s
@@ -169,10 +169,11 @@ void RM_PrintError(RC rc);
 #define RM_LASTWARN             RM_INVALID_SLOT_NUMBER
 
 // Errors
-#define RM_INVALIDNAME     (START_RM_ERR - 0) // invalid PC file name
+#define RM_INVALIDNAME          (START_RM_ERR - 0) // Invalid PC file name
+#define RM_INCONSISTENT_BITMAP  (START_RM_ERR - 1) // Inconsistent bitmap in page
 
 // Error in UNIX system call or library routine
-#define RM_UNIX            (START_RM_ERR - 1) // Unix error
+#define RM_UNIX            (START_RM_ERR - 2) // Unix error
 #define RM_LASTERROR       RM_UNIX
 
 #endif
