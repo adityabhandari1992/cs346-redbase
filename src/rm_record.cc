@@ -16,8 +16,33 @@ RM_Record::RM_Record() {
 
 // Destructor
 RM_Record::~RM_Record() {
+    // Delete the data
+    delete[] pData;
+
     // Delete the RID
     delete &rid;
+}
+
+// Copy constructor
+RM_Record::RM_Record(const RM_Record &rec) {
+    // Copy the data, rid and valid flag
+    this->pData = rec.pData;
+    this->rid = rec.rid;
+    this->isValid = rec.isValid;
+}
+
+// Overload =
+RM_Record& RM_Record::operator=(const RM_Record &rec) {
+    // Check for self-assignment
+    if (this != &rec) {
+        // Copy the data, rid and valid flag
+        this->pData = rec.pData;
+        this->rid = rec.rid;
+        this->isValid = rec.isValid;
+    }
+
+    // Return a reference to this
+    return (*this);
 }
 
 // Method: GetData(char *&pData) const
