@@ -22,6 +22,28 @@
 #include "rm_rid.h"
 #include "pf.h"
 
+// RM_FileHeaderPage: Struct for the file header page
+/* Stores the following:
+    1) Record size - integer
+    2) Number of records on a page - integer
+    3) Number of pages on file - integer
+    4) First free page - PageNum
+*/
+struct RM_FileHeaderPage {
+    int recordSize;
+    int numberRecordsOnPage;
+    int numberPages;
+    PageNum firstFreePage;
+};
+
+// RM_PageHeader: Struct for the page header
+/* Stores the following:
+    1) Pointer to the next free page - PageNum
+*/
+struct RM_PageHeader {
+    PageNum nextPage;
+};
+
 //
 // RM_Record: RM Record interface
 //
@@ -54,7 +76,7 @@ public:
     ~RM_FileHandle();
 
    // Copy constructor
-   RM_FileHandle  (const RM_FileHandle &fileHandle);
+   RM_FileHandle(const RM_FileHandle &fileHandle);
 
    // Overload =
    RM_FileHandle& operator=(const RM_FileHandle &fileHandle);
@@ -75,7 +97,14 @@ private:
     PF_FileHandle pfFH;             // PF file handle
     int isOpen;                     // File handle open flag
     int headerModified;             // Modified flag for the file header
-    char* fileHeader;               // File header information
+    RM_FileHeaderPage fileHeader;   // File header information
+
+    int getRecordOffset(int slotNumber) const;          // Get the record offset from slot number
+    RC SetBit(int bitNumer, char* bitmap);              // Set bit in the bitmap to 1
+    RC UnsetBit(int bitNumber, char* bitmap);           // Set bit in the bitmap to 0
+    int getFirstZeroBit(char* bitmap, int bitmapSize);  // Get the first 0 bit in the bitmap
+    bool isBitmapFull(char* bitmap, int bitmapSize);    // Check if the bitmap is all 1s
+    bool isBitmapEmpty(char* bitmap, int bitmapSize);   // Check if the bitmap is all 0s
 };
 
 //
@@ -112,7 +141,8 @@ public:
     RC CloseFile  (RM_FileHandle &fileHandle);
 
 private:
-    PF_Manager pfManager;       // PF_Manager object
+    PF_Manager pfManager;                   // PF_Manager object
+    int findNumberRecords(int recordSize);
 };
 
 //
@@ -120,13 +150,17 @@ private:
 //
 void RM_PrintError(RC rc);
 
+// Constants
+#define NO_FREE_PAGE    -1  // Like a null pointer for the free list
+
 // Warnings
-#define RM_LARGE_RECORD     (START_RM_WARN + 1) // Record size is too large
-#define RM_SMALL_RECORD     (START_RM_WARN + 2) // Record size is too small
-#define RM_FILE_OPEN        (START_RM_WARN + 3) // File is already open
-#define RM_FILE_CLOSED      (START_RM_WARN + 4) // File is closed
-#define RM_RECORD_NOT_VALID (START_RM_WARN + 5) // Record is not valid
-#define RM_LASTWARN         RM_RECORD_NOT_VALID
+#define RM_LARGE_RECORD         (START_RM_WARN + 1) // Record size is too large
+#define RM_SMALL_RECORD         (START_RM_WARN + 2) // Record size is too small
+#define RM_FILE_OPEN            (START_RM_WARN + 3) // File is already open
+#define RM_FILE_CLOSED          (START_RM_WARN + 4) // File is closed
+#define RM_RECORD_NOT_VALID     (START_RM_WARN + 5) // Record is not valid
+#define RM_INVALID_SLOT_NUMBER  (START_RM_WARN + 6) // Slot number is not valid
+#define RM_LASTWARN             RM_INVALID_SLOT_NUMBER
 
 // Errors
 #define RM_INVALIDNAME     (START_RM_ERR - 0) // invalid PC file name
