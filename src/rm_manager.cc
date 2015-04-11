@@ -95,7 +95,7 @@ RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
     fileHeader->recordSize = recordSize;
     fileHeader->numberRecordsOnPage = findNumberRecords(recordSize);
     fileHeader->numberPages = 0;
-    fileHeader->firstFreePage = -1;
+    fileHeader->firstFreePage = NO_FREE_PAGE;
 
     // Copy the file header in the header page
     char* fileData = (char*) fileHeader;
