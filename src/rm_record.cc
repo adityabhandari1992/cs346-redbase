@@ -17,9 +17,10 @@ RM_Record::RM_Record() {
 // Destructor
 RM_Record::~RM_Record() {
     // Delete the RID
-    delete rid;
+    delete &rid;
 }
 
+// Method: GetData(char *&pData) const
 // Return the data corresponding to the record
 RC RM_Record::GetData(char *&pData) const {
     // Check if the record is valid
@@ -34,6 +35,7 @@ RC RM_Record::GetData(char *&pData) const {
     return OK_RC;
 }
 
+// Method: GetRid (RID &rid) const
 // Return the RID associated with the record
 RC RM_Record::GetRid (RID &rid) const {
     // Check if the record is valid
