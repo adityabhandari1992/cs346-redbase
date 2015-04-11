@@ -48,8 +48,6 @@ RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
         return rc;
     }
 
-    // If the file is created, add a header page
-
     // Create a file handle for the created file
     PF_FileHandle pfFH;
 
@@ -88,7 +86,7 @@ RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
         return rc;
     }
 
-    // Create a file header page
+    // Create a file header
     RM_FileHeaderPage* fileHeader = new RM_FileHeaderPage;
 
     // Set the file header fields
