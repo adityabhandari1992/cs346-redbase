@@ -247,6 +247,9 @@ RC RM_FileHandle::InsertRec(const char *pData, RID &rid) {
     // Get the first free slot from the bitmap
     char* bitmap = freePageData + sizeof(RM_PageHeader);
     int freeSlotNumber = getFirstZeroBit(bitmap, bitmapSize);
+    if (freeSlotNumber == RM_INCONSISTENT_BITMAP) {
+        return RM_INCONSISTENT_BITMAP;
+    }
 
     // Calculate the record offset
     int recordOffset = getRecordOffset(freeSlotNumber);
@@ -541,30 +544,97 @@ int RM_FileHandle::getRecordOffset(int slotNumber) const {
 
 // Method: SetBit(int bitNumer, char* bitmap)
 // Set bit in the bitmap to 1
-RC RM_FileHandle::SetBit(int bitNumer, char* bitmap) {
+RC RM_FileHandle::SetBit(int bitNumber, char* bitmap) {
+    // Change bit number to start from 0
+    bitNumber--;
 
+    // Calculate the byte number (start from 0)
+    int byteNumber = bitNumber/8;
+    char currentByte = bitmap[byteNumber];
+
+    // Calculate the bit offset in the current byte
+    int bitOffset = bitNumber - (byteNumber*8);
+
+    // Return error if the bit is not 0
+    if ((currentByte | (0x80 >> bitOffset)) == currentByte) {
+        return RM_INCONSISTENT_BITMAP;
+    }
+
+    // Set the bit to 1
+    currentByte |= (0x80 >> bitOffset);
+    bitmap[byteNumber] = currentByte;
+
+    // Return OK
+    return OK_RC;
 }
 
 // Method: UnsetBit(int bitNumber, char* bitmap)
 // Set bit in the bitmap to 0
 RC RM_FileHandle::UnsetBit(int bitNumber, char* bitmap) {
+    // Change bit number to start from 0
+    bitNumber--;
 
+    // Calculate the byte number (start from 0)
+    int byteNumber = bitNumber/8;
+    char currentByte = bitmap[byteNumber];
+
+    // Calculate the bit offset in the current byte
+    int bitOffset = bitNumber - (byteNumber*8);
+
+    // Return error if the bit is not 1
+    if ((currentByte | (0x80 >> bitOffset)) != currentByte) {
+        return RM_INCONSISTENT_BITMAP;
+    }
+
+    // Set the bit to 0
+    currentByte &= ~(0x80 >> bitOffset);
+    bitmap[byteNumber] = currentByte;
+
+    // Return OK
+    return OK_RC;
 }
 
 // Method: int getFirstZeroBit(char* bitmap, int bitmapSize)
 // Get the first 0 bit in the bitmap
 int RM_FileHandle::getFirstZeroBit(char* bitmap, int bitmapSize) {
+    // Iterate over the size of the bitmap
+    for (int i=0; i<bitmapSize; i++) {
+        char currentByte = bitmap[i];
+        // Check the 8 bits of the current byte
+        for (int j=0; j<8; j++) {
+            // Check if the first bit of the shifted byte is 1
+            if ((currentByte | (0x80 >> j)) != currentByte) {
+                return i*8 + j + 1;
+            }
+        }
+    }
 
+    // Return error
+    return RM_INCONSISTENT_BITMAP;
 }
 
 // Method: bool isBitmapFull(char* bitmap, int bitmapSize)
 // Check if the bitmap is all 1s
 bool RM_FileHandle::isBitmapFull(char* bitmap, int bitmapSize) {
-
+    // Iterate over the size of the bitmap
+    for (int i=0; i<bitmapSize; i++) {
+        // Return false if ~(character) is not 0x00
+        if (~bitmap[i] != 0x00) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // Method: bool isBitmapEmpty(char* bitmap, int bitmapSize)
 // Check if the bitmap is all 0s
 bool RM_FileHandle::isBitmapEmpty(char* bitmap, int bitmapSize) {
-
+    // Iterate over the size of the bitmap
+    for (int i=0; i<bitmapSize; i++) {
+        // Return false if the character is not 0x00
+        if (bitmap[i] != 0x00) {
+            return false;
+        }
+    }
+    return true;
 }
