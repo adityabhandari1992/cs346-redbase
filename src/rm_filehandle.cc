@@ -32,18 +32,22 @@ RM_FileHandle::~RM_FileHandle() {
 
 // Copy constructor
 RM_FileHandle::RM_FileHandle(const RM_FileHandle &fileHandle) {
-    // Copy the PF file handle and open flag
+    // Copy the PF file handle, open flag, header modified flag and file header
     this->pfFH = fileHandle.pfFH;
     this->isOpen = fileHandle.isOpen;
+    this->headerModified = fileHandle.headerModified;
+    this->fileHeader = fileHandle.fileHeader;
 }
 
 // Overload =
 RM_FileHandle& RM_FileHandle::operator=(const RM_FileHandle &fileHandle) {
     // Check for self-assignment
     if (this != &fileHandle) {
-        // Copy the PF file handle and open flag
+        // Copy the PF file handle, open flag, header modified flag and file header
         this->pfFH = fileHandle.pfFH;
         this->isOpen = fileHandle.isOpen;
+        this->headerModified = fileHandle.headerModified;
+        this->fileHeader = fileHandle.fileHeader;
     }
 
     // Return a reference to this
@@ -204,7 +208,7 @@ RC RM_FileHandle::InsertRec(const char *pData, RID &rid) {
         }
 
         // Initialize the page header
-        RM_PageHeader* pageHeader;
+        RM_PageHeader* pageHeader = new RM_PageHeader;
         pageHeader->nextPage = NO_FREE_PAGE;
 
         // Initialize the bitmap to all 0s

@@ -39,7 +39,7 @@ RID::RID(const RID &rid) {
 // Overload =
 RID& RID::operator=(const RID &rid) {
     // Check for self-assignment
-    if (this != &pageHandle) {
+    if (this != &rid) {
         // Copy the page number, slot number and viable flag
         this->pageNumber = rid.pageNumber;
         this->slotNumber = rid.slotNumber;
@@ -50,7 +50,7 @@ RID& RID::operator=(const RID &rid) {
     return (*this);
 }
 
-
+// Method: GetPageNum(PageNum &pageNum) const
 // Return page number
 RC RID::GetPageNum(PageNum &pageNum) const {
     // If the RID is not viable, return a positive error
@@ -66,6 +66,7 @@ RC RID::GetPageNum(PageNum &pageNum) const {
     }
 }
 
+// Method: GetSlotNum(SlotNum &slotNum) const
 // Return slot number
 RC RID::GetSlotNum(SlotNum &slotNum) const {
     // If the RID is not viable, return a positive error

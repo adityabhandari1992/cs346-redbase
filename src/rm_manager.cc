@@ -89,7 +89,7 @@ RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
     }
 
     // Create a file header page
-    RM_FileHeaderPage* fileHeader;
+    RM_FileHeaderPage* fileHeader = new RM_FileHeaderPage;
 
     // Set the file header fields
     fileHeader->recordSize = recordSize;

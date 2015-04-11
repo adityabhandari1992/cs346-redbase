@@ -53,6 +53,12 @@ public:
     RM_Record ();
     ~RM_Record();
 
+    // Copy constructor
+    RM_Record(const RM_Record &rid);
+
+    // Overload =
+    RM_Record& operator=(const RM_Record &rid);
+
     // Return the data corresponding to the record.  Sets *pData to the
     // record contents.
     RC GetData(char *&pData) const;
