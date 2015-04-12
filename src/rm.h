@@ -22,6 +22,7 @@
 #include "rm_rid.h"
 #include "pf.h"
 
+
 // RM_FileHeaderPage: Struct for the file header page
 /* Stores the following:
     1) Record size - integer
@@ -34,14 +35,6 @@ struct RM_FileHeaderPage {
     int numberRecordsOnPage;
     int numberPages;
     PageNum firstFreePage;
-};
-
-// RM_PageHeader: Struct for the page header
-/* Stores the following:
-    1) Pointer to the next free page - PageNum
-*/
-struct RM_PageHeader {
-    PageNum nextPage;
 };
 
 //
@@ -107,12 +100,12 @@ private:
     int headerModified;             // Modified flag for the file header
     RM_FileHeaderPage fileHeader;   // File header information
 
-    int getRecordOffset(int slotNumber) const;          // Get the record offset from slot number
-    RC SetBit(int bitNumber, char* bitmap);             // Set bit in the bitmap to 1
-    RC UnsetBit(int bitNumber, char* bitmap);           // Set bit in the bitmap to 0
-    int getFirstZeroBit(char* bitmap, int bitmapSize);  // Get the first 0 bit in the bitmap
-    bool isBitmapFull(char* bitmap, int bitmapSize);    // Check if the bitmap is all 1s
-    bool isBitmapEmpty(char* bitmap, int bitmapSize);   // Check if the bitmap is all 0s
+    int getRecordOffset(int slotNumber) const;              // Get the record offset from slot number
+    RC SetBit(int bitNumber, char* bitmap);                 // Set bit in the bitmap to 1
+    RC UnsetBit(int bitNumber, char* bitmap);               // Set bit in the bitmap to 0
+    int getFirstZeroBit(char* bitmap, int bitmapSize);      // Get the first 0 bit in the bitmap
+    bool isBitmapFull(char* bitmap, int numberRecords);     // Check if the bitmap is all 1s
+    bool isBitmapEmpty(char* bitmap, int numberRecords);    // Check if the bitmap is all 0s
 };
 
 //
@@ -147,8 +140,12 @@ private:
 
     int getIntegerValue(char* recordData);              // Get integer attribute value
     float getFloatValue(char* recordData);              // Get float attribute value
-    std::string getStringValue(char* recordData);            // Get string attribute value
+    std::string getStringValue(char* recordData);       // Get string attribute value
     bool isBitFilled(int bitNumber, char* bitmap);      // Check whether a slot is filled
+
+    template<typename T>
+    bool matchRecord(T recordValue, T givenValue);      // Match the record value with
+                                                        // the given value
 };
 
 //
@@ -174,9 +171,6 @@ private:
 // Print-error function
 //
 void RM_PrintError(RC rc);
-
-// Constants
-#define RM_NO_FREE_PAGE    -1  // Like a null pointer for the free list
 
 // Warnings
 #define RM_LARGE_RECORD             (START_RM_WARN + 0) // Record size is too large

@@ -6,6 +6,7 @@
 
 #include <string>
 #include "rm.h"
+#include "rm_internal.h"
 #include "rm_rid.h"
 using namespace std;
 
@@ -18,10 +19,7 @@ RM_Record::RM_Record() {
 // Destructor
 RM_Record::~RM_Record() {
     // Delete the data
-    // delete[] pData;
-
-    // Delete the RID
-    // delete &rid;
+    delete[] pData;
 }
 
 // Copy constructor

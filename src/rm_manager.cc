@@ -4,9 +4,9 @@
 // Authors:     Aditya Bhandari (adityasb@stanford.edu)
 //
 
-#include <iostream>
 #include <cstring>
 #include <string>
+#include "rm_internal.h"
 #include "rm.h"
 using namespace std;
 
@@ -18,8 +18,7 @@ RM_Manager::RM_Manager(PF_Manager &pfm) {
 
 // Destructor
 RM_Manager::~RM_Manager() {
-    // Delete the PF Manager object
-    // delete pfManager;
+    // Nothing to free
 }
 
 

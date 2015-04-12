@@ -9,6 +9,7 @@
 #include <cstring>
 #include <string>
 #include <iostream>
+#include "rm_internal.h"
 #include "rm.h"
 
 using namespace std;

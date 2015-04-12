@@ -4,9 +4,9 @@
 // Authors:     Aditya Bhandari (adityasb@stanford.edu)
 //
 
-#include <iostream>
 #include <cstring>
 #include <string>
+#include "rm_internal.h"
 #include "rm.h"
 using namespace std;
 
@@ -124,31 +124,18 @@ RC RM_FileHandle::GetRec(const RID &rid, RM_Record &rec) const {
     // Get the record offset
     int recordOffset = getRecordOffset(slotNumber);
 
-    // Get the record by using the record offset
-    RM_Record newRecord;
-
     // Set valid flag of record to true
-    newRecord.isValid = TRUE;
+    rec.isValid = TRUE;
 
     // Set the data in the new record
-    char* newPData;
-    if ((rc = newRecord.GetData(newPData))) {
-        // Return the error from the RM Record
-        return rc;
-    }
+    int recordSize = fileHeader.recordSize;
     char* data = pData + recordOffset;
-    memcpy(newPData, data, fileHeader.recordSize);
+    char* newPData = new char[recordSize];
+    memcpy(newPData, data, recordSize);
+    rec.pData = newPData;
 
     // Set the RID of the new record
-    RID newRid;
-    if ((rc = newRecord.GetRid(newRid))) {
-        // Return the error from the RM Record
-        return rc;
-    }
-    newRid = rid;
-
-    // Set rec to point to the new record
-    rec = newRecord;
+    rec.rid = rid;
 
     // Unpin the page
     if ((rc = pfFH.UnpinPage(pageNumber))) {
@@ -170,6 +157,7 @@ RC RM_FileHandle::GetRec(const RID &rid, RM_Record &rec) const {
         - Allocate a new page
         - Initialize the page header and bitmap
         - Increment the number of pages in the file header
+        - Update the first free page number in the header
     4) Mark the page as dirty
     5) Get the first free slot from the bitmap
     6) Calculate the record offset
@@ -241,6 +229,9 @@ RC RM_FileHandle::InsertRec(const char *pData, RID &rid) {
         fileHeader.numberPages++;
         headerModified = TRUE;
 
+        // Update the first free page number in the header
+        fileHeader.firstFreePage = freePageNumber;
+
         // Delete the page header and bitmap
         delete pageHeader;
         delete[] bitmap;
@@ -289,7 +280,7 @@ RC RM_FileHandle::InsertRec(const char *pData, RID &rid) {
     }
 
     // Check if the page has become full
-    if (isBitmapFull(bitmap, bitmapSize)) {
+    if (isBitmapFull(bitmap, numberRecords)) {
         // Get the next free page number
         RM_PageHeader* pH = (RM_PageHeader*) freePageData;
         int nextFreePageNumber = pH->nextPage;
@@ -390,7 +381,7 @@ RC RM_FileHandle::DeleteRec(const RID &rid) {
     int bitmapSize = numberRecords/8;
     if (numberRecords%8 != 0) bitmapSize++;
     char* bitmap = pageData + sizeof(RM_PageHeader);
-    bool pageFull = isBitmapFull(bitmap, bitmapSize);
+    bool pageFull = isBitmapFull(bitmap, numberRecords);
 
     // Change the corresponding bit in the bitmap to 0
     if ((rc = UnsetBit(slotNumber, bitmap))) {
@@ -418,21 +409,27 @@ RC RM_FileHandle::DeleteRec(const RID &rid) {
         return rc;
     }
 
-    // // If the page becomes empty, dispose the page
-    // if (isBitmapEmpty(bitmap, bitmapSize)) {
-    //     // Delete the bitmap
-    //     delete[] bitmap;
+    // TODO
+    // Cannot dispose a page directly since the free list will be broken
+    // Right now, keep the empty page in the file
 
-    //     // Dispose the page using the PF FileHandle
-    //     if ((rc = pfFH.DisposePage(pageNumber))) {
-    //         // Return the error from the PF FileHandle
-    //         return rc;
-    //     }
+    /*
+    // If the page becomes empty, dispose the page
+    if (isBitmapEmpty(bitmap, numberRecords)) {
+        // Delete the bitmap
+        delete[] bitmap;
 
-    //     // Decrement the number of pages in the file header
-    //     fileHeader.numberPages--;
-    //     headerModified = TRUE;
-    // }
+        // Dispose the page using the PF FileHandle
+        if ((rc = pfFH.DisposePage(pageNumber))) {
+            // Return the error from the PF FileHandle
+            return rc;
+        }
+
+        // Decrement the number of pages in the file header
+        fileHeader.numberPages--;
+        headerModified = TRUE;
+    }
+    */
 
     // Return OK
     return OK_RC;
@@ -634,7 +631,7 @@ int RM_FileHandle::getFirstZeroBit(char* bitmap, int bitmapSize) {
         char currentByte = bitmap[i];
         // Check the 8 bits of the current byte
         for (int j=0; j<8; j++) {
-            // Check if the first bit of the shifted byte is 1
+            // Check if the first bit of the shifted byte is 0
             if ((currentByte | (0x80 >> j)) != currentByte) {
                 return i*8 + j + 1;
             }
@@ -645,27 +642,51 @@ int RM_FileHandle::getFirstZeroBit(char* bitmap, int bitmapSize) {
     return RM_INCONSISTENT_BITMAP;
 }
 
-// Method: bool isBitmapFull(char* bitmap, int bitmapSize)
+// Method: bool isBitmapFull(char* bitmap, int numberRecords)
 // Check if the bitmap is all 1s
-bool RM_FileHandle::isBitmapFull(char* bitmap, int bitmapSize) {
+bool RM_FileHandle::isBitmapFull(char* bitmap, int numberRecords) {
+    int count = 0;
+    int bitNumber = 0;
+    int byteNumber = 0;
+    char currentByte = bitmap[byteNumber];
+
     // Iterate over the size of the bitmap
-    for (int i=0; i<bitmapSize; i++) {
-        // Return false if ~(character) is not 0x00
-        if (~bitmap[i] != 0x00) {
+    while (count < numberRecords) {
+        // Check if the current bit is not 1
+        if ((currentByte | (0x80 >> bitNumber)) != currentByte) {
             return false;
+        }
+        count++;
+        bitNumber++;
+        if (bitNumber == 8) {
+            byteNumber++;
+            bitNumber = 0;
+            currentByte = bitmap[byteNumber];
         }
     }
     return true;
 }
 
-// Method: bool isBitmapEmpty(char* bitmap, int bitmapSize)
+// Method: bool isBitmapEmpty(char* bitmap, int numberRecords)
 // Check if the bitmap is all 0s
-bool RM_FileHandle::isBitmapEmpty(char* bitmap, int bitmapSize) {
+bool RM_FileHandle::isBitmapEmpty(char* bitmap, int numberRecords) {
+    int count = 0;
+    int bitNumber = 0;
+    int byteNumber = 0;
+    char currentByte = bitmap[byteNumber];
+
     // Iterate over the size of the bitmap
-    for (int i=0; i<bitmapSize; i++) {
-        // Return false if the character is not 0x00
-        if (bitmap[i] != 0x00) {
+    while (count < numberRecords) {
+        // Check if the current bit is not 0
+        if ((currentByte | (0x80 >> bitNumber)) == currentByte) {
             return false;
+        }
+        count++;
+        bitNumber++;
+        if (bitNumber == 8) {
+            byteNumber++;
+            bitNumber = 0;
+            currentByte = bitmap[byteNumber];
         }
     }
     return true;

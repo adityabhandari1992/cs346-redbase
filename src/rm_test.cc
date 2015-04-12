@@ -34,7 +34,7 @@ using namespace std;
 #define STRLEN      29               // length of string in testrec
 #define PROG_UNIT   50               // how frequently to give progress
                                       //   reports when adding lots of recs
-#define FEW_RECS   20                // number of records added in
+#define FEW_RECS   1200                // number of records added in
 
 //
 // Computes the offset of a field in a record (should be in <stddef.h>)
@@ -334,15 +334,19 @@ RC VerifyFile(RM_FileHandle &fh, int numRecs)
     char      *found;
     RM_Record rec;
 
-    found = new char[numRecs];
-    memset(found, 0, numRecs);
-
     printf("\nverifying file contents\n");
 
     RM_FileScan fs;
+    TestRec* tempRecord = new TestRec();
+    tempRecord->num = 12;
     if ((rc=fs.OpenScan(fh,INT,sizeof(int),offsetof(TestRec, num),
-                        NO_OP, NULL, NO_HINT)))
+                        GT_OP, (void*) tempRecord + offsetof(TestRec, num), NO_HINT)))
         return (rc);
+
+    found = new char[numRecs];
+    memset(found, 0, numRecs);
+
+    int givenValue = *static_cast<int*>((void*)tempRecord + offsetof(TestRec, num));
 
     // For each record in the file
     for (rc = GetNextRecScan(fs, rec), n = 0;
@@ -374,11 +378,12 @@ RC VerifyFile(RM_FileHandle &fh, int numRecs)
         found[pRecBuf->num] = 1;
     }
 
-    PrintError(rc);
-
     if (rc != RM_EOF)
         goto err;
 
+    delete tempRecord;
+    delete[] found;
+    // delete &rec;
 
     if ((rc=fs.CloseScan()))
         return (rc);
@@ -389,9 +394,14 @@ RC VerifyFile(RM_FileHandle &fh, int numRecs)
                n, numRecs);
         exit(1);
     }
+    else {
+        printf("Success!\n");
+    }
 
     // Return ok
     rc = 0;
+
+    return rc;
 
 err:
     fs.CloseScan();
@@ -450,7 +460,7 @@ RC PrintFile(RM_FileScan &fs)
 //
 RC CreateFile(char *fileName, int recordSize)
 {
-    printf("\ncreating %s\n", fileName);
+    printf("\ncreating %s %d\n", fileName);
     return (rmm.CreateFile(fileName, recordSize));
 }
 
@@ -596,18 +606,23 @@ RC Test3(void)
     if ((rc = CreateFile(FILENAME, sizeof(TestRec)))) {
         return rc;
     }
-
     if ((rc = OpenFile(FILENAME, fh))) {
         return rc;
     }
     if ((rc = AddRecs(fh, FEW_RECS))) {
         return rc;
     }
+    if ((rc = CloseFile(FILENAME, fh))) {
+        return (rc);
+    }
 
+    // Verify file
+    if ((rc = OpenFile(FILENAME, fh))) {
+        return rc;
+    }
     if ((rc = VerifyFile(fh, FEW_RECS))) {
         return rc;
     }
-
     if ((rc = CloseFile(FILENAME, fh))) {
         return (rc);
     }
