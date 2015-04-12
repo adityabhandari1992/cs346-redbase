@@ -176,7 +176,7 @@ private:
 void RM_PrintError(RC rc);
 
 // Constants
-#define NO_FREE_PAGE    -1  // Like a null pointer for the free list
+#define RM_NO_FREE_PAGE    -1  // Like a null pointer for the free list
 
 // Warnings
 #define RM_LARGE_RECORD             (START_RM_WARN + 0) // Record size is too large
@@ -185,9 +185,10 @@ void RM_PrintError(RC rc);
 #define RM_FILE_CLOSED              (START_RM_WARN + 3) // File is closed
 #define RM_RECORD_NOT_VALID         (START_RM_WARN + 4) // Record is not valid
 #define RM_INVALID_SLOT_NUMBER      (START_RM_WARN + 5) // Slot number is not valid
-#define RM_ATTRIBUTE_NOT_CONSISTENT (START_RM_WARN + 6) // Attribute is not consistent
-#define RM_SCAN_CLOSED              (START_RM_WARN + 7) // Scan is not open
-#define RM_EOF                      (START_RM_WARN + 8) // End of file
+#define RM_INVALID_PAGE_NUMBER      (START_RM_WARN + 6) // Page number is not valid
+#define RM_ATTRIBUTE_NOT_CONSISTENT (START_RM_WARN + 7) // Attribute is not consistent
+#define RM_SCAN_CLOSED              (START_RM_WARN + 8) // Scan is not open
+#define RM_EOF                      (START_RM_WARN + 9) // End of file
 #define RM_LASTWARN                 RM_EOF
 
 // Errors

@@ -20,7 +20,7 @@ RM_FileHandle::RM_FileHandle() {
 
     // Initialize the file header
     fileHeader.numberPages = 0;
-    fileHeader.firstFreePage = NO_FREE_PAGE;
+    fileHeader.firstFreePage = RM_NO_FREE_PAGE;
 }
 
 // Destructor
@@ -94,6 +94,12 @@ RC RM_FileHandle::GetRec(const RID &rid, RM_Record &rec) const {
         return rc;
     }
 
+    // Check whether the page number is valid
+    if (pageNumber < 0) {
+        // Return error
+        return RM_INVALID_PAGE_NUMBER;
+    }
+
     // Open the corresponding PF page handle
     PF_PageHandle pfPH;
     if ((rc = pfFH.GetThisPage(pageNumber, pfPH))) {
@@ -160,7 +166,7 @@ RC RM_FileHandle::GetRec(const RID &rid, RM_Record &rec) const {
 /* Steps:
     1) Check if the file is open
     2) Get the first free page from the file header
-    3) If no free page (first free page number is NO_FREE_PAGE)
+    3) If no free page (first free page number is RM_NO_FREE_PAGE)
         - Allocate a new page
         - Initialize the page header and bitmap
         - Increment the number of pages in the file header
@@ -173,7 +179,7 @@ RC RM_FileHandle::GetRec(const RID &rid, RM_Record &rec) const {
     8) If the page becomes full (check bitmap)
         - Get the next free page number
         - Update the first free page number in the file header
-        - Set the next free page on the page header to NO_FREE_PAGE
+        - Set the next free page on the page header to RM_NO_FREE_PAGE
     9) Unpin the page
     10) Set the rid to this record
 */
@@ -196,7 +202,7 @@ RC RM_FileHandle::InsertRec(const char *pData, RID &rid) {
     PF_PageHandle pfPH;
 
     // If there is no free page
-    if (freePageNumber == NO_FREE_PAGE) {
+    if (freePageNumber == RM_NO_FREE_PAGE) {
         // Allocate a new page in the file
         if ((rc = pfFH.AllocatePage(pfPH))) {
             // Return the error from the PF FileHandle
@@ -212,7 +218,7 @@ RC RM_FileHandle::InsertRec(const char *pData, RID &rid) {
 
         // Initialize the page header
         RM_PageHeader* pageHeader = new RM_PageHeader;
-        pageHeader->nextPage = NO_FREE_PAGE;
+        pageHeader->nextPage = RM_NO_FREE_PAGE;
 
         // Initialize the bitmap to all 0s
         char* bitmap = new char[bitmapSize];
@@ -293,7 +299,7 @@ RC RM_FileHandle::InsertRec(const char *pData, RID &rid) {
         headerModified = TRUE;
 
         // Set the next free page on the current page header
-        pH->nextPage = NO_FREE_PAGE;
+        pH->nextPage = RM_NO_FREE_PAGE;
     }
 
     // Unpin the page
@@ -347,6 +353,12 @@ RC RM_FileHandle::DeleteRec(const RID &rid) {
     if ((rc = rid.GetSlotNum(slotNumber))) {
         // Return the error from the RID
         return rc;
+    }
+
+    // Check whether the page number is valid
+    if (pageNumber < 0) {
+        // Return error
+        return RM_INVALID_PAGE_NUMBER;
     }
 
     // Check whether the slot number is valid
@@ -469,6 +481,12 @@ RC RM_FileHandle::UpdateRec(const RM_Record &rec) {
     if ((rc = rid.GetSlotNum(slotNumber))) {
         // Return the error from the RID class
         return rc;
+    }
+
+    // Check whether the page number is valid
+    if (pageNumber < 0) {
+        // Return error
+        return RM_INVALID_PAGE_NUMBER;
     }
 
     // Check whether the slot number is valid

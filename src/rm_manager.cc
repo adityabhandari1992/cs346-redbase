@@ -95,7 +95,7 @@ RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
     fileHeader->recordSize = recordSize;
     fileHeader->numberRecordsOnPage = findNumberRecords(recordSize);
     fileHeader->numberPages = 0;
-    fileHeader->firstFreePage = NO_FREE_PAGE;
+    fileHeader->firstFreePage = RM_NO_FREE_PAGE;
 
     // Copy the file header in the header page
     char* fileData = (char*) fileHeader;
@@ -281,7 +281,6 @@ RC RM_Manager::CloseFile(RM_FileHandle &fileHandle) {
 
     // Close the file using the PF Manager
     if ((rc = pfManager->CloseFile(pfFH))) {
-        cout << "Oops! Entered here!" << endl;
         PF_PrintError(rc);
         // Return the error from the PF Manager
         return rc;
