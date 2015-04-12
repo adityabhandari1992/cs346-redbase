@@ -18,10 +18,10 @@ RM_Record::RM_Record() {
 // Destructor
 RM_Record::~RM_Record() {
     // Delete the data
-    delete[] pData;
+    // delete[] pData;
 
     // Delete the RID
-    delete &rid;
+    // delete &rid;
 }
 
 // Copy constructor

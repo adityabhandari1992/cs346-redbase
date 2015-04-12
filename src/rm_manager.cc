@@ -4,6 +4,7 @@
 // Authors:     Aditya Bhandari (adityasb@stanford.edu)
 //
 
+#include <iostream>
 #include <cstring>
 #include <string>
 #include "rm.h"
@@ -12,13 +13,13 @@ using namespace std;
 // Constructor
 RM_Manager::RM_Manager(PF_Manager &pfm) {
     // Copy the PF Manager object to a local object
-    this->pfManager = pfm;
+    this->pfManager = &pfm;
 }
 
 // Destructor
 RM_Manager::~RM_Manager() {
     // Delete the PF Manager object
-    delete &pfManager;
+    // delete pfManager;
 }
 
 
@@ -31,6 +32,7 @@ RM_Manager::~RM_Manager() {
     4) Get the header page number and mark page as dirty
     5) Create a file header object
     6) Copy the file header to the file header page
+    7) Unpin page and flush to disk
 */
 RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
     // Check for a valid record size
@@ -43,7 +45,7 @@ RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
 
     // Declare an integer for the return code
     int rc;
-    if ((rc = pfManager.CreateFile(fileName))) {
+    if ((rc = pfManager->CreateFile(fileName))) {
         // Return the same error from the PF manager
         return rc;
     }
@@ -52,7 +54,7 @@ RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
     PF_FileHandle pfFH;
 
     // Open the file
-    if ((rc = pfManager.OpenFile(fileName, pfFH))) {
+    if ((rc = pfManager->OpenFile(fileName, pfFH))) {
         // Return the error code from the PF Manager
         return rc;
     }
@@ -99,6 +101,21 @@ RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
     char* fileData = (char*) fileHeader;
     memcpy(pData, fileData, sizeof(RM_FileHeaderPage));
 
+    // Delete the file header object
+    delete fileHeader;
+
+    // Unpin the page
+    if ((rc = pfFH.UnpinPage(pNum))) {
+        // Return the error from the PF FileHandle
+        return rc;
+    }
+
+    // Flush the page to disk
+    if ((rc = pfFH.ForcePages(pNum))) {
+        // Return the error from the PF FileHandle
+        return rc;
+    }
+
     // Return OK
     return OK_RC;
 }
@@ -113,7 +130,7 @@ RC RM_Manager::DestroyFile(const char *fileName) {
     int rc;
 
     // Destroy the file using the PF Manager
-    if ((rc = pfManager.DestroyFile(fileName))) {
+    if ((rc = pfManager->DestroyFile(fileName))) {
         // Return the error from the PF Manager
         return rc;
     }
@@ -148,7 +165,7 @@ RC RM_Manager::OpenFile(const char *fileName, RM_FileHandle &fileHandle) {
     PF_FileHandle pfFH;
 
     // Open the file using the PF Manager
-    if ((rc = pfManager.OpenFile(fileName, pfFH))) {
+    if ((rc = pfManager->OpenFile(fileName, pfFH))) {
         // Return the error from the PF Manager
         return rc;
     }
@@ -204,8 +221,10 @@ RC RM_Manager::OpenFile(const char *fileName, RM_FileHandle &fileHandle) {
     2) Update the file header page if modified
         - Get the PF PageHandle for the header page
         - Copy the modified data to the header page
+        - Unpin the header page
         - Flush/force the page on to the disk
-    5) Close the file using the PF Manager
+    3) Unpin all the file pages
+    4) Close the file using the PF Manager
 */
 RC RM_Manager::CloseFile(RM_FileHandle &fileHandle) {
     // Check if the file handle refers to an open file
@@ -218,18 +237,18 @@ RC RM_Manager::CloseFile(RM_FileHandle &fileHandle) {
 
     // Get the PF FileHandle
     PF_FileHandle pfFH = fileHandle.pfFH;
+    PF_PageHandle pfPH;
+    PageNum pNum;
 
     // Update the file header if it is modified
     if (fileHandle.headerModified) {
         // Get the page handle for the header page
-        PF_PageHandle pfPH;
         if ((rc = pfFH.GetFirstPage(pfPH))) {
             // Return the error from the PF FileHandle
             return rc;
         }
 
         // Get the page number of the header page
-        PageNum pNum;
         if ((rc = pfPH.GetPageNum(pNum))) {
             // Return the error from the PF PageHandle
             return rc;
@@ -246,18 +265,31 @@ RC RM_Manager::CloseFile(RM_FileHandle &fileHandle) {
         char* pD = (char*) &fileHandle.fileHeader;
         memcpy(pData, pD, sizeof(RM_FileHeaderPage));
 
+
         // Flush the modified header page
         if ((rc = pfFH.ForcePages(pNum))) {
+            // Return the error from the PF FileHandle
+            return rc;
+        }
+
+        // Unpin the header page
+        if ((rc = pfFH.UnpinPage(pNum))) {
             // Return the error from the PF FileHandle
             return rc;
         }
     }
 
     // Close the file using the PF Manager
-    if ((rc = pfManager.CloseFile(pfFH))) {
+    if ((rc = pfManager->CloseFile(pfFH))) {
+        cout << "Oops! Entered here!" << endl;
+        PF_PrintError(rc);
         // Return the error from the PF Manager
         return rc;
     }
+
+    // Update the flags
+    fileHandle.isOpen = FALSE;
+    fileHandle.headerModified = FALSE;
 
     // Return OK
     return OK_RC;

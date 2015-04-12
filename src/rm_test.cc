@@ -43,6 +43,84 @@ using namespace std;
 #       define offsetof(type, field)   ((size_t)&(((type *)0) -> field))
 #endif
 
+#ifdef PF_STATS
+#include "statistics.h"
+
+// This is defined within pf_buffermgr.cc
+extern StatisticsMgr *pStatisticsMgr;
+
+// This method is defined within pf_statistics.cc.  It is called at the end
+// to display the final statistics, or by the debugger to monitor progress.
+extern void PF_Statistics();
+
+//
+// PF_ConfirmStatistics
+//
+// This function will be run at the end of the program after all the tests
+// to confirm that the buffer manager operated correctly.
+//
+// These numbers have been confirmed.  Note that if you change any of the
+// tests, you will also need to change these numbers as well.
+//
+void PF_ConfirmStatistics()
+{
+   // Must remember to delete the memory returned from StatisticsMgr::Get
+   cout << "Verifying the statistics for buffer manager: ";
+   int *piGP = pStatisticsMgr->Get("GetPage");
+   int *piPF = pStatisticsMgr->Get("PageFound");
+   int *piPNF = pStatisticsMgr->Get("PageNotFound");
+   int *piWP = pStatisticsMgr->Get("WritePage");
+   int *piRP = pStatisticsMgr->Get("ReadPage");
+   int *piFP = pStatisticsMgr->Get("FlushPage");
+
+   if (piGP && (*piGP != 702)) {
+      cout << "Number of GetPages is incorrect! (" << *piGP << ")\n";
+      // No built in error code for this
+      exit(1);
+   }
+   if (piPF && (*piPF != 23)) {
+      cout << "Number of pages found in the buffer is incorrect! (" <<
+        *piPF << ")\n";
+      // No built in error code for this
+      exit(1);
+   }
+   if (piPNF && (*piPNF != 679)) {
+      cout << "Number of pages not found in the buffer is incorrect! (" <<
+        *piPNF << ")\n";
+      // No built in error code for this
+      exit(1);
+   }
+   if (piRP && (*piRP != 679)) {
+      cout << "Number of read requests to the Unix file system is " <<
+         "incorrect! (" << *piPNF << ")\n";
+      // No built in error code for this
+      exit(1);
+   }
+   if (piWP && (*piWP != 339)) {
+      cout << "Number of write requests to the Unix file system is "<<
+         "incorrect! (" << *piPNF << ")\n";
+      // No built in error code for this
+      exit(1);
+   }
+   if (piFP && (*piFP != 16)) {
+      cout << "Number of requests to flush the buffer is "<<
+         "incorrect! (" << *piPNF << ")\n";
+      // No built in error code for this
+      exit(1);
+   }
+   cout << " Correct!\n";
+
+   // Delete the memory returned from StatisticsMgr::Get
+   delete piGP;
+   delete piPF;
+   delete piPNF;
+   delete piWP;
+   delete piRP;
+   delete piFP;
+}
+#endif    // PF_STATS
+
+
 //
 // Structure of the records we will be using for the tests
 //
@@ -63,6 +141,7 @@ RM_Manager rmm(pfm);
 //
 RC Test1(void);
 RC Test2(void);
+RC Test3(void);
 
 void PrintError(RC rc);
 void LsFile(char *fileName);
@@ -83,11 +162,12 @@ RC GetNextRecScan(RM_FileScan &fs, RM_Record &rec);
 //
 // Array of pointers to the test functions
 //
-#define NUM_TESTS       2               // number of tests
+#define NUM_TESTS       3               // number of tests
 int (*tests[])() =                      // RC doesn't work on some compilers
 {
     Test1,
-    Test2
+    Test2,
+    Test3
 };
 
 //
@@ -294,8 +374,11 @@ RC VerifyFile(RM_FileHandle &fh, int numRecs)
         found[pRecBuf->num] = 1;
     }
 
+    PrintError(rc);
+
     if (rc != RM_EOF)
         goto err;
+
 
     if ((rc=fs.CloseScan()))
         return (rc);
@@ -470,6 +553,8 @@ RC Test1(void)
         return (rc);
 
     printf("\ntest1 done ********************\n");
+
+    PF_Statistics();
     return (0);
 }
 
@@ -495,5 +580,43 @@ RC Test2(void)
         return (rc);
 
     printf("\ntest2 done ********************\n");
+    return (0);
+}
+
+//
+// Test3 tests adding a few records to a file.
+//
+RC Test3(void)
+{
+    RC            rc;
+    RM_FileHandle fh;
+
+    printf("test3 starting ****************\n");
+
+    if ((rc = CreateFile(FILENAME, sizeof(TestRec)))) {
+        return rc;
+    }
+
+    if ((rc = OpenFile(FILENAME, fh))) {
+        return rc;
+    }
+    if ((rc = AddRecs(fh, FEW_RECS))) {
+        return rc;
+    }
+
+    if ((rc = VerifyFile(fh, FEW_RECS))) {
+        return rc;
+    }
+
+    if ((rc = CloseFile(FILENAME, fh))) {
+        return (rc);
+    }
+
+    LsFile(FILENAME);
+
+    if ((rc = DestroyFile(FILENAME)))
+        return (rc);
+
+    printf("\ntest3 done ********************\n");
     return (0);
 }

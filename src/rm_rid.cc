@@ -4,6 +4,7 @@
 // Authors:     Aditya Bhandari (adityasb@stanford.edu)
 //
 
+#include <iostream>
 #include "rm_rid.h"
 using namespace std;
 
@@ -55,6 +56,7 @@ RID& RID::operator=(const RID &rid) {
 RC RID::GetPageNum(PageNum &pageNum) const {
     // If the RID is not viable, return a positive error
     if (!isViable) {
+        cout << "Yaay! HERE in GetPageNum" << endl;
         return RID_NOT_VIABLE;
     }
     else {
