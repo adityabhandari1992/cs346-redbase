@@ -179,15 +179,15 @@ void RM_PrintError(RC rc);
 #define NO_FREE_PAGE    -1  // Like a null pointer for the free list
 
 // Warnings
-#define RM_LARGE_RECORD             (START_RM_WARN + 1) // Record size is too large
-#define RM_SMALL_RECORD             (START_RM_WARN + 2) // Record size is too small
-#define RM_FILE_OPEN                (START_RM_WARN + 3) // File is already open
-#define RM_FILE_CLOSED              (START_RM_WARN + 4) // File is closed
-#define RM_RECORD_NOT_VALID         (START_RM_WARN + 5) // Record is not valid
-#define RM_INVALID_SLOT_NUMBER      (START_RM_WARN + 6) // Slot number is not valid
-#define RM_ATTRIBUTE_NOT_CONSISTENT (START_RM_WARN + 7) // Attribute is not consistent
-#define RM_SCAN_CLOSED              (START_RM_WARN + 8) // Scan is not open
-#define RM_EOF                      (START_RM_WARN + 9) // End of file
+#define RM_LARGE_RECORD             (START_RM_WARN + 0) // Record size is too large
+#define RM_SMALL_RECORD             (START_RM_WARN + 1) // Record size is too small
+#define RM_FILE_OPEN                (START_RM_WARN + 2) // File is already open
+#define RM_FILE_CLOSED              (START_RM_WARN + 3) // File is closed
+#define RM_RECORD_NOT_VALID         (START_RM_WARN + 4) // Record is not valid
+#define RM_INVALID_SLOT_NUMBER      (START_RM_WARN + 5) // Slot number is not valid
+#define RM_ATTRIBUTE_NOT_CONSISTENT (START_RM_WARN + 6) // Attribute is not consistent
+#define RM_SCAN_CLOSED              (START_RM_WARN + 7) // Scan is not open
+#define RM_EOF                      (START_RM_WARN + 8) // End of file
 #define RM_LASTWARN                 RM_EOF
 
 // Errors
