@@ -25,11 +25,7 @@ RM_FileHandle::RM_FileHandle() {
 
 // Destructor
 RM_FileHandle::~RM_FileHandle() {
-    // Delete the PF file handle
-    // delete &pfFH;
-
-    // Delete the file header
-    // delete &fileHeader;
+    // Nothing to free
 }
 
 // Copy constructor

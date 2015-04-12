@@ -18,8 +18,7 @@ RM_FileScan::RM_FileScan() {
 
 // Destructor
 RM_FileScan::~RM_FileScan() {
-    // Delete the file handle
-    // delete &fileHandle;
+    // Nothing to free
 }
 
 // Method: OpenScan(const RM_FileHandle &fileHandle, AttrType attrType, int attrLength,

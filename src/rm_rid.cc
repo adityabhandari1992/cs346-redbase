@@ -26,7 +26,7 @@ RID::RID(PageNum pageNum, SlotNum slotNum) {
 
 // Destructor
 RID::~RID() {
-    // Don't need to do anything
+    // Nothing to free
 }
 
 // Copy constructor

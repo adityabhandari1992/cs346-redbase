@@ -18,8 +18,10 @@ RM_Record::RM_Record() {
 
 // Destructor
 RM_Record::~RM_Record() {
-    // Delete the data
-    delete[] pData;
+    // Delete the data if it is a valid record
+    if (isValid) {
+        delete[] pData;
+    }
 }
 
 // Copy constructor
