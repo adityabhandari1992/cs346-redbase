@@ -19,7 +19,7 @@ RM_FileScan::RM_FileScan() {
 // Destructor
 RM_FileScan::~RM_FileScan() {
     // Delete the file handle
-    delete &fileHandle;
+    // delete &fileHandle;
 }
 
 // Method: OpenScan(const RM_FileHandle &fileHandle, AttrType attrType, int attrLength,
@@ -41,8 +41,10 @@ RC RM_FileScan::OpenScan(const RM_FileHandle &fileHandle, AttrType attrType, int
             return RM_ATTRIBUTE_NOT_CONSISTENT;
         }
     }
-    if (compOp == NO_OP && value != NULL) {
-        return RM_ATTRIBUTE_NOT_CONSISTENT;
+
+    // If the value is a null pointer, set compOp to NO_OP
+    if (compOp != NO_OP && value == NULL) {
+        compOp = NO_OP;
     }
 
     // Store the class variables
@@ -110,7 +112,7 @@ RC RM_FileScan::OpenScan(const RM_FileHandle &fileHandle, AttrType attrType, int
             - If PF_EOF, return RM_EOF
             - Set the new page number
             - Set slot number to 1
-    8) Follow the pin hint - TODO later
+    8) Follow the pin hint
     9) If next record was not found, go to (2)
 */
 RC RM_FileScan::GetNextRec(RM_Record &rec) {
@@ -141,19 +143,20 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
     bitmap = pageData + sizeof(RM_PageHeader);
 
     // Do while next record is not found
-    bool recordFound = false;
-    while(!recordFound) {
+    bool recordMatch = false;
+    while(!recordMatch) {
         // Check whether the slot in the bitmap is filled
         if (isBitFilled(slotNumber, bitmap)) {
             // Get the record data from the page
             int recordOffset = fileHandle.getRecordOffset(slotNumber);
             char* recordData = pageData + recordOffset;
 
-            // Get the required attribute and compare
-            bool recordMatch = false;
-
+            // Check if the operator is NO_OP
+            if (compOp == NO_OP) {
+                recordMatch = true;
+            }
             // If the attribute is integer
-            if (attrType == INT) {
+            else if (attrType == INT) {
                 int recordValue = getIntegerValue(recordData);
                 int givenValue = *static_cast<int*>(value);
 
@@ -176,8 +179,7 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
                     case NE_OP:
                         if (recordValue != givenValue) recordMatch = true;
                         break;
-                    case NO_OP:
-                        recordMatch = true;
+                    default:
                         break;
                 }
             }
@@ -205,8 +207,7 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
                     case NE_OP:
                         if (recordValue != givenValue) recordMatch = true;
                         break;
-                    case NO_OP:
-                        recordMatch = true;
+                    default:
                         break;
                 }
             }
@@ -238,8 +239,7 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
                     case NE_OP:
                         if (recordValue != givenValue) recordMatch = true;
                         break;
-                    case NO_OP:
-                        recordMatch = true;
+                    default:
                         break;
                 }
             }
@@ -248,6 +248,9 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
             if (recordMatch) {
                 // Create a new record
                 RM_Record newRecord;
+
+                // Set valid flag of record to true
+                newRecord.isValid = TRUE;
 
                 // Set the data in the new record
                 char* newPData;
@@ -267,9 +270,6 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
                 RID rid(pageNumber, slotNumber);
                 newRid = rid;
 
-                // Set valid flag of record to true
-                newRecord.isValid = TRUE;
-
                 // Set rec to point to the new record
                 rec = newRecord;
             }
@@ -285,6 +285,12 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
                 return RM_EOF;
             }
             else if (rc) {
+                // Return the error from the PF FileHandle
+                return rc;
+            }
+
+            // Unpin the previous page
+            if ((rc = pfFH.UnpinPage(pageNumber))) {
                 // Return the error from the PF FileHandle
                 return rc;
             }
@@ -310,9 +316,13 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
         }
     }
 
-    // Follow the pin hint - TODO
+    // If no hint is given, unpin immediately
     if (pinHint == NO_HINT) {
-        // Do nothing
+        // Unpin the page
+        if ((rc = pfFH.UnpinPage(pageNumber))) {
+            // Return the error from the PF FileHandle
+            return rc;
+        }
     }
 
     // Return OK
@@ -344,7 +354,7 @@ RC RM_FileScan::CloseScan() {
 int RM_FileScan::getIntegerValue(char* recordData) {
     int recordValue;
     char* attrPointer = recordData + attrOffset;
-    memcpy(&attrPointer, recordData, sizeof(recordValue));
+    memcpy(&recordValue, attrPointer, sizeof(recordValue));
     return recordValue;
 }
 
@@ -353,7 +363,7 @@ int RM_FileScan::getIntegerValue(char* recordData) {
 float RM_FileScan::getFloatValue(char* recordData) {
     float recordValue;
     char* attrPointer = recordData + attrOffset;
-    memcpy(&attrPointer, recordData, sizeof(recordValue));
+    memcpy(&recordValue, attrPointer, sizeof(recordValue));
     return recordValue;
 }
 

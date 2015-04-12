@@ -4,6 +4,7 @@
 // Authors:     Aditya Bhandari (adityasb@stanford.edu)
 //
 
+#include <iostream>
 #include <cstring>
 #include <string>
 #include "rm.h"
@@ -25,10 +26,10 @@ RM_FileHandle::RM_FileHandle() {
 // Destructor
 RM_FileHandle::~RM_FileHandle() {
     // Delete the PF file handle
-    delete &pfFH;
+    // delete &pfFH;
 
     // Delete the file header
-    delete &fileHeader;
+    // delete &fileHeader;
 }
 
 // Copy constructor
@@ -120,6 +121,9 @@ RC RM_FileHandle::GetRec(const RID &rid, RM_Record &rec) const {
     // Get the record by using the record offset
     RM_Record newRecord;
 
+    // Set valid flag of record to true
+    newRecord.isValid = TRUE;
+
     // Set the data in the new record
     char* newPData;
     if ((rc = newRecord.GetData(newPData))) {
@@ -136,9 +140,6 @@ RC RM_FileHandle::GetRec(const RID &rid, RM_Record &rec) const {
         return rc;
     }
     newRid = rid;
-
-    // Set valid flag of record to true
-    newRecord.isValid = TRUE;
 
     // Set rec to point to the new record
     rec = newRecord;
@@ -163,17 +164,18 @@ RC RM_FileHandle::GetRec(const RID &rid, RM_Record &rec) const {
         - Allocate a new page
         - Initialize the page header and bitmap
         - Increment the number of pages in the file header
-    4) Get the first free slot from the bitmap
-    5) Calculate the record offset
-    6) Insert the record in the free slot
+    4) Mark the page as dirty
+    5) Get the first free slot from the bitmap
+    6) Calculate the record offset
+    7) Insert the record in the free slot
         - Copy the data to the free slot
         - Update the bitmap on the page
-    7) If the page becomes full (check bitmap)
+    8) If the page becomes full (check bitmap)
         - Get the next free page number
         - Update the first free page number in the file header
         - Set the next free page on the page header to NO_FREE_PAGE
-    8) Mark the page as dirty
     9) Unpin the page
+    10) Set the rid to this record
 */
 RC RM_FileHandle::InsertRec(const char *pData, RID &rid) {
     // Check if the file is open
@@ -232,6 +234,16 @@ RC RM_FileHandle::InsertRec(const char *pData, RID &rid) {
         // Increment the number of pages in the file header
         fileHeader.numberPages++;
         headerModified = TRUE;
+
+        // Delete the page header and bitmap
+        delete pageHeader;
+        delete[] bitmap;
+
+        // Unpin the allocated page
+        if ((rc = pfFH.UnpinPage(freePageNumber))) {
+            // Return the error from the PF FileHandle
+            return rc;
+        }
     }
 
     // Get the page data
@@ -250,6 +262,12 @@ RC RM_FileHandle::InsertRec(const char *pData, RID &rid) {
     int freeSlotNumber = getFirstZeroBit(bitmap, bitmapSize);
     if (freeSlotNumber == RM_INCONSISTENT_BITMAP) {
         return RM_INCONSISTENT_BITMAP;
+    }
+
+    // Mark the page as dirty
+    if ((rc = pfFH.MarkDirty(freePageNumber))) {
+        // Return the error from the PF FileHandle
+        return rc;
     }
 
     // Calculate the record offset
@@ -278,17 +296,15 @@ RC RM_FileHandle::InsertRec(const char *pData, RID &rid) {
         pH->nextPage = NO_FREE_PAGE;
     }
 
-    // Mark the page as dirty
-    if ((rc = pfFH.MarkDirty(freePageNumber))) {
-        // Return the error from the PF FileHandle
-        return rc;
-    }
-
     // Unpin the page
     if ((rc = pfFH.UnpinPage(freePageNumber))) {
         // Return the error from the PF FileHandle
         return rc;
     }
+
+    // Set the RID
+    RID newRid(freePageNumber, freeSlotNumber);
+    rid = newRid;
 
     // Return OK
     return OK_RC;
@@ -301,12 +317,12 @@ RC RM_FileHandle::InsertRec(const char *pData, RID &rid) {
     1) Check if the file is open
     2) Get the page number and slot number from the RID
         - Check if the slot number is valid
-    3) Check if the page is full (check bitmap)
-    4) Change the bit in the bitmap to 0
-    5) If the page was previously full
+    3) Mark the page as dirty
+    4) Check if the page is full (check bitmap)
+    5) Change the bit in the bitmap to 0
+    6) If the page was previously full
         - Set the next free page in the page header to the first free page in the file header
         - Set the first free page in the file header to this page
-    6) Mark the page as dirty
     7) Unpin the page
     8) If the page becomes empty (check bitmap)
         - Delete the bitmap
@@ -352,6 +368,12 @@ RC RM_FileHandle::DeleteRec(const RID &rid) {
         return rc;
     }
 
+    // Mark the page as dirty
+    if ((rc = pfFH.MarkDirty(pageNumber))) {
+        // Return the error from the PF FileHandle
+        return rc;
+    }
+
     // Check if the page is full
     int bitmapSize = numberRecords/8;
     if (numberRecords%8 != 0) bitmapSize++;
@@ -378,33 +400,27 @@ RC RM_FileHandle::DeleteRec(const RID &rid) {
         headerModified = TRUE;
     }
 
-    // Mark the page as dirty
-    if ((rc = pfFH.MarkDirty(pageNumber))) {
-        // Return the error from the PF FileHandle
-        return rc;
-    }
-
     // Unpin the page
     if ((rc = pfFH.UnpinPage(pageNumber))) {
         // Return the error from the PF FileHandle
         return rc;
     }
 
-    // If the page becomes empty, dispose the page
-    if (isBitmapEmpty(bitmap, bitmapSize)) {
-        // Delete the bitmap
-        delete[] bitmap;
+    // // If the page becomes empty, dispose the page
+    // if (isBitmapEmpty(bitmap, bitmapSize)) {
+    //     // Delete the bitmap
+    //     delete[] bitmap;
 
-        // Dispose the page using the PF FileHandle
-        if ((rc = pfFH.DisposePage(pageNumber))) {
-            // Return the error from the PF FileHandle
-            return rc;
-        }
+    //     // Dispose the page using the PF FileHandle
+    //     if ((rc = pfFH.DisposePage(pageNumber))) {
+    //         // Return the error from the PF FileHandle
+    //         return rc;
+    //     }
 
-        // Decrement the number of pages in the file header
-        fileHeader.numberPages--;
-        headerModified = TRUE;
-    }
+    //     // Decrement the number of pages in the file header
+    //     fileHeader.numberPages--;
+    //     headerModified = TRUE;
+    // }
 
     // Return OK
     return OK_RC;
@@ -418,11 +434,11 @@ RC RM_FileHandle::DeleteRec(const RID &rid) {
     2) Get the RID for the record
     3) Get the page number and slot number for the record
         - Check whether the slot number is valid
-    4) Open the PF PageHandle for the page
-    5) Calculate the record offset
-    6) Update the record on the page
+    4) Mark the page as dirty
+    5) Open the PF PageHandle for the page
+    6) Calculate the record offset
+    7) Update the record on the page
         - Copy the data from the record to the data on page
-    7) Mark the page as dirty
     8) Unpin the page
 */
 RC RM_FileHandle::UpdateRec(const RM_Record &rec) {
@@ -476,6 +492,12 @@ RC RM_FileHandle::UpdateRec(const RM_Record &rec) {
         return rc;
     }
 
+    // Mark the page as dirty
+    if ((rc = pfFH.MarkDirty(pageNumber))) {
+        // Return the error from the PF FileHandle
+        return rc;
+    }
+
     // Get the record offset
     int recordOffset = getRecordOffset(slotNumber);
     char* recordData = pData + recordOffset;
@@ -489,12 +511,6 @@ RC RM_FileHandle::UpdateRec(const RM_Record &rec) {
 
     // Update the record in the file to the record data
     memcpy(recordData, recData, fileHeader.recordSize);
-
-    // Mark the page as dirty
-    if ((rc = pfFH.MarkDirty(pageNumber))) {
-        // Return the error from the PF FileHandle
-        return rc;
-    }
 
     // Unpin the page
     if ((rc = pfFH.UnpinPage(pageNumber))) {
