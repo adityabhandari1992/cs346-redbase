@@ -49,6 +49,7 @@ struct RM_PageHeader {
 //
 class RM_Record {
     friend class RM_FileHandle;
+    friend class RM_FileScan;
 public:
     RM_Record ();
     ~RM_Record();
@@ -77,6 +78,7 @@ private:
 //
 class RM_FileHandle {
     friend class RM_Manager;
+    friend class RM_FileScan;
 public:
     RM_FileHandle ();
     ~RM_FileHandle();
@@ -130,6 +132,23 @@ public:
                   ClientHint pinHint = NO_HINT); // Initialize a file scan
     RC GetNextRec(RM_Record &rec);               // Get next matching record
     RC CloseScan ();                             // Close the scan
+
+private:
+    PageNum pageNumber;                                 // Current page number
+    SlotNum slotNumber;                                 // Current slot number
+    RM_FileHandle fileHandle;                           // File handle for the file
+    AttrType attrType;                                  // Attribute type
+    int attrLength;                                     // Attribute length
+    int attrOffset;                                     // Attribute offset
+    CompOp compOp;                                      // Comparison operator
+    void* value;                                        // Value to be compared
+    ClientHint pinHint;                                 // Pinning hint
+    int scanOpen;                                       // Flag to track is scan is open
+
+    int getIntegerValue(char* recordData);              // Get integer attribute value
+    float getFloatValue(char* recordData);              // Get float attribute value
+    std::string getStringValue(char* recordData);            // Get string attribute value
+    bool isBitFilled(int bitNumber, char* bitmap);      // Check whether a slot is filled
 };
 
 //
@@ -160,13 +179,16 @@ void RM_PrintError(RC rc);
 #define NO_FREE_PAGE    -1  // Like a null pointer for the free list
 
 // Warnings
-#define RM_LARGE_RECORD         (START_RM_WARN + 1) // Record size is too large
-#define RM_SMALL_RECORD         (START_RM_WARN + 2) // Record size is too small
-#define RM_FILE_OPEN            (START_RM_WARN + 3) // File is already open
-#define RM_FILE_CLOSED          (START_RM_WARN + 4) // File is closed
-#define RM_RECORD_NOT_VALID     (START_RM_WARN + 5) // Record is not valid
-#define RM_INVALID_SLOT_NUMBER  (START_RM_WARN + 6) // Slot number is not valid
-#define RM_LASTWARN             RM_INVALID_SLOT_NUMBER
+#define RM_LARGE_RECORD             (START_RM_WARN + 1) // Record size is too large
+#define RM_SMALL_RECORD             (START_RM_WARN + 2) // Record size is too small
+#define RM_FILE_OPEN                (START_RM_WARN + 3) // File is already open
+#define RM_FILE_CLOSED              (START_RM_WARN + 4) // File is closed
+#define RM_RECORD_NOT_VALID         (START_RM_WARN + 5) // Record is not valid
+#define RM_INVALID_SLOT_NUMBER      (START_RM_WARN + 6) // Slot number is not valid
+#define RM_ATTRIBUTE_NOT_CONSISTENT (START_RM_WARN + 7) // Attribute is not consistent
+#define RM_SCAN_CLOSED              (START_RM_WARN + 8) // Scan is not open
+#define RM_EOF                      (START_RM_WARN + 9) // End of file
+#define RM_LASTWARN                 RM_EOF
 
 // Errors
 #define RM_INVALIDNAME          (START_RM_ERR - 0) // Invalid PC file name
