@@ -166,7 +166,7 @@ public:
     RC CloseFile  (RM_FileHandle &fileHandle);
 
 private:
-    PF_Manager pfManager;                   // PF_Manager object
+    PF_Manager* pfManager;                   // PF_Manager object
     int findNumberRecords(int recordSize);
 };
 
