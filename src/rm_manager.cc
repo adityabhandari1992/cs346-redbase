@@ -4,8 +4,9 @@
 // Authors:     Aditya Bhandari (adityasb@stanford.edu)
 //
 
-#include "rm.h"
 #include <cstring>
+#include <string>
+#include "rm.h"
 using namespace std;
 
 // Constructor
@@ -13,7 +14,6 @@ RM_Manager::RM_Manager(PF_Manager &pfm) {
     // Copy the PF Manager object to a local object
     this->pfManager = pfm;
 }
-
 
 // Destructor
 RM_Manager::~RM_Manager() {

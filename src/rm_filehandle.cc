@@ -4,8 +4,9 @@
 // Authors:     Aditya Bhandari (adityasb@stanford.edu)
 //
 
-#include "rm.h"
 #include <cstring>
+#include <string>
+#include "rm.h"
 using namespace std;
 
 // Default constructor
@@ -300,8 +301,7 @@ RC RM_FileHandle::InsertRec(const char *pData, RID &rid) {
     1) Check if the file is open
     2) Get the page number and slot number from the RID
         - Check if the slot number is valid
-    3) Calculate the record offset
-    4) Check if the page is full (check bitmap)
+    3) Check if the page is full (check bitmap)
     4) Change the bit in the bitmap to 0
     5) If the page was previously full
         - Set the next free page in the page header to the first free page in the file header
@@ -351,9 +351,6 @@ RC RM_FileHandle::DeleteRec(const RID &rid) {
         // Return the error from the PF PageHandle
         return rc;
     }
-
-    // Calculate the record offset
-    int recordOffset = getRecordOffset(slotNumber);
 
     // Check if the page is full
     int bitmapSize = numberRecords/8;
@@ -446,14 +443,14 @@ RC RM_FileHandle::UpdateRec(const RM_Record &rec) {
 
     // Get the page number for the required record
     PageNum pageNumber;
-    if (rc = rid.GetPageNum(pageNumber)) {
+    if ((rc = rid.GetPageNum(pageNumber))) {
         // Return the error from the RID class
         return rc;
     }
 
     // Get the slot number for the required record
     SlotNum slotNumber;
-    if (rc = rid.GetSlotNum(slotNumber)) {
+    if ((rc = rid.GetSlotNum(slotNumber))) {
         // Return the error from the RID class
         return rc;
     }
@@ -467,20 +464,21 @@ RC RM_FileHandle::UpdateRec(const RM_Record &rec) {
 
     // Open the corresponding PF page handle
     PF_PageHandle pfPH;
-    if (rc = pfFH.GetThisPage(pageNumber, pfPH)) {
+    if ((rc = pfFH.GetThisPage(pageNumber, pfPH))) {
         // Return the error from the PF FileHandle
         return rc;
     }
 
     // Get the data from the page
     char* pData;
-    if (rc = pfPH.GetData(pData)) {
+    if ((rc = pfPH.GetData(pData))) {
         // Return the error from the PF PageHandle
         return rc;
     }
 
     // Get the record offset
     int recordOffset = getRecordOffset(slotNumber);
+    char* recordData = pData + recordOffset;
 
     // Get the record data
     char* recData;
@@ -489,8 +487,8 @@ RC RM_FileHandle::UpdateRec(const RM_Record &rec) {
         return rc;
     }
 
-    // Update the data in the file to the record data
-    memcpy(pData, recData, fileHeader.recordSize);
+    // Update the record in the file to the record data
+    memcpy(recordData, recData, fileHeader.recordSize);
 
     // Mark the page as dirty
     if ((rc = pfFH.MarkDirty(pageNumber))) {
@@ -517,7 +515,7 @@ RC RM_FileHandle::ForcePages(PageNum pageNum) {
     int rc;
 
     // Force the pages using the PF FileHandle
-    if (rc = pfFH.ForcePages(pageNum)) {
+    if ((rc = pfFH.ForcePages(pageNum))) {
         // Return the error from the PF FileHandle
         return rc;
     }

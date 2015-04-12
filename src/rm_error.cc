@@ -7,6 +7,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <iostream>
 #include "rm.h"
 
@@ -21,7 +22,10 @@ static char *RM_WarnMsg[] = {
   (char*)"file is already open",
   (char*)"file is closed",
   (char*)"record is not valid",
-  (char*)"slot number is not valid"
+  (char*)"slot number is not valid",
+  (char*)"attributes are not consistent",
+  (char*)"scan is not open",
+  (char*)"end of file",
 };
 
 static char *RM_ErrorMsg[] = {

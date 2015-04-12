@@ -4,6 +4,7 @@
 // Authors:     Aditya Bhandari (adityasb@stanford.edu)
 //
 
+#include <string>
 #include "rm.h"
 #include "rm_rid.h"
 using namespace std;
