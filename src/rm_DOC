@@ -1,0 +1,73 @@
+CS 346 : Redbase Part 1 (RM)
+The Record Management Component
+
+--------------------------------------------
+
+** AUTHOR **
+Aditya Bhandari (adityasb@stanford.edu)
+
+Assistance taken:
+1) Jaeho Shin (TA) :
+    - Storing the free pages as a list and a bitmap within each page
+    - Bit operations in C++
+    - Help to debug segmentation faults due to memcpy
+
+2) Abhinav Rastogi
+    - Discussed the file header and page header design
+    - Help taken to debug the GetNextRec function of the RM_FileScan class
+    - Help in writing additional tests
+
+--------------------------------------------
+
+** DESIGN **
+
+* Data Structures *
+
+1) File Header - RM_FileHeader (in "rm.h")
+Stores the following:
+    - Record size - integer
+    - Number of records on a page - integer
+    - Number of pages on file - integer
+    - First free page - PageNum
+
+2) Page Header - RM_PageHeader (in "rm_internal.h")
+Stores the following:
+    - Page number of the next free page - PageNum
+
+-------------------
+
+* File and Page Layout *
+
+The file consists of a file header (as described above) stored as the first page of the file.
+(NOTE: The file header page does not have a page header)
+
+All the further pages (let us call them data pages) of the file are used to store the data
+records.
+The first thing on a data page is the page header (as described above). This is followed by
+a bitmap (size equal to the number of records that can be stored on a data page) for storing
+the free records slots on the data page. This is followed by the actual records on the page.
+
+-------------------
+
+* Free Space Management *
+
+The free space in a file is tracked using a free list of pages, each of which contains an
+internal bitmap to track the free record slots in it.
+The file header page contains the page number of the first free page in the file (set to
+RM_NO_FREE_PAGE in case there is no free page). Each data page has a next free page number
+in its page header (set to RM_NO_FREE_PAGE in case this is the last free page in the list).
+
+When a new record is to be inserted, the first free page number is obtained from the file
+header. If there is no free page, a new page is allocated and its page number is stored in
+the file header. Now, the first free slot in the page is obtained using the bitmap stored in
+the page header. Once we have the free slot number, the given record is inserted in that slot
+and the corresponding bit in the bitmap is updated.
+
+
+--------------------------------------------
+
+** IMPLEMENTATION **
+
+--------------------------------------------
+
+** TESTING **
