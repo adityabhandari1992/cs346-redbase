@@ -209,8 +209,6 @@ below:
 
 * Method: RC OpenScan(const RM_FileHandle &fileHandle, AttrType attrType, int attrLength,
                       int attrOffset, CompOp compOp, void *value, ClientHint pinHint = NO_HINT)
-Initialize a file scan
-Steps:
     1) Initialize the class variables
         - Store attrType, attrLength, attrOffset, compOp, value and pinHint
         - Store the page number and slot number of the first (non-header) page of the file
