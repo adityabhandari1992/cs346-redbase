@@ -73,6 +73,12 @@ RC RM_FileHandle::GetRec(const RID &rid, RM_Record &rec) const {
         return RM_FILE_CLOSED;
     }
 
+    // Delete the record if it is already valid
+    if (rec.isValid) {
+        rec.isValid = FALSE;
+        delete[] rec.pData;
+    }
+
     // Declare an integer for the return code
     int rc;
 

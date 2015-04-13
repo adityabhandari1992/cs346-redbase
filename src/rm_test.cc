@@ -387,6 +387,7 @@ RC VerifyFile(RM_FileHandle &fh, int numRecs, CompOp op)
         goto err;
 
     delete tempRecord;
+    delete[] found;
 
     if ((rc=fs.CloseScan()))
         return (rc);

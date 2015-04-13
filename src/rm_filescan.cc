@@ -131,6 +131,12 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
         return RM_SCAN_CLOSED;
     }
 
+    // Delete the record data if it is already valid
+    if (rec.isValid) {
+        rec.isValid = FALSE;
+        delete[] rec.pData;
+    }
+
     // Declare an integer for the return code
     int rc;
 
