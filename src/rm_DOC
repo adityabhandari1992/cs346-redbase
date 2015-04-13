@@ -68,6 +68,14 @@ and the corresponding bit in the bitmap is updated.
 
 ** IMPLEMENTATION **
 
+RM_Manager
+
+RM_FileHandle
+
+RM_FileScan
+
+RM_Record
+
 --------------------------------------------
 
 ** TESTING **
