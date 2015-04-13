@@ -70,20 +70,153 @@ and the corresponding bit in the bitmap is updated.
 
 RM_Manager
 
-CreateFile(const char *fileName, int recordSize)
+Method: CreateFile(const char *fileName, int recordSize)
 Create a file with the given filename and record size
 Steps:
-1) Check for valid record size
-2) Create file using the PF Manager
-3) Allocate a header page by opening the file
-4) Get the header page number and mark page as dirty
-5) Create a file header object
-6) Copy the file header to the file header page
-7) Unpin page and flush to disk
+    1) Check for valid record size
+    2) Create file using the PF Manager
+    3) Allocate a header page by opening the file
+    4) Get the header page number and mark page as dirty
+    5) Create a file header object
+    6) Copy the file header to the file header page
+    7) Unpin page and flush to disk
+
+Method: DestroyFile(const char *fileName)
+Destroy the file with the given filename
+Steps:
+    1) Destroy the file using the PF Manager
+    
+Method: OpenFile(const char *fileName, RM_FileHandle &fileHandle)
+Open the file with the given filename with the specified filehandle
+Steps:
+    1) Check if the file handle is already open
+    2) Open the file using the PF Manager
+    3) Update the file handle members
+    4) Store the file header in memory
+        - Create a PF PageHandle to the header page
+        - Get the data from the header page
+        - Store the data in a RM FileHeaderPage object
+    5) Unpin the file header page
+
+Method: CloseFile(RM_FileHandle &fileHandle)
+Close the file with the given filehandle
+Steps:
+    1) Check if the file handle is open
+    2) Update the file header page if modified
+        - Get the PF PageHandle for the header page
+        - Copy the modified data to the header page
+        - Unpin the header page
+        - Flush/force the page on to the disk
+    3) Unpin all the file pages
+    4) Close the file using the PF Manager
 
 RM_FileHandle
 
+Method: GetRec(const RID &rid, RM_Record &rec) const
+Given a RID, return the record
+Steps:
+    1) Check if the file is open
+    2) Get the page and slot numbers for the required record
+    3) Open the PF PageHandle for the page
+    4) Get the data from the page
+    5) Calculate the record offset using the slot number
+    6) Copy the record from the page to rec
+        - Create a new record
+        - Copy the data to the new record
+        - Set the RID of the new record
+        - Point rec to the new record
+    7) Unpin the page
+
+Method: InsertRec(const char *pData, RID &rid)
+Insert a new record
+Steps:
+    1) Check if the file is open
+    2) Get the first free page from the file header
+    3) If no free page (first free page number is RM_NO_FREE_PAGE)
+        - Allocate a new page
+        - Initialize the page header and bitmap
+        - Increment the number of pages in the file header
+        - Update the first free page number in the header
+    4) Mark the page as dirty
+    5) Get the first free slot from the bitmap
+    6) Calculate the record offset
+    7) Insert the record in the free slot
+        - Copy the data to the free slot
+        - Update the bitmap on the page
+    8) If the page becomes full (check bitmap)
+        - Get the next free page number
+        - Update the first free page number in the file header
+        - Set the next free page on the page header to RM_NO_FREE_PAGE
+    9) Unpin the page
+    10) Set the rid to this record
+
+Method: DeleteRec(const RID &rid)
+Delete a record
+Steps:
+    1) Check if the file is open
+    2) Get the page number and slot number from the RID
+        - Check if the slot number is valid
+    3) Mark the page as dirty
+    4) Check if the page is full (check bitmap)
+    5) Change the bit in the bitmap to 0
+    6) If the page was previously full
+        - Set the next free page in the page header to the first free page in the file header
+        - Set the first free page in the file header to this page
+    7) Unpin the page
+    8) If the page becomes empty (check bitmap)
+        - Delete the bitmap
+        - Dispose the page using the PF FileHandle
+        - Decrement the number of pages in the file header
+
+Method: UpdateRec(const RM_Record &rec)
+Update a record
+Steps:
+    1) Check if the file is open
+    2) Get the RID for the record
+    3) Get the page number and slot number for the record
+        - Check whether the slot number is valid
+    4) Mark the page as dirty
+    5) Open the PF PageHandle for the page
+    6) Calculate the record offset
+    7) Update the record on the page
+        - Copy the data from the record to the data on page
+    8) Unpin the page
+
 RM_FileScan
+
+Method: OpenScan(const RM_FileHandle &fileHandle, AttrType attrType, int attrLength, int attrOffset, CompOp compOp, void *value, ClientHint pinHint = NO_HINT)
+Initialize a file scan
+Steps:
+    1) Initialize the class variables
+        - Store attrType, attrLength, attrOffset, compOp, value and pinHint
+        - Store the page number and slot number of the first (non-header) page of the file
+    2) Unpin the header and data pages
+
+Method: GetNextRec(RM_Record &rec)
+Get the next matching record
+Steps:
+    1) Get the page using the page number
+    2) Check the slot number in the bitmap in the page
+    3) If filled, get the record data from the page
+    4) Get the required attribute at the given offset
+    5) Compare the attribute with the given value
+    6) If it satisfies the condition
+        - Create a new record and fill its data and RID
+        - Point rec to the new record
+    7) Increment the slot number
+        - If not the last slot, increment by 1
+        - Else, get the next page of the file
+            - If PF_EOF, return RM_EOF
+            - Set the new page number
+            - Set slot number to 1
+    8) Follow the pin hint
+    9) If next record was not found, go to (2)
+
+Method: CloseScan()
+Close the file scan
+Steps:
+    1) Return error if the scan is not open
+    2) Update the scan open flag
 
 RM_Record
 
