@@ -70,6 +70,17 @@ and the corresponding bit in the bitmap is updated.
 
 RM_Manager
 
+CreateFile(const char *fileName, int recordSize)
+Create a file with the given filename and record size
+Steps:
+1) Check for valid record size
+2) Create file using the PF Manager
+3) Allocate a header page by opening the file
+4) Get the header page number and mark page as dirty
+5) Create a file header object
+6) Copy the file header to the file header page
+7) Unpin page and flush to disk
+
 RM_FileHandle
 
 RM_FileScan
