@@ -1,5 +1,5 @@
 Starting RM component test.
--rw------- 1 adi adi 8192 Apr 12 16:49 testrel
+-rw------- 1 adi adi 8192 Apr 12 18:16 testrel
 
 test1 starting
 *****************************
@@ -24,7 +24,7 @@ creating testrel
 opening testrel
 
 adding 1200 records
-50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  -rw------- 1 adi adi 57344 Apr 12 16:49 testrel
+50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  -rw------- 1 adi adi 57344 Apr 12 18:16 testrel
 
 
 Closing testrel
@@ -43,7 +43,7 @@ creating testrel
 opening testrel
 
 adding 1200 records
-50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  -rw------- 1 adi adi 57344 Apr 12 16:49 testrel
+50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  -rw------- 1 adi adi 57344 Apr 12 18:16 testrel
 
 
 Closing testrel
@@ -69,7 +69,7 @@ creating testrel
 opening testrel
 
 adding 1200 records
-50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  -rw------- 1 adi adi 57344 Apr 12 16:49 testrel
+50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  -rw------- 1 adi adi 57344 Apr 12 18:16 testrel
 
 
 verifying file contents
@@ -102,7 +102,7 @@ creating testrel
 opening testrel
 
 adding 1200 records
-50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  -rw------- 1 adi adi 57344 Apr 12 16:49 testrel
+50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  -rw------- 1 adi adi 57344 Apr 12 18:16 testrel
 
 
 verifying file contents
