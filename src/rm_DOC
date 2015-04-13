@@ -14,9 +14,10 @@ Assistance taken:
 
 2) Abhinav Rastogi
     - Discussed the file header and page header design
-    - Help taken to debug the GetNextRec function of the RM_FileScan class
     - Help in writing additional tests
 
+
+--------------------------------------------
 --------------------------------------------
 
 ** DESIGN **
@@ -92,15 +93,18 @@ Getting a record and updating a record do not change the free space in any way.
 The pinning hint is not used currently in the file scan. If NO_HINT is specified, the page
 that contains the record fetched is immediately unpinned in the buffer pool.
 
+
+--------------------------------------------
 --------------------------------------------
 
-** IMPLEMENTATION **
+** IMPLEMENTATION DETAILS **
 
-RM_Manager
+The algorithms used for implementing the important methods of the classes are described
+below:
 
-Method: CreateFile(const char *fileName, int recordSize)
-Create a file with the given filename and record size
-Steps:
+* RM_Manager class *
+
+* Method: RC CreateFile(const char *fileName, int recordSize)
     1) Check for valid record size
     2) Create file using the PF Manager
     3) Allocate a header page by opening the file
@@ -108,15 +112,12 @@ Steps:
     5) Create a file header object
     6) Copy the file header to the file header page
     7) Unpin page and flush to disk
+    8) Close the opened file
 
-Method: DestroyFile(const char *fileName)
-Destroy the file with the given filename
-Steps:
+* Method: RC DestroyFile(const char *fileName)
     1) Destroy the file using the PF Manager
 
-Method: OpenFile(const char *fileName, RM_FileHandle &fileHandle)
-Open the file with the given filename with the specified filehandle
-Steps:
+* Method: RC OpenFile(const char *fileName, RM_FileHandle &fileHandle)
     1) Check if the file handle is already open
     2) Open the file using the PF Manager
     3) Update the file handle members
@@ -126,9 +127,7 @@ Steps:
         - Store the data in a RM FileHeaderPage object
     5) Unpin the file header page
 
-Method: CloseFile(RM_FileHandle &fileHandle)
-Close the file with the given filehandle
-Steps:
+* Method: RC CloseFile(RM_FileHandle &fileHandle)
     1) Check if the file handle is open
     2) Update the file header page if modified
         - Get the PF PageHandle for the header page
@@ -138,11 +137,11 @@ Steps:
     3) Unpin all the file pages
     4) Close the file using the PF Manager
 
-RM_FileHandle
+-------------------
 
-Method: GetRec(const RID &rid, RM_Record &rec) const
-Given a RID, return the record
-Steps:
+* RM_FileHandle class *
+
+* Method: RC GetRec(const RID &rid, RM_Record &rec) const
     1) Check if the file is open
     2) Get the page and slot numbers for the required record
     3) Open the PF PageHandle for the page
@@ -155,9 +154,7 @@ Steps:
         - Point rec to the new record
     7) Unpin the page
 
-Method: InsertRec(const char *pData, RID &rid)
-Insert a new record
-Steps:
+* Method: RC InsertRec(const char *pData, RID &rid)
     1) Check if the file is open
     2) Get the first free page from the file header
     3) If no free page (first free page number is RM_NO_FREE_PAGE)
@@ -178,9 +175,7 @@ Steps:
     9) Unpin the page
     10) Set the rid to this record
 
-Method: DeleteRec(const RID &rid)
-Delete a record
-Steps:
+* Method: RC DeleteRec(const RID &rid)
     1) Check if the file is open
     2) Get the page number and slot number from the RID
         - Check if the slot number is valid
@@ -196,9 +191,7 @@ Steps:
         - Dispose the page using the PF FileHandle
         - Decrement the number of pages in the file header
 
-Method: UpdateRec(const RM_Record &rec)
-Update a record
-Steps:
+* Method: RC UpdateRec(const RM_Record &rec)
     1) Check if the file is open
     2) Get the RID for the record
     3) Get the page number and slot number for the record
@@ -210,9 +203,12 @@ Steps:
         - Copy the data from the record to the data on page
     8) Unpin the page
 
-RM_FileScan
+-------------------
 
-Method: OpenScan(const RM_FileHandle &fileHandle, AttrType attrType, int attrLength, int attrOffset, CompOp compOp, void *value, ClientHint pinHint = NO_HINT)
+* RM_FileScan class *
+
+* Method: RC OpenScan(const RM_FileHandle &fileHandle, AttrType attrType, int attrLength,
+                      int attrOffset, CompOp compOp, void *value, ClientHint pinHint = NO_HINT)
 Initialize a file scan
 Steps:
     1) Initialize the class variables
@@ -220,9 +216,7 @@ Steps:
         - Store the page number and slot number of the first (non-header) page of the file
     2) Unpin the header and data pages
 
-Method: GetNextRec(RM_Record &rec)
-Get the next matching record
-Steps:
+* Method: RC GetNextRec(RM_Record &rec)
     1) Get the page using the page number
     2) Check the slot number in the bitmap in the page
     3) If filled, get the record data from the page
@@ -240,14 +234,66 @@ Steps:
     8) Follow the pin hint
     9) If next record was not found, go to (2)
 
-Method: CloseScan()
-Close the file scan
-Steps:
+* Method: RC CloseScan()
     1) Return error if the scan is not open
     2) Update the scan open flag
 
-RM_Record
 
+--------------------------------------------
 --------------------------------------------
 
 ** TESTING **
+
+The test suite is included in the file "rm_test.cc".
+In addition to the 2 tests initially in the test suite, I added 3 more tests to check the
+different parts of the RM component.
+The tests are as follows:
+(FEW_RECS = 1200)
+
+* Test1 (Simple) *
+    1) Create a file
+    2) Open the file
+    3) Close the file
+    4) Destroy the file
+
+* Test2 (Insert Records) *
+    1) Create a file
+    2) Open the file
+    3) Insert FEW_RECS to the file
+    4) Close the file
+    5) Destroy the file
+
+* Test3 (Verify records) *
+    1) Create a file
+    2) Open the file
+    3) Insert FEW_RECS to the file
+    4) Close the file
+    5) Open the file again
+    6) Verify the records in the file
+    7) Close the file
+    8) Destroy the file
+
+* Test4 (Update records) *
+    1) Create a file
+    2) Open the file
+    3) Insert FEW_RECS to the file
+    4) Close the file
+    5) Open the file again
+    6) Update the first 10 records in the file
+    6) Verify the updated records in the file
+    7) Close the file
+    8) Destroy the file
+
+* Test5 (Delete records) *
+    1) Create a file
+    2) Open the file
+    3) Insert FEW_RECS to the file
+    4) Close the file
+    5) Open the file again
+    6) Delete the first 10 records in the file
+    6) Verify the records in the file
+    7) Close the file
+    8) Destroy the file
+
+
+--------------------------------------------xx EOF xx----------------------------------------
