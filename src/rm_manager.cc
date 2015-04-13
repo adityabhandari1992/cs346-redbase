@@ -32,6 +32,7 @@ RM_Manager::~RM_Manager() {
     5) Create a file header object
     6) Copy the file header to the file header page
     7) Unpin page and flush to disk
+    8) Close the opened file
 */
 RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
     // Check for a valid record size
@@ -112,6 +113,12 @@ RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
     // Flush the page to disk
     if ((rc = pfFH.ForcePages(pNum))) {
         // Return the error from the PF FileHandle
+        return rc;
+    }
+
+    // Close the file using the PF Manager
+    if ((rc = pfManager->CloseFile(pfFH))) {
+        // Return the error from the PF Manager
         return rc;
     }
 
@@ -280,7 +287,6 @@ RC RM_Manager::CloseFile(RM_FileHandle &fileHandle) {
 
     // Close the file using the PF Manager
     if ((rc = pfManager->CloseFile(pfFH))) {
-        PF_PrintError(rc);
         // Return the error from the PF Manager
         return rc;
     }
