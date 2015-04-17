@@ -205,9 +205,10 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
                 memcpy(newPData, recordData, recordSize);
                 rec.pData = newPData;
 
-                // Set the RID of the new record
+                // Set the RID and size of the new record
                 RID newRid(pageNumber, slotNumber);
                 rec.rid = newRid;
+                rec.recordSize = recordSize;
             }
         }
 

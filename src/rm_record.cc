@@ -26,20 +26,24 @@ RM_Record::~RM_Record() {
 
 // Copy constructor
 RM_Record::RM_Record(const RM_Record &rec) {
-    // Copy the data, rid and valid flag
-    this->pData = rec.pData;
+    // Copy the data
+    memcpy(this->pData, rec.pData, rec.recordSize);
+
+    // Copy the rid, valid flag and record size
     this->rid = rec.rid;
     this->isValid = rec.isValid;
+    this->recordSize = rec.recordSize;
 }
 
 // Overload =
 RM_Record& RM_Record::operator=(const RM_Record &rec) {
     // Check for self-assignment
     if (this != &rec) {
-        // Copy the data, rid and valid flag
+        // Copy the data, rid, valid flag and record size
         this->pData = rec.pData;
         this->rid = rec.rid;
         this->isValid = rec.isValid;
+        this->recordSize = rec.recordSize;
     }
 
     // Return a reference to this

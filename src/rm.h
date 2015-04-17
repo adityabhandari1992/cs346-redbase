@@ -48,10 +48,10 @@ public:
     ~RM_Record();
 
     // Copy constructor
-    RM_Record(const RM_Record &rid);
+    RM_Record(const RM_Record &rec);
 
     // Overload =
-    RM_Record& operator=(const RM_Record &rid);
+    RM_Record& operator=(const RM_Record &rec);
 
     // Return the data corresponding to the record.  Sets *pData to the
     // record contents.
@@ -64,6 +64,7 @@ private:
     char* pData;        // Data in the record
     RID rid;            // RID of the record
     int isValid;        // Flag to store validity of record
+    int recordSize;     // The record size
 };
 
 //

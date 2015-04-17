@@ -136,8 +136,9 @@ RC RM_FileHandle::GetRec(const RID &rid, RM_Record &rec) const {
     memcpy(newPData, data, recordSize);
     rec.pData = newPData;
 
-    // Set the RID of the new record
+    // Set the RID and size of the new record
     rec.rid = rid;
+    rec.recordSize = recordSize;
 
     // Unpin the page
     if ((rc = pfFH.UnpinPage(pageNumber))) {
