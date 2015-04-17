@@ -65,7 +65,7 @@ public:
     RC CreateIndex(const char *fileName, int indexNo,
                    AttrType attrType, int attrLength);
 
-    // Destroy and Index
+    // Destroy an Index
     RC DestroyIndex(const char *fileName, int indexNo);
 
     // Open an Index
@@ -74,11 +74,27 @@ public:
 
     // Close an Index
     RC CloseIndex(IX_IndexHandle &indexHandle);
+
+private:
+    PF_Manager* pfManager;      // PF_Manager object
 };
 
 //
 // Print-error function
 //
 void IX_PrintError(RC rc);
+
+// Warnings
+#define IX_LARGE_RECORD             (START_IX_WARN + 0) // Record size is too large
+#define IX_SMALL_RECORD             (START_IX_WARN + 1) // Record size is too small
+#define IX_LASTWARN                 IX_SMALL_RECORD
+
+// Errors
+#define IX_INVALIDNAME          (START_IX_ERR - 0) // Invalid PC file name
+#define IX_INCONSISTENT_BITMAP  (START_IX_ERR - 1) // Inconsistent bitmap in page
+
+// Error in UNIX system call or library routine
+#define IX_UNIX            (START_IX_ERR - 2) // Unix error
+#define IX_LASTERROR       IX_UNIX
 
 #endif
