@@ -1,0 +1,606 @@
+
+REDBASE >> Query plan display turned on.
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  dept.deptName, FirstName, LastName, desc
+ from  dept, emp, project, assigned
+where  project.completed > 90.000000 and emp.empID = assigned.empID and project.projID = assigned.projID and dept.deptID = emp.deptID and length = 20 and emp.empID = emp.manID;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - dept.deptName, emp.FirstName, emp.LastName, project.desc
+
+ --- FILTER (0) project.completed >AttrType: FLOAT *(float *)data=90
+
+ ---  --- FILTER (0) project.length =AttrType: INT *(int *)data=20
+
+ ---  ---  --- NLJ (3) assigned.projID = project.projID
+
+ ---  ---  ---  --- NLJ (3) emp.empID = assigned.empID
+
+ ---  ---  ---  ---  --- FILTER (1) emp.empID = emp.manID
+
+ ---  ---  ---  ---  ---  --- NLJ (4000) emp.deptID = dept.deptID
+
+ ---  ---  ---  ---  ---  ---  --- RM-Scan (emp 52 pgs, 4000 recs)
+
+ ---  ---  ---  ---  ---  ---  --- RM-Scan (dept 2 pgs, 10 recs)
+
+ ---  ---  ---  ---  --- IX-Scan (assigned 25 pgs, 12000 recs, 3814 keys)
+
+ ---  ---  ---  --- RM-Scan (project 2 pgs, 10 recs)
+
+===================================
+
+deptName            FirstName      LastName            desc                                                 
+------------------------------------------------------------------------------------------------------------
+Accounting          Sauron         Kidman              Reduce cost                                          
+
+1 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::24362
+PAGENOTFOUND::69
+READPAGE::69
+PAGEFOUND::24293
+FLUSHPAGES::5
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  emp.FirstName, emp.LastName, dept.deptName, emp.salary
+ from  emp, dept
+where  emp.deptID = dept.deptID and emp.salary > 199000;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - emp.FirstName, emp.LastName, dept.deptName, emp.salary
+
+ --- NLJ (1332) emp.deptID = dept.deptID
+
+ ---  --- RM-Scan (emp 52 pgs, 4000 recs) emp.salary >AttrType: INT *(int *)data=199000
+
+ ---  --- RM-Scan (dept 2 pgs, 10 recs)
+
+===================================
+
+FirstName      LastName            deptName            salary      
+-------------------------------------------------------------------
+Bill           Baggins             daughter            199698      
+Evelyn         Granger             Human Resources     199767      
+Frodo          Potter              Statistics          199580      
+Wendy          Proudfeet           Human Resources     199430      
+Mike           Potter              Accounting          199040      
+Sauron         Baggins             IT                  199080      
+Gandalf        Taktak              Human Resources     199135      
+Sauron         Kennedy             IT                  199164      
+Evelyn         Kidman              Accounting          199148      
+Bill           Proudfeet           Accounting          199696      
+Michelle       Kidman              Research            199744      
+Mike           Baggins             Research            199936      
+Joyce          Proudfeet           Research            199680      
+Michelle       Proudfeet           Accounting          199972      
+Mike           Clinton             daughter            199268      
+Mike           Kidman              IT                  199623      
+Elrond         Potter              Research            199050      
+William        Kennedy             Statistics          199460      
+Gandalf        Snipes              Accounting          199040      
+
+19 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::265
+PAGENOTFOUND::55
+READPAGE::55
+PAGEFOUND::210
+FLUSHPAGES::2
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  items.itemName, emp.FirstName, price
+ from  items, emp, sales, emph
+where  emp.empID = sales.sellerID and sales.itemID = items.itemID and emph.empID = emp.empID and emph.amount_claimed > 100.000000 and price < 300.000000 and emp.deptID = 0 and items.itemID <> 10 and salary >= 100000 and date < 50.000000;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - items.itemName, emp.FirstName, items.price
+
+ --- FILTER (22) items.price <AttrType: FLOAT *(float *)data=300
+
+ ---  --- FILTER (69) items.itemID <>AttrType: INT *(int *)data=10
+
+ ---  ---  --- NLJ (73) sales.itemID = items.itemID
+
+ ---  ---  ---  --- FILTER (73) sales.date <AttrType: FLOAT *(float *)data=50
+
+ ---  ---  ---  ---  --- NLJ (221) emp.empID = sales.sellerID
+
+ ---  ---  ---  ---  ---  --- FILTER (44) emp.salary >=AttrType: INT *(int *)data=100000
+
+ ---  ---  ---  ---  ---  ---  --- FILTER (133) emp.deptID =AttrType: INT *(int *)data=0
+
+ ---  ---  ---  ---  ---  ---  ---  --- NLJ (1332) emph.empID = emp.empID
+
+ ---  ---  ---  ---  ---  ---  ---  ---  --- RM-Scan (emph 12 pgs, 4000 recs) emph.amount_claimed >AttrType: FLOAT *(float *)data=100
+
+ ---  ---  ---  ---  ---  ---  ---  ---  --- IX-Scan (emp 52 pgs, 4000 recs, 4000 keys)
+
+ ---  ---  ---  ---  ---  --- IX-Scan (sales 81 pgs, 20000 recs, 3973 keys)
+
+ ---  ---  ---  --- IX-Scan (items 30 pgs, 3000 recs, 3000 keys)
+
+===================================
+
+itemName                      FirstName      price       
+---------------------------------------------------------
+Luxury car                    Bill           253.100006  
+House                         Joyce          297.500000  
+Plane tickets                 Joyce          106.199997  
+Nintendo 64 Gamecube          Hermione       101.400002  
+Computer                      Mike           263.700012  
+Computer                      James          20.500000   
+Speakers                      Bill           171.300003  
+Computer                      Michelle       261.600006  
+House                         Michelle       85.199997   
+Cruise package                Hermione       64.500000   
+GameBoy                       Frodo          190.800003  
+Barbie dolls                  Harry          103.400002  
+Speakers                      Wendy          248.500000  
+Speakers                      Bill           284.799988  
+Apartment                     Elrond         151.199997  
+Plane tickets                 Wendy          247.899994  
+Computer                      Mike           229.899994  
+
+17 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::15827
+PAGENOTFOUND::872
+READPAGE::872
+PAGEFOUND::14955
+FLUSHPAGES::7
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  items.itemName, emp.FirstName, price
+ from  items, emp, sales
+where  sales.sellerID = emp.empID and items.itemID = sales.itemID and price < 500.000000 and salesID < 100 and emp.deptID <> 1;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - items.itemName, emp.FirstName, items.price
+
+ --- FILTER (2106) emp.deptID <>AttrType: INT *(int *)data=1
+
+ ---  --- NLJ (2217) sales.sellerID = emp.empID
+
+ ---  ---  --- FILTER (2217) items.price <AttrType: FLOAT *(float *)data=500
+
+ ---  ---  ---  --- NLJ (6660) sales.itemID = items.itemID
+
+ ---  ---  ---  ---  --- IX-Scan (sales 81 pgs, 20000 recs, 20000 keys) sales.salesID <AttrType: INT *(int *)data=100
+
+ ---  ---  ---  ---  --- IX-Scan (items 30 pgs, 3000 recs, 3000 keys)
+
+ ---  ---  --- IX-Scan (emp 52 pgs, 4000 recs, 4000 keys)
+
+===================================
+
+itemName                      FirstName      price       
+---------------------------------------------------------
+GameBoy                       Sauron         45.200001   
+Car                           James          370.500000  
+PS1                           James          98.500000   
+Speakers                      William        73.400002   
+board game                    Sauron         76.000000   
+GameBoy                       Elrond         359.600006  
+Cruise package                Hermione       367.799988  
+Sega Dreamcast                James          426.500000  
+Cruise package                Wendy          64.500000   
+House                         Frodo          438.399994  
+Computer                      Wendy          294.000000  
+Luxury car                    Michelle       403.299988  
+Speakers                      Frodo          491.200012  
+GameBoy                       Hermione       322.500000  
+
+14 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::1160
+PAGENOTFOUND::141
+READPAGE::141
+PAGEFOUND::1019
+FLUSHPAGES::6
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  itemName, price, date
+ from  items, sales
+where  items.itemID = sales.itemID and price < 50.000000 and price > 40.000000 and date < 50.000000;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - items.itemName, items.price, sales.date
+
+ --- FILTER (738) items.price <AttrType: FLOAT *(float *)data=50
+
+ ---  --- FILTER (2217) items.price >AttrType: FLOAT *(float *)data=40
+
+ ---  ---  --- NLJ (6660) sales.itemID = items.itemID
+
+ ---  ---  ---  --- RM-Scan (sales 81 pgs, 20000 recs) sales.date <AttrType: FLOAT *(float *)data=50
+
+ ---  ---  ---  --- IX-Scan (items 30 pgs, 3000 recs, 3000 keys)
+
+===================================
+
+itemName                      price       date        
+------------------------------------------------------
+iPod                          49.599998   17.900000   
+Plane tickets                 41.299999   39.799999   
+Plane tickets                 41.299999   23.600000   
+Car                           46.099998   21.500000   
+Plane tickets                 41.299999   9.400000    
+iPod                          49.599998   25.799999   
+GameBoy                       45.200001   32.599998   
+GameBoy                       45.200001   34.299999   
+Car                           46.099998   47.500000   
+
+9 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::81079
+PAGENOTFOUND::5437
+READPAGE::5437
+PAGEFOUND::75642
+FLUSHPAGES::3
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  emp.empID, FirstName, LastName, dept.deptName, emph.amount_claimed
+ from  emp, dept, emph
+where  emp.empID = emph.empID and emp.deptID = dept.deptID and insured = "yes" and dept.deptID = 5 and amount_claimed < 20.000000;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - emp.empID, emp.FirstName, emp.LastName, dept.deptName, emph.amount_claimed
+
+ --- FILTER (13) dept.deptID =AttrType: INT *(int *)data=5
+
+ ---  --- NLJ (133) emp.deptID = dept.deptID
+
+ ---  ---  --- NLJ (133) emph.empID = emp.empID
+
+ ---  ---  ---  --- FILTER (133) emph.amount_claimed <AttrType: FLOAT *(float *)data=20
+
+ ---  ---  ---  ---  --- RM-Scan (emph 12 pgs, 4000 recs) emph.insured =AttrType: STRING (char *)data=yes
+
+ ---  ---  ---  --- IX-Scan (emp 52 pgs, 4000 recs, 4000 keys)
+
+ ---  ---  --- RM-Scan (dept 2 pgs, 10 recs)
+
+===================================
+
+empID       FirstName      LastName            deptName            amount_claimed 
+----------------------------------------------------------------------------------
+237         Joyce          Smith               Research            1.800000       
+291         Evelyn         Smith               Research            12.200000      
+467         Sauron         Honggowibowo        Research            3.400000       
+1272        Mike           Potter              Research            6.500000       
+1479        William        Proudfeet           Research            8.800000       
+1584        Jack           Bush                Research            14.900000      
+1993        Elrond         Snipes              Research            17.900000      
+2505        Joyce          Kidman              Research            6.900000       
+2508        Elrond         Baggins             Research            18.100000      
+2540        Joyce          Proudfeet           Research            14.100000      
+2680        Evelyn         Proudfeet           Research            1.200000       
+2781        Mike           Taktak              Research            10.400000      
+3077        Michelle       Potter              Research            9.900000       
+3786        Evelyn         Atkins              Research            12.200000      
+3884        Gandalf        Smith               Research            9.500000       
+
+15 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::5024
+PAGENOTFOUND::92
+READPAGE::92
+PAGEFOUND::4932
+FLUSHPAGES::4
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  items.itemName, price
+ from  emp, dept, items, sales
+where  emp.empID = dept.deptID and items.itemID = sales.itemID and emp.empID = sales.sellerID;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - items.itemName, items.price
+
+ --- NLJ (50) sales.itemID = items.itemID
+
+ ---  --- NLJ (50) emp.empID = sales.sellerID
+
+ ---  ---  --- NLJ (10) emp.empID = dept.deptID
+
+ ---  ---  ---  --- RM-Scan (emp 52 pgs, 4000 recs)
+
+ ---  ---  ---  --- RM-Scan (dept 2 pgs, 10 recs)
+
+ ---  ---  --- IX-Scan (sales 81 pgs, 20000 recs, 3973 keys)
+
+ ---  --- IX-Scan (items 30 pgs, 3000 recs, 3000 keys)
+
+===================================
+
+itemName                      price       
+------------------------------------------
+electronic game               901.700012  
+Plane tickets                 2098.800049 
+PS1                           136.600006  
+Plane tickets                 1146.900024 
+Speakers                      2862.600098 
+GameBoy                       2130.100098 
+soft toy                      2168.000000 
+Plane tickets                 1436.300049 
+Cruise package                500.000000  
+Computer                      2691.800049 
+PS1                           2944.000000 
+Nintendo 64 Gamecube          3128.600098 
+Luxury car                    3189.800049 
+Cruise package                1188.400024 
+Luxury car                    2294.399902 
+PS2                           1207.300049 
+Barbie dolls                  1622.000000 
+Plane tickets                 82.699997   
+GameBoy                       2921.000000 
+PS2                           1474.000000 
+PS1                           2925.100098 
+soft toy                      2515.699951 
+GameBoy                       2190.300049 
+PS1                           803.900024  
+Plane tickets                 3086.500000 
+Sega Dreamcast                1930.300049 
+PS2                           324.000000  
+Cruise package                999.099976  
+PS2                           1366.099976 
+Sega Dreamcast                513.599976  
+Computer                      2619.800049 
+board game                    18.500000   
+PS2                           754.500000  
+Cruise package                1354.500000 
+Laptop                        2433.699951 
+Sega Dreamcast                2085.399902 
+PS1                           2912.699951 
+Laptop                        559.400024  
+electronic game               886.200012  
+Apartment                     411.200012  
+Microsoft XBOX                524.700012  
+electronic game               152.500000  
+Plane tickets                 640.200012  
+Plane tickets                 1614.000000 
+board game                    1137.599976 
+Plane tickets                 496.799988  
+Nintendo 64 Gamecube          579.000000  
+Microsoft XBOX                1415.300049 
+Sega Dreamcast                1152.099976 
+
+49 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::16677
+PAGENOTFOUND::167
+READPAGE::167
+PAGEFOUND::16510
+FLUSHPAGES::6
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  emp.manID, empID, FirstName, itemName, price
+ from  emp, sales, items, dept, manager
+where  emp.empID = sales.sellerID and items.itemID = sales.itemID and emp.deptID = dept.deptID and dept.deptID = 0 and price < 50.000000 and manager.deptID = dept.deptID and date < 50.000000 and salary > 10000 and emp.manID = manager.manID;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - emp.manID, emp.empID, emp.FirstName, items.itemName, items.price
+
+ --- FILTER (6) items.price <AttrType: FLOAT *(float *)data=50
+
+ ---  --- NLJ (21) sales.itemID = items.itemID
+
+ ---  ---  --- FILTER (21) sales.date <AttrType: FLOAT *(float *)data=50
+
+ ---  ---  ---  --- NLJ (65) emp.empID = sales.sellerID
+
+ ---  ---  ---  ---  --- FILTER (13) manager.deptID = dept.deptID
+
+ ---  ---  ---  ---  ---  --- NLJ (133) emp.manID = manager.manID
+
+ ---  ---  ---  ---  ---  ---  --- FILTER (133) dept.deptID =AttrType: INT *(int *)data=0
+
+ ---  ---  ---  ---  ---  ---  ---  --- NLJ (1332) emp.deptID = dept.deptID
+
+ ---  ---  ---  ---  ---  ---  ---  ---  --- RM-Scan (emp 52 pgs, 4000 recs) emp.salary >AttrType: INT *(int *)data=10000
+
+ ---  ---  ---  ---  ---  ---  ---  ---  --- RM-Scan (dept 2 pgs, 10 recs)
+
+ ---  ---  ---  ---  ---  ---  --- RM-Scan (manager 2 pgs, 400 recs)
+
+ ---  ---  ---  ---  --- IX-Scan (sales 81 pgs, 20000 recs, 3973 keys)
+
+ ---  ---  --- IX-Scan (items 30 pgs, 3000 recs, 3000 keys)
+
+===================================
+
+manID       empID       FirstName      itemName                      price       
+---------------------------------------------------------------------------------
+381         183         Michelle       Luxury car                    34.000000   
+339         3161        Wendy          Apartment                     17.500000   
+
+2 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::26435
+PAGENOTFOUND::457
+READPAGE::457
+PAGEFOUND::25978
+FLUSHPAGES::7
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  emp.empID, FirstName, dep.depID, relation, deph.amount_claimed
+ from  emp, dept, dep, deph, project
+where  emp.empID <= 200 and dept.deptID = 1 and dept.deptID <= 5 and dept.deptID > 0 and dept.deptID <> 10 and dept.deptID = emp.deptID and dep.empID = emp.empID and dep.relation = "son" and dep.relation <> "wife" and dep.depID = deph.depID and deph.amount_claimed < 100.000000 and deph.amount_claimed <> 200.000000 and deph.amount_claimed >= 0.000000 and project.projID <= 2;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - emp.empID, emp.FirstName, dep.depID, dep.relation, deph.amount_claimed
+
+ --- NLJ (10)  x-product 
+
+ ---  --- FILTER (0) dept.deptID <=AttrType: INT *(int *)data=5
+
+ ---  ---  --- FILTER (1) dept.deptID >AttrType: INT *(int *)data=0
+
+ ---  ---  ---  --- FILTER (5) dept.deptID <>AttrType: INT *(int *)data=10
+
+ ---  ---  ---  ---  --- FILTER (6) dept.deptID =AttrType: INT *(int *)data=1
+
+ ---  ---  ---  ---  ---  --- NLJ (66) emp.deptID = dept.deptID
+
+ ---  ---  ---  ---  ---  ---  --- FILTER (66) emp.empID <=AttrType: INT *(int *)data=200
+
+ ---  ---  ---  ---  ---  ---  ---  --- NLJ (199) dep.empID = emp.empID
+
+ ---  ---  ---  ---  ---  ---  ---  ---  --- FILTER (199) dep.relation <>AttrType: STRING (char *)data=wife
+
+ ---  ---  ---  ---  ---  ---  ---  ---  ---  --- FILTER (210) dep.relation =AttrType: STRING (char *)data=son
+
+ ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  --- NLJ (2106) deph.depID = dep.depID
+
+ ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  --- FILTER (2106) deph.amount_claimed <AttrType: FLOAT *(float *)data=100
+
+ ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  --- FILTER (6327) deph.amount_claimed <>AttrType: FLOAT *(float *)data=200
+
+ ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  --- RM-Scan (deph 56 pgs, 20000 recs) deph.amount_claimed >=AttrType: FLOAT *(float *)data=0
+
+ ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  --- IX-Scan (dep 90 pgs, 20000 recs, 20000 keys)
+
+ ---  ---  ---  ---  ---  ---  ---  ---  --- IX-Scan (emp 52 pgs, 4000 recs, 4000 keys)
+
+ ---  ---  ---  ---  ---  ---  --- RM-Scan (dept 2 pgs, 10 recs)
+
+ ---  --- RM-Scan (project 2 pgs, 10 recs) project.projID <=AttrType: INT *(int *)data=2
+
+===================================
+
+empID       FirstName      depID       relation  amount_claimed 
+----------------------------------------------------------------
+113         William        513         son       0.000000       
+113         William        513         son       0.000000       
+113         William        513         son       0.000000       
+138         Gandalf        8946        son       0.000000       
+138         Gandalf        8946        son       0.000000       
+138         Gandalf        8946        son       0.000000       
+6           Jack           9636        son       6.700000       
+6           Jack           9636        son       6.700000       
+6           Jack           9636        son       6.700000       
+106         James          10096       son       0.000000       
+106         James          10096       son       0.000000       
+106         James          10096       son       0.000000       
+35          Elrond         12255       son       0.000000       
+35          Elrond         12255       son       0.000000       
+35          Elrond         12255       son       0.000000       
+113         William        12623       son       0.000000       
+113         William        12623       son       0.000000       
+113         William        12623       son       0.000000       
+10          Jack           12807       son       0.000000       
+10          Jack           12807       son       0.000000       
+10          Jack           12807       son       0.000000       
+10          Jack           15672       son       23.299999      
+10          Jack           15672       son       23.299999      
+10          Jack           15672       son       23.299999      
+
+24 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::120237
+PAGENOTFOUND::1876
+READPAGE::1876
+PAGEFOUND::118361
+FLUSHPAGES::7
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  *
+ from  emp, emph, dep, deph, sales, items, dept
+where  dep.depID = deph.depID and dep.depID < 10 and emp.empID = emph.empID and dept.deptID = emp.deptID and emp.empID < 10 and sales.itemID = items.itemID and sales.salesID < 100 and sales.sellerID = dep.depID;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - NULL.*
+
+ --- NLJ (-26978894) emp.empID = emph.empID
+
+ ---  --- NLJ (126634088) emp.deptID = dept.deptID
+
+ ---  ---  --- NLJ (556130816)  x-product 
+
+ ---  ---  ---  --- NLJ (4434000) dep.depID = deph.depID
+
+ ---  ---  ---  ---  --- NLJ (2217) sales.itemID = items.itemID
+
+ ---  ---  ---  ---  ---  --- FILTER (2217) dep.depID <AttrType: INT *(int *)data=10
+
+ ---  ---  ---  ---  ---  ---  --- NLJ (6660) sales.sellerID = dep.depID
+
+ ---  ---  ---  ---  ---  ---  ---  --- IX-Scan (sales 81 pgs, 20000 recs, 20000 keys) sales.salesID <AttrType: INT *(int *)data=100
+
+ ---  ---  ---  ---  ---  ---  ---  --- IX-Scan (dep 90 pgs, 20000 recs, 20000 keys)
+
+ ---  ---  ---  ---  ---  --- IX-Scan (items 30 pgs, 3000 recs, 3000 keys)
+
+ ---  ---  ---  ---  --- RM-Scan (deph 56 pgs, 20000 recs)
+
+ ---  ---  ---  --- IX-Scan (emp 52 pgs, 4000 recs, 4000 keys) emp.empID <AttrType: INT *(int *)data=10
+
+ ---  ---  --- RM-Scan (dept 2 pgs, 10 recs)
+
+ ---  --- RM-Scan (emph 12 pgs, 4000 recs)
+
+===================================
+
+salesID     sellerID    sales.itemID date        dep.depID   dep.empID   relation  items.itemID itemName                      price       deph.depID  deph.insured deph.amount_claimed emp.empID   FirstName      LastName            emp.deptID  salary      manID       dept.deptID deptName            deptHeadID  emph.empID  emph.insured emph.amount_claimed 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+0 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::1183
+PAGENOTFOUND::83
+READPAGE::83
+PAGEFOUND::1100
+FLUSHPAGES::11
+
+REDBASE >> Bye.

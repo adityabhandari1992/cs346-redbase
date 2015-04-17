@@ -1,0 +1,73 @@
+/*LOAD TESTS SECOND HALF */
+
+/*TEST 6: LOAD FILE WITH FEWER ATTRIBUTES THAN THERE SHOULD BE
+  (should pass if missing tuples are strings but fail if they are ints/floats )
+ */
+
+
+create table soaps(soapid  i, sname  c28, network  c4, rating  f, dummy c24);
+load soaps ("../data/soaps.data");
+
+/*since missing attr is string, should be filled */
+print soaps;
+
+drop table soaps;
+help;
+!ls; 
+
+/* TEST 5: LOAD FILE WITH MORE ATTRIBUTES THAN THERE SHOULD BE*/
+  
+create table soaps(soapid  i, sname  c28, network  c4);
+load soaps ("../data/soaps.data");
+print soaps; 
+
+drop table soaps;
+help;
+!ls;
+
+/* TEST 4: LOAD FILE WITH NO ATTRIBUTE FOR A STRING ATTR */
+
+ 
+create table soaps(soapid  i, sname  c28, network  c4, rating  f, dummy c24);
+load soaps ("../data/soaps.data");
+
+/*since missing attr is string, should be filled */
+print soaps;
+
+drop table soaps;
+help;
+!ls;
+
+
+/*TEST 3: LOAD FILE WITH NO ATTRIBUTE FOR A INT/FLOAT ATTR */
+ 
+create table soaps(soapid  i, sname  c28, network  c4, rating  f, dummy i);
+load soaps ("../data/soaps.data");
+
+/*since missing attr is string, should be filled */
+print soaps;
+
+drop table soaps;
+help;
+!ls;
+
+/* TEST 2: LOAD FILE WITH TOO-LONG CHAR STRINGS */ 
+
+create table movies (mid i, year c4, name c25);
+load movies ("../data/netflix2/movie_titles.txt");
+
+print movies; 
+drop table movies;
+help; 
+!ls;
+
+/* TEST 1: LOAD FILE WITH INCORRECT PATH NAME */
+
+create table movies (mid i, year i, name c25);
+load movies ("../data/movies.data");
+
+print movies; 
+drop table movies;
+help; 
+!ls;
+  

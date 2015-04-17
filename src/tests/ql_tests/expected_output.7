@@ -1,0 +1,1745 @@
+running test # 7 ****************
+
+REDBASE >> create table soaps (soapid = i, sname = c28, network = c4, rating = f);
+CreateTable
+   relName     =soaps
+   attrCount   =4
+   attributes[0].attrName=soapid   attrType=INT   attrLength=4
+   attributes[1].attrName=sname   attrType=STRING   attrLength=28
+   attributes[2].attrName=network   attrType=STRING   attrLength=4
+   attributes[3].attrName=rating   attrType=FLOAT   attrLength=4
+
+REDBASE >> create table stars (starid = i, stname = c20, plays = c12);
+CreateTable
+   relName     =stars
+   attrCount   =3
+   attributes[0].attrName=starid   attrType=INT   attrLength=4
+   attributes[1].attrName=stname   attrType=STRING   attrLength=20
+   attributes[2].attrName=plays   attrType=STRING   attrLength=12
+
+REDBASE >> create table student (studentid = i, sname = c24, school = c4, gpa = f, extra = c3);
+CreateTable
+   relName     =student
+   attrCount   =5
+   attributes[0].attrName=studentid   attrType=INT   attrLength=4
+   attributes[1].attrName=sname   attrType=STRING   attrLength=24
+   attributes[2].attrName=school   attrType=STRING   attrLength=4
+   attributes[3].attrName=gpa   attrType=FLOAT   attrLength=4
+   attributes[4].attrName=extra   attrType=STRING   attrLength=3
+
+REDBASE >> create table ratings (mid = i, uid = i, rating = i, date = s20);
+CreateTable
+   relName     =ratings
+   attrCount   =4
+   attributes[0].attrName=mid   attrType=INT   attrLength=4
+   attributes[1].attrName=uid   attrType=INT   attrLength=4
+   attributes[2].attrName=rating   attrType=INT   attrLength=4
+   attributes[3].attrName=date   attrType=STRING   attrLength=20
+
+REDBASE >> create table movies (mid = i, year = c4, name = s250);
+CreateTable
+   relName     =movies
+   attrCount   =3
+   attributes[0].attrName=mid   attrType=INT   attrLength=4
+   attributes[1].attrName=year   attrType=STRING   attrLength=4
+   attributes[2].attrName=name   attrType=STRING   attrLength=250
+
+REDBASE >> create index soaps(soapid);
+CreateIndex
+   relName =soaps
+   attrName=soapid
+
+REDBASE >> create index soaps(sname);
+CreateIndex
+   relName =soaps
+   attrName=sname
+
+REDBASE >> create index soaps(network);
+CreateIndex
+   relName =soaps
+   attrName=network
+
+REDBASE >> create index soaps(rating);
+CreateIndex
+   relName =soaps
+   attrName=rating
+
+REDBASE >> create index stars(starid);
+CreateIndex
+   relName =stars
+   attrName=starid
+
+REDBASE >> create index stars(stname);
+CreateIndex
+   relName =stars
+   attrName=stname
+
+REDBASE >> create index stars(plays);
+CreateIndex
+   relName =stars
+   attrName=plays
+
+REDBASE >> create index student(studentid);
+CreateIndex
+   relName =student
+   attrName=studentid
+
+REDBASE >> create index student(sname);
+CreateIndex
+   relName =student
+   attrName=sname
+
+REDBASE >> create index student(school);
+CreateIndex
+   relName =student
+   attrName=school
+
+REDBASE >> create index student(gpa);
+CreateIndex
+   relName =student
+   attrName=gpa
+
+REDBASE >> create index student(extra);
+CreateIndex
+   relName =student
+   attrName=extra
+
+REDBASE >> ls; 
+attrcat
+movies
+ratings
+relcat
+soaps
+soaps0
+soaps1
+soaps2
+soaps3
+stars
+stars0
+stars1
+stars2
+student
+student0
+student1
+student2
+student3
+student4
+
+REDBASE >> load soaps("../data/soaps.data");
+Load
+   relName =soaps
+   fileName =../data/soaps.data
+
+REDBASE >> load stars("../data/stars.data");
+Load
+   relName =stars
+   fileName =../data/stars.data
+
+REDBASE >> load student("../data/student.data");
+Load
+   relName =student
+   fileName =../data/student.data
+
+REDBASE >> load ratings("../data/netflix/ratings.txt");
+Load
+   relName =ratings
+   fileName =../data/netflix/ratings.txt
+
+REDBASE >> load movies("../data/netflix/movie_titles.txt");
+Load
+   relName =movies
+   fileName =../data/netflix/movie_titles.txt
+
+REDBASE >> create table Movie (mID = i, title = c80, year = i, director = c20);
+CreateTable
+   relName     =Movie
+   attrCount   =4
+   attributes[0].attrName=mID   attrType=INT   attrLength=4
+   attributes[1].attrName=title   attrType=STRING   attrLength=80
+   attributes[2].attrName=year   attrType=INT   attrLength=4
+   attributes[3].attrName=director   attrType=STRING   attrLength=20
+
+REDBASE >> create table Reviewer (rID = i, name = c40);
+CreateTable
+   relName     =Reviewer
+   attrCount   =2
+   attributes[0].attrName=rID   attrType=INT   attrLength=4
+   attributes[1].attrName=name   attrType=STRING   attrLength=40
+
+REDBASE >> create table Rating (rID = i, mID = i, stars = i, ratingDate = c20);
+CreateTable
+   relName     =Rating
+   attrCount   =4
+   attributes[0].attrName=rID   attrType=INT   attrLength=4
+   attributes[1].attrName=mID   attrType=INT   attrLength=4
+   attributes[2].attrName=stars   attrType=INT   attrLength=4
+   attributes[3].attrName=ratingDate   attrType=STRING   attrLength=20
+
+REDBASE >> insert into Movie values (  101, "Gone with the Wind", 1939, "Victor Fleming");
+Insert
+   relName = Movie
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=101
+   values[1]:AttrType: STRING (char *)data=Gone with the Wind
+   values[2]:AttrType: INT *(int *)data=1939
+   values[3]:AttrType: STRING (char *)data=Victor Fleming
+mID         title                                                year        director            
+-------------------------------------------------------------------------------------------------
+101         Gone with the Wind                                   1939        Victor Fleming      
+
+1 tuple(s).
+
+REDBASE >> insert into Movie values (  102, "Star Wars", 1977, "George Lucas");
+Insert
+   relName = Movie
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=102
+   values[1]:AttrType: STRING (char *)data=Star Wars
+   values[2]:AttrType: INT *(int *)data=1977
+   values[3]:AttrType: STRING (char *)data=George Lucas
+mID         title                                                year        director            
+-------------------------------------------------------------------------------------------------
+102         Star Wars                                            1977        George Lucas        
+
+1 tuple(s).
+
+REDBASE >> insert into Movie values (  103, "The Sound of Music", 1965, "Robert Wise");
+Insert
+   relName = Movie
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=103
+   values[1]:AttrType: STRING (char *)data=The Sound of Music
+   values[2]:AttrType: INT *(int *)data=1965
+   values[3]:AttrType: STRING (char *)data=Robert Wise
+mID         title                                                year        director            
+-------------------------------------------------------------------------------------------------
+103         The Sound of Music                                   1965        Robert Wise         
+
+1 tuple(s).
+
+REDBASE >> insert into Movie values (  104, "E.T.", 1982, "Steven Spielberg");
+Insert
+   relName = Movie
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=104
+   values[1]:AttrType: STRING (char *)data=E.T.
+   values[2]:AttrType: INT *(int *)data=1982
+   values[3]:AttrType: STRING (char *)data=Steven Spielberg
+mID         title                                                year        director            
+-------------------------------------------------------------------------------------------------
+104         E.T.                                                 1982        Steven Spielberg    
+
+1 tuple(s).
+
+REDBASE >> insert into Movie values (  105, "Titanic", 1997, "James Cameron");
+Insert
+   relName = Movie
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=105
+   values[1]:AttrType: STRING (char *)data=Titanic
+   values[2]:AttrType: INT *(int *)data=1997
+   values[3]:AttrType: STRING (char *)data=James Cameron
+mID         title                                                year        director            
+-------------------------------------------------------------------------------------------------
+105         Titanic                                              1997        James Cameron       
+
+1 tuple(s).
+
+REDBASE >> insert into Movie values (  106, "Snow White", 1937, "");
+Insert
+   relName = Movie
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=106
+   values[1]:AttrType: STRING (char *)data=Snow White
+   values[2]:AttrType: INT *(int *)data=1937
+   values[3]:AttrType: STRING (char *)data=
+mID         title                                                year        director            
+-------------------------------------------------------------------------------------------------
+106         Snow White                                           1937                            
+
+1 tuple(s).
+
+REDBASE >> insert into Movie values (  107, "Avatar", 2009, "James Cameron");
+Insert
+   relName = Movie
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=107
+   values[1]:AttrType: STRING (char *)data=Avatar
+   values[2]:AttrType: INT *(int *)data=2009
+   values[3]:AttrType: STRING (char *)data=James Cameron
+mID         title                                                year        director            
+-------------------------------------------------------------------------------------------------
+107         Avatar                                               2009        James Cameron       
+
+1 tuple(s).
+
+REDBASE >> insert into Movie values (  108, "Raiders of the Lost Ark", 1981, "Steven Spielberg");
+Insert
+   relName = Movie
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=108
+   values[1]:AttrType: STRING (char *)data=Raiders of the Lost Ark
+   values[2]:AttrType: INT *(int *)data=1981
+   values[3]:AttrType: STRING (char *)data=Steven Spielberg
+mID         title                                                year        director            
+-------------------------------------------------------------------------------------------------
+108         Raiders of the Lost Ark                              1981        Steven Spielberg    
+
+1 tuple(s).
+
+REDBASE >> insert into Reviewer values (  201, "Sarah Martinez");
+Insert
+   relName = Reviewer
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=201
+   values[1]:AttrType: STRING (char *)data=Sarah Martinez
+rID         name                                    
+----------------------------------------------------
+201         Sarah Martinez                          
+
+1 tuple(s).
+
+REDBASE >> insert into Reviewer values (  202, "Daniel Lewis");
+Insert
+   relName = Reviewer
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=202
+   values[1]:AttrType: STRING (char *)data=Daniel Lewis
+rID         name                                    
+----------------------------------------------------
+202         Daniel Lewis                            
+
+1 tuple(s).
+
+REDBASE >> insert into Reviewer values (  203, "Brittany Harris");
+Insert
+   relName = Reviewer
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=203
+   values[1]:AttrType: STRING (char *)data=Brittany Harris
+rID         name                                    
+----------------------------------------------------
+203         Brittany Harris                         
+
+1 tuple(s).
+
+REDBASE >> insert into Reviewer values (  204, "Mike Anderson");
+Insert
+   relName = Reviewer
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=204
+   values[1]:AttrType: STRING (char *)data=Mike Anderson
+rID         name                                    
+----------------------------------------------------
+204         Mike Anderson                           
+
+1 tuple(s).
+
+REDBASE >> insert into Reviewer values (  205, "Chris Jackson");
+Insert
+   relName = Reviewer
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=205
+   values[1]:AttrType: STRING (char *)data=Chris Jackson
+rID         name                                    
+----------------------------------------------------
+205         Chris Jackson                           
+
+1 tuple(s).
+
+REDBASE >> insert into Reviewer values (  206, "Elizabeth Thomas");
+Insert
+   relName = Reviewer
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=206
+   values[1]:AttrType: STRING (char *)data=Elizabeth Thomas
+rID         name                                    
+----------------------------------------------------
+206         Elizabeth Thomas                        
+
+1 tuple(s).
+
+REDBASE >> insert into Reviewer values (  207, "James Cameron");
+Insert
+   relName = Reviewer
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=207
+   values[1]:AttrType: STRING (char *)data=James Cameron
+rID         name                                    
+----------------------------------------------------
+207         James Cameron                           
+
+1 tuple(s).
+
+REDBASE >> insert into Reviewer values (  208, "Ashley White");
+Insert
+   relName = Reviewer
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=208
+   values[1]:AttrType: STRING (char *)data=Ashley White
+rID         name                                    
+----------------------------------------------------
+208         Ashley White                            
+
+1 tuple(s).
+
+REDBASE >> insert into Rating values (  201, 101, 2, "2011-01-22");
+Insert
+   relName = Rating
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=201
+   values[1]:AttrType: INT *(int *)data=101
+   values[2]:AttrType: INT *(int *)data=2
+   values[3]:AttrType: STRING (char *)data=2011-01-22
+rID         mID         stars       ratingDate          
+--------------------------------------------------------
+201         101         2           2011-01-22          
+
+1 tuple(s).
+
+REDBASE >> insert into Rating values (  201, 101, 4, "2011-01-27");
+Insert
+   relName = Rating
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=201
+   values[1]:AttrType: INT *(int *)data=101
+   values[2]:AttrType: INT *(int *)data=4
+   values[3]:AttrType: STRING (char *)data=2011-01-27
+rID         mID         stars       ratingDate          
+--------------------------------------------------------
+201         101         4           2011-01-27          
+
+1 tuple(s).
+
+REDBASE >> insert into Rating values (  202, 106, 4, "");
+Insert
+   relName = Rating
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=202
+   values[1]:AttrType: INT *(int *)data=106
+   values[2]:AttrType: INT *(int *)data=4
+   values[3]:AttrType: STRING (char *)data=
+rID         mID         stars       ratingDate          
+--------------------------------------------------------
+202         106         4                               
+
+1 tuple(s).
+
+REDBASE >> insert into Rating values (  203, 103, 2, "2011-01-20");
+Insert
+   relName = Rating
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=203
+   values[1]:AttrType: INT *(int *)data=103
+   values[2]:AttrType: INT *(int *)data=2
+   values[3]:AttrType: STRING (char *)data=2011-01-20
+rID         mID         stars       ratingDate          
+--------------------------------------------------------
+203         103         2           2011-01-20          
+
+1 tuple(s).
+
+REDBASE >> insert into Rating values (  203, 108, 4, "2011-01-12");
+Insert
+   relName = Rating
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=203
+   values[1]:AttrType: INT *(int *)data=108
+   values[2]:AttrType: INT *(int *)data=4
+   values[3]:AttrType: STRING (char *)data=2011-01-12
+rID         mID         stars       ratingDate          
+--------------------------------------------------------
+203         108         4           2011-01-12          
+
+1 tuple(s).
+
+REDBASE >> insert into Rating values (  203, 108, 2, "2011-01-30");
+Insert
+   relName = Rating
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=203
+   values[1]:AttrType: INT *(int *)data=108
+   values[2]:AttrType: INT *(int *)data=2
+   values[3]:AttrType: STRING (char *)data=2011-01-30
+rID         mID         stars       ratingDate          
+--------------------------------------------------------
+203         108         2           2011-01-30          
+
+1 tuple(s).
+
+REDBASE >> insert into Rating values (  204, 101, 3, "2011-01-09");
+Insert
+   relName = Rating
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=204
+   values[1]:AttrType: INT *(int *)data=101
+   values[2]:AttrType: INT *(int *)data=3
+   values[3]:AttrType: STRING (char *)data=2011-01-09
+rID         mID         stars       ratingDate          
+--------------------------------------------------------
+204         101         3           2011-01-09          
+
+1 tuple(s).
+
+REDBASE >> insert into Rating values (  205, 103, 3, "2011-01-27");
+Insert
+   relName = Rating
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=205
+   values[1]:AttrType: INT *(int *)data=103
+   values[2]:AttrType: INT *(int *)data=3
+   values[3]:AttrType: STRING (char *)data=2011-01-27
+rID         mID         stars       ratingDate          
+--------------------------------------------------------
+205         103         3           2011-01-27          
+
+1 tuple(s).
+
+REDBASE >> insert into Rating values (  205, 104, 2, "2011-01-22");
+Insert
+   relName = Rating
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=205
+   values[1]:AttrType: INT *(int *)data=104
+   values[2]:AttrType: INT *(int *)data=2
+   values[3]:AttrType: STRING (char *)data=2011-01-22
+rID         mID         stars       ratingDate          
+--------------------------------------------------------
+205         104         2           2011-01-22          
+
+1 tuple(s).
+
+REDBASE >> insert into Rating values (  205, 108, 4, "");
+Insert
+   relName = Rating
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=205
+   values[1]:AttrType: INT *(int *)data=108
+   values[2]:AttrType: INT *(int *)data=4
+   values[3]:AttrType: STRING (char *)data=
+rID         mID         stars       ratingDate          
+--------------------------------------------------------
+205         108         4                               
+
+1 tuple(s).
+
+REDBASE >> insert into Rating values (  206, 107, 3, "2011-01-15");
+Insert
+   relName = Rating
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=206
+   values[1]:AttrType: INT *(int *)data=107
+   values[2]:AttrType: INT *(int *)data=3
+   values[3]:AttrType: STRING (char *)data=2011-01-15
+rID         mID         stars       ratingDate          
+--------------------------------------------------------
+206         107         3           2011-01-15          
+
+1 tuple(s).
+
+REDBASE >> insert into Rating values (  206, 106, 5, "2011-01-19");
+Insert
+   relName = Rating
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=206
+   values[1]:AttrType: INT *(int *)data=106
+   values[2]:AttrType: INT *(int *)data=5
+   values[3]:AttrType: STRING (char *)data=2011-01-19
+rID         mID         stars       ratingDate          
+--------------------------------------------------------
+206         106         5           2011-01-19          
+
+1 tuple(s).
+
+REDBASE >> insert into Rating values (  207, 107, 5, "2011-01-20");
+Insert
+   relName = Rating
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=207
+   values[1]:AttrType: INT *(int *)data=107
+   values[2]:AttrType: INT *(int *)data=5
+   values[3]:AttrType: STRING (char *)data=2011-01-20
+rID         mID         stars       ratingDate          
+--------------------------------------------------------
+207         107         5           2011-01-20          
+
+1 tuple(s).
+
+REDBASE >> insert into Rating values (  208, 104, 3, "2011-01-02");
+Insert
+   relName = Rating
+   nValues = 4
+   values[0]:AttrType: INT *(int *)data=208
+   values[1]:AttrType: INT *(int *)data=104
+   values[2]:AttrType: INT *(int *)data=3
+   values[3]:AttrType: STRING (char *)data=2011-01-02
+rID         mID         stars       ratingDate          
+--------------------------------------------------------
+208         104         3           2011-01-02          
+
+1 tuple(s).
+
+REDBASE >> create table Highschooler (ID = i, name = c20, grade = i);
+CreateTable
+   relName     =Highschooler
+   attrCount   =3
+   attributes[0].attrName=ID   attrType=INT   attrLength=4
+   attributes[1].attrName=name   attrType=STRING   attrLength=20
+   attributes[2].attrName=grade   attrType=INT   attrLength=4
+
+REDBASE >> create table Friend (ID1 = i, ID2 = i);
+CreateTable
+   relName     =Friend
+   attrCount   =2
+   attributes[0].attrName=ID1   attrType=INT   attrLength=4
+   attributes[1].attrName=ID2   attrType=INT   attrLength=4
+
+REDBASE >> create table Likes (ID1 = i, ID2 = i);
+CreateTable
+   relName     =Likes
+   attrCount   =2
+   attributes[0].attrName=ID1   attrType=INT   attrLength=4
+   attributes[1].attrName=ID2   attrType=INT   attrLength=4
+
+REDBASE >> insert into Highschooler values (  1510, "Jordan", 9);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1510
+   values[1]:AttrType: STRING (char *)data=Jordan
+   values[2]:AttrType: INT *(int *)data=9
+ID          name                grade       
+--------------------------------------------
+1510        Jordan              9           
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1689, "Gabriel", 9);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1689
+   values[1]:AttrType: STRING (char *)data=Gabriel
+   values[2]:AttrType: INT *(int *)data=9
+ID          name                grade       
+--------------------------------------------
+1689        Gabriel             9           
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1381, "Tiffany", 9);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1381
+   values[1]:AttrType: STRING (char *)data=Tiffany
+   values[2]:AttrType: INT *(int *)data=9
+ID          name                grade       
+--------------------------------------------
+1381        Tiffany             9           
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1709, "Cassandra", 9);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1709
+   values[1]:AttrType: STRING (char *)data=Cassandra
+   values[2]:AttrType: INT *(int *)data=9
+ID          name                grade       
+--------------------------------------------
+1709        Cassandra           9           
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1101, "Haley", 10);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1101
+   values[1]:AttrType: STRING (char *)data=Haley
+   values[2]:AttrType: INT *(int *)data=10
+ID          name                grade       
+--------------------------------------------
+1101        Haley               10          
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1782, "Andrew", 10);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1782
+   values[1]:AttrType: STRING (char *)data=Andrew
+   values[2]:AttrType: INT *(int *)data=10
+ID          name                grade       
+--------------------------------------------
+1782        Andrew              10          
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1468, "Kris", 10);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1468
+   values[1]:AttrType: STRING (char *)data=Kris
+   values[2]:AttrType: INT *(int *)data=10
+ID          name                grade       
+--------------------------------------------
+1468        Kris                10          
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1641, "Brittany", 10);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1641
+   values[1]:AttrType: STRING (char *)data=Brittany
+   values[2]:AttrType: INT *(int *)data=10
+ID          name                grade       
+--------------------------------------------
+1641        Brittany            10          
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1247, "Alexis", 11);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1247
+   values[1]:AttrType: STRING (char *)data=Alexis
+   values[2]:AttrType: INT *(int *)data=11
+ID          name                grade       
+--------------------------------------------
+1247        Alexis              11          
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1316, "Austin", 11);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1316
+   values[1]:AttrType: STRING (char *)data=Austin
+   values[2]:AttrType: INT *(int *)data=11
+ID          name                grade       
+--------------------------------------------
+1316        Austin              11          
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1911, "Gabriel", 11);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1911
+   values[1]:AttrType: STRING (char *)data=Gabriel
+   values[2]:AttrType: INT *(int *)data=11
+ID          name                grade       
+--------------------------------------------
+1911        Gabriel             11          
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1501, "Jessica", 11);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1501
+   values[1]:AttrType: STRING (char *)data=Jessica
+   values[2]:AttrType: INT *(int *)data=11
+ID          name                grade       
+--------------------------------------------
+1501        Jessica             11          
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1304, "Jordan", 12);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1304
+   values[1]:AttrType: STRING (char *)data=Jordan
+   values[2]:AttrType: INT *(int *)data=12
+ID          name                grade       
+--------------------------------------------
+1304        Jordan              12          
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1025, "John", 12);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1025
+   values[1]:AttrType: STRING (char *)data=John
+   values[2]:AttrType: INT *(int *)data=12
+ID          name                grade       
+--------------------------------------------
+1025        John                12          
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1934, "Kyle", 12);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1934
+   values[1]:AttrType: STRING (char *)data=Kyle
+   values[2]:AttrType: INT *(int *)data=12
+ID          name                grade       
+--------------------------------------------
+1934        Kyle                12          
+
+1 tuple(s).
+
+REDBASE >> insert into Highschooler values (  1661, "Logan", 12);
+Insert
+   relName = Highschooler
+   nValues = 3
+   values[0]:AttrType: INT *(int *)data=1661
+   values[1]:AttrType: STRING (char *)data=Logan
+   values[2]:AttrType: INT *(int *)data=12
+ID          name                grade       
+--------------------------------------------
+1661        Logan               12          
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1510, 1381);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1510
+   values[1]:AttrType: INT *(int *)data=1381
+ID1         ID2         
+------------------------
+1510        1381        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1510, 1689);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1510
+   values[1]:AttrType: INT *(int *)data=1689
+ID1         ID2         
+------------------------
+1510        1689        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1689, 1709);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1689
+   values[1]:AttrType: INT *(int *)data=1709
+ID1         ID2         
+------------------------
+1689        1709        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1381, 1247);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1381
+   values[1]:AttrType: INT *(int *)data=1247
+ID1         ID2         
+------------------------
+1381        1247        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1709, 1247);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1709
+   values[1]:AttrType: INT *(int *)data=1247
+ID1         ID2         
+------------------------
+1709        1247        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1689, 1782);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1689
+   values[1]:AttrType: INT *(int *)data=1782
+ID1         ID2         
+------------------------
+1689        1782        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1782, 1468);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1782
+   values[1]:AttrType: INT *(int *)data=1468
+ID1         ID2         
+------------------------
+1782        1468        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1782, 1316);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1782
+   values[1]:AttrType: INT *(int *)data=1316
+ID1         ID2         
+------------------------
+1782        1316        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1782, 1304);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1782
+   values[1]:AttrType: INT *(int *)data=1304
+ID1         ID2         
+------------------------
+1782        1304        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1468, 1101);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1468
+   values[1]:AttrType: INT *(int *)data=1101
+ID1         ID2         
+------------------------
+1468        1101        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1468, 1641);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1468
+   values[1]:AttrType: INT *(int *)data=1641
+ID1         ID2         
+------------------------
+1468        1641        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1101, 1641);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1101
+   values[1]:AttrType: INT *(int *)data=1641
+ID1         ID2         
+------------------------
+1101        1641        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1247, 1911);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1247
+   values[1]:AttrType: INT *(int *)data=1911
+ID1         ID2         
+------------------------
+1247        1911        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1247, 1501);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1247
+   values[1]:AttrType: INT *(int *)data=1501
+ID1         ID2         
+------------------------
+1247        1501        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1911, 1501);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1911
+   values[1]:AttrType: INT *(int *)data=1501
+ID1         ID2         
+------------------------
+1911        1501        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1501, 1934);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1501
+   values[1]:AttrType: INT *(int *)data=1934
+ID1         ID2         
+------------------------
+1501        1934        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1316, 1934);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1316
+   values[1]:AttrType: INT *(int *)data=1934
+ID1         ID2         
+------------------------
+1316        1934        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1934, 1304);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1934
+   values[1]:AttrType: INT *(int *)data=1304
+ID1         ID2         
+------------------------
+1934        1304        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1304, 1661);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1304
+   values[1]:AttrType: INT *(int *)data=1661
+ID1         ID2         
+------------------------
+1304        1661        
+
+1 tuple(s).
+
+REDBASE >> insert into Friend values (  1661, 1025);
+Insert
+   relName = Friend
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1661
+   values[1]:AttrType: INT *(int *)data=1025
+ID1         ID2         
+------------------------
+1661        1025        
+
+1 tuple(s).
+
+REDBASE >> insert into Likes values (  1689, 1709);
+Insert
+   relName = Likes
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1689
+   values[1]:AttrType: INT *(int *)data=1709
+ID1         ID2         
+------------------------
+1689        1709        
+
+1 tuple(s).
+
+REDBASE >> insert into Likes values (  1709, 1689);
+Insert
+   relName = Likes
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1709
+   values[1]:AttrType: INT *(int *)data=1689
+ID1         ID2         
+------------------------
+1709        1689        
+
+1 tuple(s).
+
+REDBASE >> insert into Likes values (  1782, 1709);
+Insert
+   relName = Likes
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1782
+   values[1]:AttrType: INT *(int *)data=1709
+ID1         ID2         
+------------------------
+1782        1709        
+
+1 tuple(s).
+
+REDBASE >> insert into Likes values (  1911, 1247);
+Insert
+   relName = Likes
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1911
+   values[1]:AttrType: INT *(int *)data=1247
+ID1         ID2         
+------------------------
+1911        1247        
+
+1 tuple(s).
+
+REDBASE >> insert into Likes values (  1247, 1468);
+Insert
+   relName = Likes
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1247
+   values[1]:AttrType: INT *(int *)data=1468
+ID1         ID2         
+------------------------
+1247        1468        
+
+1 tuple(s).
+
+REDBASE >> insert into Likes values (  1641, 1468);
+Insert
+   relName = Likes
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1641
+   values[1]:AttrType: INT *(int *)data=1468
+ID1         ID2         
+------------------------
+1641        1468        
+
+1 tuple(s).
+
+REDBASE >> insert into Likes values (  1316, 1304);
+Insert
+   relName = Likes
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1316
+   values[1]:AttrType: INT *(int *)data=1304
+ID1         ID2         
+------------------------
+1316        1304        
+
+1 tuple(s).
+
+REDBASE >> insert into Likes values (  1501, 1934);
+Insert
+   relName = Likes
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1501
+   values[1]:AttrType: INT *(int *)data=1934
+ID1         ID2         
+------------------------
+1501        1934        
+
+1 tuple(s).
+
+REDBASE >> insert into Likes values (  1934, 1501);
+Insert
+   relName = Likes
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1934
+   values[1]:AttrType: INT *(int *)data=1501
+ID1         ID2         
+------------------------
+1934        1501        
+
+1 tuple(s).
+
+REDBASE >> insert into Likes values (  1025, 1101);
+Insert
+   relName = Likes
+   nValues = 2
+   values[0]:AttrType: INT *(int *)data=1025
+   values[1]:AttrType: INT *(int *)data=1101
+ID1         ID2         
+------------------------
+1025        1101        
+
+1 tuple(s).
+
+REDBASE >> select  *
+ from  soaps
+;
+Select
+   nSelAttrs = 1
+   selAttrs[0]:NULL.*
+   nRelations = 1
+   relations[0] soaps
+   nCondtions = 0
+soapid      sname                       network rating      
+------------------------------------------------------------
+0           Days of Our Lives           NBC     7.020000    
+1           General Hospital            ABC     9.810000    
+2           Guiding Light               CBS     4.020000    
+3           One Life to Live            ABC     2.310000    
+4           Santa Barbara               NBC     6.440000    
+5           The Young and the Restless  CBS     5.500000    
+6           As the World Turns          CBS     7.000000    
+7           Another World               NBC     1.970000    
+8           All My Children             ABC     8.820000    
+
+9 tuple(s).
+
+REDBASE >> select  soapid, starid, studentid, ratings.rating, movies.name
+ from  soaps, stars, student, ratings, movies
+where  studentid = starid and soapid = starid and ratings.uid = starid and ratings.rating = 1 and ratings.mid = movies.mid;
+Select
+   nSelAttrs = 5
+   selAttrs[0]:NULL.soapid
+   selAttrs[1]:NULL.starid
+   selAttrs[2]:NULL.studentid
+   selAttrs[3]:ratings.rating
+   selAttrs[4]:movies.name
+   nRelations = 5
+   relations[0] soaps
+   relations[1] stars
+   relations[2] student
+   relations[3] ratings
+   relations[4] movies
+   nCondtions = 5
+   conditions[0]:
+      lhsAttr:NULL.studentid
+      op= =
+      bRhsIsAttr=TRUE 
+      rhsAttr:NULL.starid
+   conditions[1]:
+      lhsAttr:NULL.soapid
+      op= =
+      bRhsIsAttr=TRUE 
+      rhsAttr:NULL.starid
+   conditions[2]:
+      lhsAttr:ratings.uid
+      op= =
+      bRhsIsAttr=TRUE 
+      rhsAttr:NULL.starid
+   conditions[3]:
+      lhsAttr:ratings.rating
+      op= =
+      bRshIsAttr=FALSE
+      rhsValue:AttrType: INT *(int *)data=1
+   conditions[4]:
+      lhsAttr:ratings.mid
+      op= =
+      bRhsIsAttr=TRUE 
+      rhsAttr:movies.mid
+soapid      starid      studentid   rating      name                                                 
+-----------------------------------------------------------------------------------------------------
+6           6           6           1           The Karate Kid                                       
+6           6           6           1           Tomb Raider                                          
+6           6           6           1           Six Feet Under: Season 3                             
+6           6           6           1           Napoleon Dynamite                                    
+6           6           6           1           The Shield: Season 1                                 
+6           6           6           1           Chicago                                              
+6           6           6           1           One Hour Photo                                       
+6           6           6           1           The Wire: Season 2                                   
+6           6           6           1           Curb Your Enthusiasm: Season 3                       
+6           6           6           1           Curb Your Enthusiasm: Season 2                       
+6           6           6           1           Last Days                                            
+6           6           6           1           Six Feet Under: Season 2                             
+6           6           6           1           Once Upon a Time in America                          
+6           6           6           1           Under the Tuscan Sun                                 
+6           6           6           1           S.W.A.T.                                             
+6           6           6           1           Kindergarten Cop                                     
+6           6           6           1           Six Feet Under: Season 4                             
+6           6           6           1           The Shield: Season 2                                 
+6           6           6           1           Desperado / El Mariachi                              
+7           7           7           1           Dawn of the Dead                                     
+7           7           7           1           The Texas Chainsaw Massacre                          
+7           7           7           1           Bowling for Columbine                                
+7           7           7           1           Look Who's Talking Too                               
+7           7           7           1           Fahrenheit 9/11                                      
+8           8           8           1           The Life Aquatic with Steve Zissou                   
+
+25 tuple(s).
+
+REDBASE >> select  *
+ from  student, soaps, stars
+where  stars.stname < student.sname and soaps.rating > student.gpa and stars.starid = soaps.soapid;
+Select
+   nSelAttrs = 1
+   selAttrs[0]:NULL.*
+   nRelations = 3
+   relations[0] student
+   relations[1] soaps
+   relations[2] stars
+   nCondtions = 3
+   conditions[0]:
+      lhsAttr:stars.stname
+      op= <
+      bRhsIsAttr=TRUE 
+      rhsAttr:student.sname
+   conditions[1]:
+      lhsAttr:soaps.rating
+      op= >
+      bRhsIsAttr=TRUE 
+      rhsAttr:student.gpa
+   conditions[2]:
+      lhsAttr:stars.starid
+      op= =
+      bRhsIsAttr=TRUE 
+      rhsAttr:soaps.soapid
+starid      stname              plays       studentid   student.sname           school gpa         extra soapid      soaps.sname                 network rating      
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+0           Hayes Kathryn       Kim         9           Iolanthe                MSCS   2.750000    foo   0           Days of Our Lives           NBC     7.020000    
+0           Hayes Kathryn       Kim         10          Jordan                  MSAI   3.850000    foo   0           Days of Our Lives           NBC     7.020000    
+0           Hayes Kathryn       Kim         11          Kilroy                  MSCS   3.000000    foo   0           Days of Our Lives           NBC     7.020000    
+0           Hayes Kathryn       Kim         12          Lambeth                 MSAI   4.000000    foo   0           Days of Our Lives           NBC     7.020000    
+0           Hayes Kathryn       Kim         13          MacBeth                 MSCS   2.500000    foo   0           Days of Our Lives           NBC     7.020000    
+0           Hayes Kathryn       Kim         14          Noorda                  MSAI   3.900000    foo   0           Days of Our Lives           NBC     7.020000    
+0           Hayes Kathryn       Kim         15          Othello                 MSCS   3.300000    foo   0           Days of Our Lives           NBC     7.020000    
+1           DeFreitas Scott     Andy        4           Downer                  MSAI   3.950000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        5           Everett                 MSCS   2.950000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        6           Forest                  MSAI   3.840000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        7           Grover                  MSCS   3.200000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        8           Harrison                MSAI   3.900000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        9           Iolanthe                MSCS   2.750000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        10          Jordan                  MSAI   3.850000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        11          Kilroy                  MSCS   3.000000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        12          Lambeth                 MSAI   4.000000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        13          MacBeth                 MSCS   2.500000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        14          Noorda                  MSAI   3.900000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        15          Othello                 MSCS   3.300000    foo   1           General Hospital            ABC     9.810000    
+2           Grahn Nancy         Julia       7           Grover                  MSCS   3.200000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       8           Harrison                MSAI   3.900000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       9           Iolanthe                MSCS   2.750000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       10          Jordan                  MSAI   3.850000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       11          Kilroy                  MSCS   3.000000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       12          Lambeth                 MSAI   4.000000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       13          MacBeth                 MSCS   2.500000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       14          Noorda                  MSAI   3.900000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       15          Othello                 MSCS   3.300000    foo   2           Guiding Light               CBS     4.020000    
+4           Cooper Jeanne       Katherine   4           Downer                  MSAI   3.950000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   5           Everett                 MSCS   2.950000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   6           Forest                  MSAI   3.840000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   7           Grover                  MSCS   3.200000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   8           Harrison                MSAI   3.900000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   9           Iolanthe                MSCS   2.750000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   10          Jordan                  MSAI   3.850000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   11          Kilroy                  MSCS   3.000000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   12          Lambeth                 MSAI   4.000000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   13          MacBeth                 MSCS   2.500000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   14          Noorda                  MSAI   3.900000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   15          Othello                 MSCS   3.300000    foo   4           Santa Barbara               NBC     6.440000    
+5           Ehlers Beth         Harley      5           Everett                 MSCS   2.950000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      6           Forest                  MSAI   3.840000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      7           Grover                  MSCS   3.200000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      8           Harrison                MSAI   3.900000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      9           Iolanthe                MSCS   2.750000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      10          Jordan                  MSAI   3.850000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      11          Kilroy                  MSCS   3.000000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      12          Lambeth                 MSAI   4.000000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      13          MacBeth                 MSCS   2.500000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      14          Noorda                  MSAI   3.900000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      15          Othello                 MSCS   3.300000    foo   5           The Young and the Restless  CBS     5.500000    
+6           Novak John          Keith       15          Othello                 MSCS   3.300000    foo   6           As the World Turns          CBS     7.000000    
+8           Hutchinson Fiona    Gabrielle   9           Iolanthe                MSCS   2.750000    foo   8           All My Children             ABC     8.820000    
+8           Hutchinson Fiona    Gabrielle   10          Jordan                  MSAI   3.850000    foo   8           All My Children             ABC     8.820000    
+8           Hutchinson Fiona    Gabrielle   11          Kilroy                  MSCS   3.000000    foo   8           All My Children             ABC     8.820000    
+8           Hutchinson Fiona    Gabrielle   12          Lambeth                 MSAI   4.000000    foo   8           All My Children             ABC     8.820000    
+8           Hutchinson Fiona    Gabrielle   13          MacBeth                 MSCS   2.500000    foo   8           All My Children             ABC     8.820000    
+8           Hutchinson Fiona    Gabrielle   14          Noorda                  MSAI   3.900000    foo   8           All My Children             ABC     8.820000    
+8           Hutchinson Fiona    Gabrielle   15          Othello                 MSCS   3.300000    foo   8           All My Children             ABC     8.820000    
+
+59 tuple(s).
+
+REDBASE >> select  *
+ from  student, soaps, stars
+where  stname < student.sname and rating > gpa and starid = soapid;
+Select
+   nSelAttrs = 1
+   selAttrs[0]:NULL.*
+   nRelations = 3
+   relations[0] student
+   relations[1] soaps
+   relations[2] stars
+   nCondtions = 3
+   conditions[0]:
+      lhsAttr:NULL.stname
+      op= <
+      bRhsIsAttr=TRUE 
+      rhsAttr:student.sname
+   conditions[1]:
+      lhsAttr:NULL.rating
+      op= >
+      bRhsIsAttr=TRUE 
+      rhsAttr:NULL.gpa
+   conditions[2]:
+      lhsAttr:NULL.starid
+      op= =
+      bRhsIsAttr=TRUE 
+      rhsAttr:NULL.soapid
+starid      stname              plays       studentid   student.sname           school gpa         extra soapid      soaps.sname                 network rating      
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+0           Hayes Kathryn       Kim         9           Iolanthe                MSCS   2.750000    foo   0           Days of Our Lives           NBC     7.020000    
+0           Hayes Kathryn       Kim         10          Jordan                  MSAI   3.850000    foo   0           Days of Our Lives           NBC     7.020000    
+0           Hayes Kathryn       Kim         11          Kilroy                  MSCS   3.000000    foo   0           Days of Our Lives           NBC     7.020000    
+0           Hayes Kathryn       Kim         12          Lambeth                 MSAI   4.000000    foo   0           Days of Our Lives           NBC     7.020000    
+0           Hayes Kathryn       Kim         13          MacBeth                 MSCS   2.500000    foo   0           Days of Our Lives           NBC     7.020000    
+0           Hayes Kathryn       Kim         14          Noorda                  MSAI   3.900000    foo   0           Days of Our Lives           NBC     7.020000    
+0           Hayes Kathryn       Kim         15          Othello                 MSCS   3.300000    foo   0           Days of Our Lives           NBC     7.020000    
+1           DeFreitas Scott     Andy        4           Downer                  MSAI   3.950000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        5           Everett                 MSCS   2.950000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        6           Forest                  MSAI   3.840000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        7           Grover                  MSCS   3.200000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        8           Harrison                MSAI   3.900000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        9           Iolanthe                MSCS   2.750000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        10          Jordan                  MSAI   3.850000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        11          Kilroy                  MSCS   3.000000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        12          Lambeth                 MSAI   4.000000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        13          MacBeth                 MSCS   2.500000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        14          Noorda                  MSAI   3.900000    foo   1           General Hospital            ABC     9.810000    
+1           DeFreitas Scott     Andy        15          Othello                 MSCS   3.300000    foo   1           General Hospital            ABC     9.810000    
+2           Grahn Nancy         Julia       7           Grover                  MSCS   3.200000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       8           Harrison                MSAI   3.900000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       9           Iolanthe                MSCS   2.750000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       10          Jordan                  MSAI   3.850000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       11          Kilroy                  MSCS   3.000000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       12          Lambeth                 MSAI   4.000000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       13          MacBeth                 MSCS   2.500000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       14          Noorda                  MSAI   3.900000    foo   2           Guiding Light               CBS     4.020000    
+2           Grahn Nancy         Julia       15          Othello                 MSCS   3.300000    foo   2           Guiding Light               CBS     4.020000    
+4           Cooper Jeanne       Katherine   4           Downer                  MSAI   3.950000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   5           Everett                 MSCS   2.950000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   6           Forest                  MSAI   3.840000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   7           Grover                  MSCS   3.200000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   8           Harrison                MSAI   3.900000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   9           Iolanthe                MSCS   2.750000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   10          Jordan                  MSAI   3.850000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   11          Kilroy                  MSCS   3.000000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   12          Lambeth                 MSAI   4.000000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   13          MacBeth                 MSCS   2.500000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   14          Noorda                  MSAI   3.900000    foo   4           Santa Barbara               NBC     6.440000    
+4           Cooper Jeanne       Katherine   15          Othello                 MSCS   3.300000    foo   4           Santa Barbara               NBC     6.440000    
+5           Ehlers Beth         Harley      5           Everett                 MSCS   2.950000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      6           Forest                  MSAI   3.840000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      7           Grover                  MSCS   3.200000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      8           Harrison                MSAI   3.900000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      9           Iolanthe                MSCS   2.750000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      10          Jordan                  MSAI   3.850000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      11          Kilroy                  MSCS   3.000000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      12          Lambeth                 MSAI   4.000000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      13          MacBeth                 MSCS   2.500000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      14          Noorda                  MSAI   3.900000    foo   5           The Young and the Restless  CBS     5.500000    
+5           Ehlers Beth         Harley      15          Othello                 MSCS   3.300000    foo   5           The Young and the Restless  CBS     5.500000    
+6           Novak John          Keith       15          Othello                 MSCS   3.300000    foo   6           As the World Turns          CBS     7.000000    
+8           Hutchinson Fiona    Gabrielle   9           Iolanthe                MSCS   2.750000    foo   8           All My Children             ABC     8.820000    
+8           Hutchinson Fiona    Gabrielle   10          Jordan                  MSAI   3.850000    foo   8           All My Children             ABC     8.820000    
+8           Hutchinson Fiona    Gabrielle   11          Kilroy                  MSCS   3.000000    foo   8           All My Children             ABC     8.820000    
+8           Hutchinson Fiona    Gabrielle   12          Lambeth                 MSAI   4.000000    foo   8           All My Children             ABC     8.820000    
+8           Hutchinson Fiona    Gabrielle   13          MacBeth                 MSCS   2.500000    foo   8           All My Children             ABC     8.820000    
+8           Hutchinson Fiona    Gabrielle   14          Noorda                  MSAI   3.900000    foo   8           All My Children             ABC     8.820000    
+8           Hutchinson Fiona    Gabrielle   15          Othello                 MSCS   3.300000    foo   8           All My Children             ABC     8.820000    
+
+59 tuple(s).
+
+REDBASE >> select  *
+ from  soaps, student
+where  soapid = studentid;
+Select
+   nSelAttrs = 1
+   selAttrs[0]:NULL.*
+   nRelations = 2
+   relations[0] soaps
+   relations[1] student
+   nCondtions = 1
+   conditions[0]:
+      lhsAttr:NULL.soapid
+      op= =
+      bRhsIsAttr=TRUE 
+      rhsAttr:NULL.studentid
+soapid      soaps.sname                 network rating      studentid   student.sname           school gpa         extra 
+-------------------------------------------------------------------------------------------------------------------------
+1           General Hospital            ABC     9.810000    1           Adams                   MSCS   3.450000    foo   
+2           Guiding Light               CBS     4.020000    2           Bennett                 MSAI   4.000000    foo   
+3           One Life to Live            ABC     2.310000    3           Cagney                  MSCS   3.250000    foo   
+4           Santa Barbara               NBC     6.440000    4           Downer                  MSAI   3.950000    foo   
+5           The Young and the Restless  CBS     5.500000    5           Everett                 MSCS   2.950000    foo   
+6           As the World Turns          CBS     7.000000    6           Forest                  MSAI   3.840000    foo   
+7           Another World               NBC     1.970000    7           Grover                  MSCS   3.200000    foo   
+8           All My Children             ABC     8.820000    8           Harrison                MSAI   3.900000    foo   
+
+8 tuple(s).
+
+REDBASE >> select  *
+ from  soaps
+where  sname < "AAAKBBBBCCCCCDDDDDEEEE";
+Select
+   nSelAttrs = 1
+   selAttrs[0]:NULL.*
+   nRelations = 1
+   relations[0] soaps
+   nCondtions = 1
+   conditions[0]:
+      lhsAttr:NULL.sname
+      op= <
+      bRshIsAttr=FALSE
+      rhsValue:AttrType: STRING (char *)data=AAAKBBBBCCCCCDDDDDEEEE
+soapid      sname                       network rating      
+------------------------------------------------------------
+
+0 tuple(s).
+
+REDBASE >> select  *
+ from  soaps
+where  soaps.sname < soaps.network;
+Select
+   nSelAttrs = 1
+   selAttrs[0]:NULL.*
+   nRelations = 1
+   relations[0] soaps
+   nCondtions = 1
+   conditions[0]:
+      lhsAttr:soaps.sname
+      op= <
+      bRhsIsAttr=TRUE 
+      rhsAttr:soaps.network
+soapid      sname                       network rating      
+------------------------------------------------------------
+0           Days of Our Lives           NBC     7.020000    
+6           As the World Turns          CBS     7.000000    
+7           Another World               NBC     1.970000    
+
+3 tuple(s).
+
+REDBASE >> select  *
+ from  stars
+;
+Select
+   nSelAttrs = 1
+   selAttrs[0]:NULL.*
+   nRelations = 1
+   relations[0] stars
+   nCondtions = 0
+starid      stname              plays       
+--------------------------------------------
+0           Hayes Kathryn       Kim         
+1           DeFreitas Scott     Andy        
+2           Grahn Nancy         Julia       
+3           Linder Kate         Esther      
+4           Cooper Jeanne       Katherine   
+5           Ehlers Beth         Harley      
+6           Novak John          Keith       
+7           Elliot Patricia     Renee       
+8           Hutchinson Fiona    Gabrielle   
+9           Carey Phil          Asa         
+10          Walker Nicholas     Max         
+11          Ross Charlotte      Eve         
+12          Anthony Eugene      Stan        
+13          Douglas Jerry       John        
+14          Holbrook Anna       Sharlene    
+15          Hammer Jay          Fletcher    
+16          Sloan Tina          Lillian     
+17          DuClos Danielle     Lisa        
+18          Tuck Jessica        Megan       
+19          Ashford Matthew     Jack        
+20          Novak John          Keith       
+21          Larson Jill         Opal        
+22          McKinnon Mary       Denise      
+23          Barr Julia          Brooke      
+24          Borlenghi Matt      Brian       
+25          Hughes Finola       Anna        
+26          Rogers Tristan      Robert      
+27          Richardson Cheryl   Jenny       
+28          Evans Mary Beth     Kayla       
+
+29 tuple(s).
+
+REDBASE >> select  *
+ from  Rating, Movie
+where  Rating.mID = Movie.mID and Movie.year < 1979 and Rating.stars < 4;
+Select
+   nSelAttrs = 1
+   selAttrs[0]:NULL.*
+   nRelations = 2
+   relations[0] Rating
+   relations[1] Movie
+   nCondtions = 3
+   conditions[0]:
+      lhsAttr:Rating.mID
+      op= =
+      bRhsIsAttr=TRUE 
+      rhsAttr:Movie.mID
+   conditions[1]:
+      lhsAttr:Movie.year
+      op= <
+      bRshIsAttr=FALSE
+      rhsValue:AttrType: INT *(int *)data=1979
+   conditions[2]:
+      lhsAttr:Rating.stars
+      op= <
+      bRshIsAttr=FALSE
+      rhsValue:AttrType: INT *(int *)data=4
+rID         Rating.mID  stars       ratingDate          Movie.mID   title                                                year        director            
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+201         101         2           2011-01-22          101         Gone with the Wind                                   1939        Victor Fleming      
+203         103         2           2011-01-20          103         The Sound of Music                                   1965        Robert Wise         
+204         101         3           2011-01-09          101         Gone with the Wind                                   1939        Victor Fleming      
+205         103         3           2011-01-27          103         The Sound of Music                                   1965        Robert Wise         
+
+4 tuple(s).
+
+REDBASE >> select  title
+ from  Movie
+where  director = "Steven Spielberg";
+Select
+   nSelAttrs = 1
+   selAttrs[0]:NULL.title
+   nRelations = 1
+   relations[0] Movie
+   nCondtions = 1
+   conditions[0]:
+      lhsAttr:NULL.director
+      op= =
+      bRshIsAttr=FALSE
+      rhsValue:AttrType: STRING (char *)data=Steven Spielberg
+title                                                
+-----------------------------------------------------
+E.T.                                                 
+Raiders of the Lost Ark                              
+
+2 tuple(s).
+
+REDBASE >> select  name, title, stars, ratingDate
+ from  Reviewer, Rating, Movie
+where  Reviewer.rID = Rating.rID and Movie.mID = Rating.mID;
+Select
+   nSelAttrs = 4
+   selAttrs[0]:NULL.name
+   selAttrs[1]:NULL.title
+   selAttrs[2]:NULL.stars
+   selAttrs[3]:NULL.ratingDate
+   nRelations = 3
+   relations[0] Reviewer
+   relations[1] Rating
+   relations[2] Movie
+   nCondtions = 2
+   conditions[0]:
+      lhsAttr:Reviewer.rID
+      op= =
+      bRhsIsAttr=TRUE 
+      rhsAttr:Rating.rID
+   conditions[1]:
+      lhsAttr:Movie.mID
+      op= =
+      bRhsIsAttr=TRUE 
+      rhsAttr:Rating.mID
+name                                    title                                                stars       ratingDate          
+-----------------------------------------------------------------------------------------------------------------------------
+Sarah Martinez                          Gone with the Wind                                   2           2011-01-22          
+Sarah Martinez                          Gone with the Wind                                   4           2011-01-27          
+Daniel Lewis                            Snow White                                           4                               
+Brittany Harris                         The Sound of Music                                   2           2011-01-20          
+Brittany Harris                         Raiders of the Lost Ark                              4           2011-01-12          
+Brittany Harris                         Raiders of the Lost Ark                              2           2011-01-30          
+Mike Anderson                           Gone with the Wind                                   3           2011-01-09          
+Chris Jackson                           The Sound of Music                                   3           2011-01-27          
+Chris Jackson                           E.T.                                                 2           2011-01-22          
+Chris Jackson                           Raiders of the Lost Ark                              4                               
+Elizabeth Thomas                        Avatar                                               3           2011-01-15          
+Elizabeth Thomas                        Snow White                                           5           2011-01-19          
+James Cameron                           Avatar                                               5           2011-01-20          
+Ashley White                            E.T.                                                 3           2011-01-02          
+
+14 tuple(s).
+
+REDBASE >> select  name, title, ratingDate
+ from  Reviewer, Movie, Rating
+where  Rating.mID = Movie.mID and Reviewer.rID = Rating.rID and Rating.stars < 10 and Rating.ratingDate < "moose";
+Select
+   nSelAttrs = 3
+   selAttrs[0]:NULL.name
+   selAttrs[1]:NULL.title
+   selAttrs[2]:NULL.ratingDate
+   nRelations = 3
+   relations[0] Reviewer
+   relations[1] Movie
+   relations[2] Rating
+   nCondtions = 4
+   conditions[0]:
+      lhsAttr:Rating.mID
+      op= =
+      bRhsIsAttr=TRUE 
+      rhsAttr:Movie.mID
+   conditions[1]:
+      lhsAttr:Reviewer.rID
+      op= =
+      bRhsIsAttr=TRUE 
+      rhsAttr:Rating.rID
+   conditions[2]:
+      lhsAttr:Rating.stars
+      op= <
+      bRshIsAttr=FALSE
+      rhsValue:AttrType: INT *(int *)data=10
+   conditions[3]:
+      lhsAttr:Rating.ratingDate
+      op= <
+      bRshIsAttr=FALSE
+      rhsValue:AttrType: STRING (char *)data=moose
+name                                    title                                                ratingDate          
+-----------------------------------------------------------------------------------------------------------------
+Sarah Martinez                          Gone with the Wind                                   2011-01-22          
+Sarah Martinez                          Gone with the Wind                                   2011-01-27          
+Daniel Lewis                            Snow White                                                               
+Brittany Harris                         The Sound of Music                                   2011-01-20          
+Brittany Harris                         Raiders of the Lost Ark                              2011-01-12          
+Brittany Harris                         Raiders of the Lost Ark                              2011-01-30          
+Mike Anderson                           Gone with the Wind                                   2011-01-09          
+Chris Jackson                           The Sound of Music                                   2011-01-27          
+Chris Jackson                           E.T.                                                 2011-01-22          
+Chris Jackson                           Raiders of the Lost Ark                                                  
+Elizabeth Thomas                        Avatar                                               2011-01-15          
+Elizabeth Thomas                        Snow White                                           2011-01-19          
+James Cameron                           Avatar                                               2011-01-20          
+Ashley White                            E.T.                                                 2011-01-02          
+
+14 tuple(s).
+
+REDBASE >> drop table soaps;
+DropTable
+   relName=soaps
+
+REDBASE >> drop table stars;
+DropTable
+   relName=stars
+
+REDBASE >> drop table student;
+DropTable
+   relName=student
+
+REDBASE >> drop table Movie;
+DropTable
+   relName=Movie
+
+REDBASE >> drop table Reviewer;
+DropTable
+   relName=Reviewer
+
+REDBASE >> drop table Rating;
+DropTable
+   relName=Rating
+
+REDBASE >> drop table Highschooler;
+DropTable
+   relName=Highschooler
+
+REDBASE >> drop table Friend;
+DropTable
+   relName=Friend
+
+REDBASE >> drop table Likes;
+DropTable
+   relName=Likes
+
+REDBASE >> Bye.

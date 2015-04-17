@@ -1,0 +1,850 @@
+
+REDBASE >> Query plan display turned on.
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  dept.deptName, FirstName, LastName, desc
+ from  dept, emp, project, assigned
+where  project.completed > 90.000000 and emp.empID = assigned.empID and project.projID = assigned.projID and dept.deptID = emp.deptID and length = 20 and emp.empID = emp.manID;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - dept.deptName, emp.FirstName, emp.LastName, project.desc
+
+ --- FILTER (0) project.completed >AttrType: FLOAT *(float *)data=90
+
+ ---  --- FILTER (0) project.length =AttrType: INT *(int *)data=20
+
+ ---  ---  --- NLJ (3) assigned.projID = project.projID
+
+ ---  ---  ---  --- NLJ (3) emp.empID = assigned.empID
+
+ ---  ---  ---  ---  --- FILTER (1) emp.empID = emp.manID
+
+ ---  ---  ---  ---  ---  --- NLJ (5000) emp.deptID = dept.deptID
+
+ ---  ---  ---  ---  ---  ---  --- RM-Scan (emp 716 pgs, 5000 recs)
+
+ ---  ---  ---  ---  ---  ---  --- RM-Scan (dept 2 pgs, 10 recs)
+
+ ---  ---  ---  ---  --- IX-Scan (assigned 31 pgs, 15000 recs, 4762 keys)
+
+ ---  ---  ---  --- RM-Scan (project 2 pgs, 10 recs)
+
+===================================
+
+deptName                                             FirstName                                            LastName                                             desc                                                 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+0 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::30979
+PAGENOTFOUND::724
+READPAGE::724
+PAGEFOUND::30255
+FLUSHPAGES::5
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  emp.FirstName, emp.LastName, dept.deptName, emp.salary
+ from  emp, dept
+where  emp.deptID = dept.deptID and emp.salary > 199000;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - emp.FirstName, emp.LastName, dept.deptName, emp.salary
+
+ --- NLJ (1665) emp.deptID = dept.deptID
+
+ ---  --- RM-Scan (emp 716 pgs, 5000 recs) emp.salary >AttrType: INT *(int *)data=199000
+
+ ---  --- RM-Scan (dept 2 pgs, 10 recs)
+
+===================================
+
+FirstName                                            LastName                                             deptName                                             salary      
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Jack                                                 Kidman                                               Research                                             199010      
+Joyce                                                Baggins                                              Software Engineering                                 199170      
+William                                              Snipes                                               Accounting                                           199409      
+Frodo                                                Bush                                                 Marketing                                            199127      
+Wendy                                                Snipes                                               Research                                             199580      
+Sauron                                               Kidman                                               Research                                             199625      
+Joyce                                                Cruise                                               Software Engineering                                 199910      
+Wendy                                                Snipes                                               Software Engineering                                 199680      
+Evelyn                                               Clinton                                              Research                                             199652      
+Frodo                                                Honggowibowo                                         Software Engineering                                 199042      
+Wendy                                                Smith                                                Sales                                                199500      
+Mike                                                 Bin laden                                            Research                                             199300      
+Wendy                                                Clinton                                              Accounting                                           199200      
+Bill                                                 Taktak                                               Software Engineering                                 199268      
+Mike                                                 Bin laden                                            Research                                             199175      
+Elrond                                               Taktak                                               Software Engineering                                 199795      
+Mike                                                 Kidman                                               Marketing                                            199463      
+Elrond                                               Atkins                                               Accounting                                           199596      
+James                                                Proudfeet                                            Research                                             199748      
+Harry                                                Snipes                                               Software Engineering                                 199850      
+William                                              Granger                                              Research                                             199485      
+Joyce                                                Kennedy                                              Software Engineering                                 199160      
+Sauron                                               Potter                                               Software Engineering                                 199984      
+Evelyn                                               Bush                                                 Research                                             199194      
+Harry                                                Baggins                                              Research                                             199560      
+Frodo                                                Honggowibowo                                         Accounting                                           199724      
+
+26 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::971
+PAGEFOUND::237
+PAGENOTFOUND::734
+READPAGE::734
+FLUSHPAGES::2
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  items.itemName, emp.FirstName, price
+ from  items, emp, sales, emph
+where  emp.empID = sales.sellerID and sales.itemID = items.itemID and emph.empID = emp.empID and emph.amount_claimed > 100.000000 and price < 300.000000 and emp.deptID = 0 and items.itemID <> 10 and salary >= 100000 and date < 50.000000;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - items.itemName, emp.FirstName, items.price
+
+ --- FILTER (57) items.price <AttrType: FLOAT *(float *)data=300
+
+ ---  --- FILTER (173) items.itemID <>AttrType: INT *(int *)data=10
+
+ ---  ---  --- NLJ (183) sales.itemID = items.itemID
+
+ ---  ---  ---  --- FILTER (183) sales.date <AttrType: FLOAT *(float *)data=50
+
+ ---  ---  ---  ---  --- NLJ (550) emp.empID = sales.sellerID
+
+ ---  ---  ---  ---  ---  --- FILTER (55) emp.salary >=AttrType: INT *(int *)data=100000
+
+ ---  ---  ---  ---  ---  ---  --- FILTER (166) emp.deptID =AttrType: INT *(int *)data=0
+
+ ---  ---  ---  ---  ---  ---  ---  --- NLJ (1665) emph.empID = emp.empID
+
+ ---  ---  ---  ---  ---  ---  ---  ---  --- RM-Scan (emph 15 pgs, 5000 recs) emph.amount_claimed >AttrType: FLOAT *(float *)data=100
+
+ ---  ---  ---  ---  ---  ---  ---  ---  --- IX-Scan (emp 716 pgs, 5000 recs, 5000 keys)
+
+ ---  ---  ---  ---  ---  --- IX-Scan (sales 199 pgs, 50000 recs, 5000 keys)
+
+ ---  ---  ---  --- IX-Scan (items 107 pgs, 2000 recs, 2000 keys)
+
+===================================
+
+itemName                                             FirstName                                            price       
+----------------------------------------------------------------------------------------------------------------------
+Microsoft XBOX                                       Michelle                                             147.899994  
+Luxury car                                           Michelle                                             204.600006  
+soft toy                                             Michelle                                             58.099998   
+Microsoft XBOX                                       Mike                                                 135.199997  
+PS1                                                  Mike                                                 283.299988  
+Sega Dreamcast                                       Mike                                                 236.500000  
+House                                                Harry                                                38.599998   
+PS2                                                  Jack                                                 76.800003   
+Luxury car                                           Wendy                                                72.900002   
+Plane tickets                                        Hermione                                             40.200001   
+House                                                Bill                                                 142.100006  
+board game                                           Bill                                                 255.699997  
+soft toy                                             Sauron                                               19.600000   
+Plane tickets                                        Jack                                                 118.000000  
+Barbie dolls                                         Elrond                                               210.199997  
+Car                                                  Elrond                                               208.000000  
+Cruise package                                       Harry                                                58.700001   
+soft toy                                             Harry                                                43.099998   
+GameBoy                                              Harry                                                284.399994  
+Nintendo 64 Gamecube                                 Michelle                                             72.599998   
+GameBoy                                              Harry                                                113.300003  
+Barbie dolls                                         Harry                                                203.800003  
+Apartment                                            Elrond                                               153.899994  
+GameBoy                                              Wendy                                                50.099998   
+electronic game                                      Wendy                                                41.700001   
+GameBoy                                              Bill                                                 50.099998   
+Plane tickets                                        Hermione                                             57.299999   
+iPod                                                 Harry                                                95.699997   
+Barbie dolls                                         Harry                                                177.399994  
+PS2                                                  Wendy                                                148.899994  
+GameBoy                                              Wendy                                                214.000000  
+Plane tickets                                        Wendy                                                172.699997  
+Cruise package                                       Joyce                                                3.900000    
+Laptop                                               Joyce                                                204.699997  
+Microsoft XBOX                                       Gandalf                                              195.399994  
+Luxury car                                           Evelyn                                               228.699997  
+House                                                Joyce                                                142.100006  
+GameBoy                                              Wendy                                                20.299999   
+Computer                                             Jack                                                 58.000000   
+PS1                                                  Frodo                                                223.800003  
+electronic game                                      Elrond                                               232.100006  
+Plane tickets                                        Mike                                                 298.000000  
+PS2                                                  Elrond                                               105.199997  
+electronic game                                      Elrond                                               92.400002   
+iPod                                                 Elrond                                               210.699997  
+Barbie dolls                                         Gandalf                                              203.800003  
+electronic game                                      Joyce                                                10.100000   
+PS1                                                  William                                              283.299988  
+Plane tickets                                        Bill                                                 134.500000  
+soft toy                                             Wendy                                                166.000000  
+Nintendo 64 Gamecube                                 Michelle                                             72.599998   
+GameBoy                                              Michelle                                             260.000000  
+board game                                           Michelle                                             169.199997  
+Luxury car                                           Sauron                                               179.199997  
+electronic game                                      Sauron                                               161.000000  
+House                                                Sauron                                               55.700001   
+soft toy                                             Joyce                                                159.699997  
+Laptop                                               Joyce                                                19.600000   
+PS1                                                  Joyce                                                223.800003  
+GameBoy                                              Jack                                                 284.399994  
+soft toy                                             Jack                                                 165.399994  
+Laptop                                               Frodo                                                45.099998   
+Luxury car                                           Frodo                                                72.900002   
+
+63 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::23083
+PAGENOTFOUND::5441
+READPAGE::5441
+PAGEFOUND::17642
+FLUSHPAGES::7
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  items.itemName, emp.FirstName, price
+ from  items, emp, sales
+where  sales.sellerID = emp.empID and items.itemID = sales.itemID and price < 500.000000 and salesID < 100 and emp.deptID <> 1;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - items.itemName, emp.FirstName, items.price
+
+ --- FILTER (5266) emp.deptID <>AttrType: INT *(int *)data=1
+
+ ---  --- NLJ (5544) sales.sellerID = emp.empID
+
+ ---  ---  --- FILTER (5544) items.price <AttrType: FLOAT *(float *)data=500
+
+ ---  ---  ---  --- NLJ (16650) sales.itemID = items.itemID
+
+ ---  ---  ---  ---  --- IX-Scan (sales 199 pgs, 50000 recs, 50000 keys) sales.salesID <AttrType: INT *(int *)data=100
+
+ ---  ---  ---  ---  --- IX-Scan (items 107 pgs, 2000 recs, 2000 keys)
+
+ ---  ---  --- IX-Scan (emp 716 pgs, 5000 recs, 5000 keys)
+
+===================================
+
+itemName                                             FirstName                                            price       
+----------------------------------------------------------------------------------------------------------------------
+Apartment                                            Harry                                                384.600006  
+iPod                                                 Wendy                                                95.699997   
+Luxury car                                           Joyce                                                117.199997  
+Microsoft XBOX                                       Sauron                                               135.199997  
+soft toy                                             William                                              109.400002  
+House                                                Hermione                                             288.399994  
+Nintendo 64 Gamecube                                 Gandalf                                              99.800003   
+Barbie dolls                                         Sauron                                               177.399994  
+Barbie dolls                                         Jack                                                 206.699997  
+GameBoy                                              Mike                                                 142.399994  
+House                                                Sauron                                               10.800000   
+Car                                                  William                                              322.299988  
+Nintendo 64 Gamecube                                 Gandalf                                              9.800000    
+
+13 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::1148
+PAGENOTFOUND::257
+READPAGE::257
+PAGEFOUND::891
+FLUSHPAGES::6
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  itemName, price, date
+ from  items, sales
+where  items.itemID = sales.itemID and price < 50.000000 and price > 40.000000 and date < 50.000000;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - items.itemName, items.price, sales.date
+
+ --- FILTER (1846) items.price <AttrType: FLOAT *(float *)data=50
+
+ ---  --- FILTER (5544) items.price >AttrType: FLOAT *(float *)data=40
+
+ ---  ---  --- NLJ (16650) sales.itemID = items.itemID
+
+ ---  ---  ---  --- RM-Scan (sales 199 pgs, 50000 recs) sales.date <AttrType: FLOAT *(float *)data=50
+
+ ---  ---  ---  --- IX-Scan (items 107 pgs, 2000 recs, 2000 keys)
+
+===================================
+
+itemName                                             price       date        
+-----------------------------------------------------------------------------
+electronic game                                      46.000000   1.000000    
+House                                                43.200001   35.200001   
+Laptop                                               45.099998   31.299999   
+electronic game                                      41.700001   27.700001   
+Speakers                                             43.900002   27.100000   
+Sega Dreamcast                                       48.500000   32.599998   
+soft toy                                             43.099998   18.200001   
+electronic game                                      41.700001   9.800000    
+Speakers                                             43.900002   17.400000   
+electronic game                                      46.000000   9.900000    
+Laptop                                               45.099998   30.299999   
+Sega Dreamcast                                       42.000000   42.200001   
+Speakers                                             43.900002   42.099998   
+Sega Dreamcast                                       48.500000   18.600000   
+Speakers                                             43.900002   44.500000   
+Sega Dreamcast                                       48.500000   22.700001   
+Laptop                                               45.099998   18.799999   
+Laptop                                               45.099998   13.700000   
+House                                                43.200001   22.900000   
+soft toy                                             43.099998   7.500000    
+House                                                43.200001   46.099998   
+board game                                           40.299999   0.700000    
+Barbie dolls                                         49.000000   25.200001   
+electronic game                                      46.000000   32.900002   
+electronic game                                      46.000000   42.500000   
+Sega Dreamcast                                       42.000000   27.200001   
+soft toy                                             43.099998   16.600000   
+soft toy                                             43.099998   2.600000    
+electronic game                                      46.000000   29.400000   
+electronic game                                      46.000000   34.099998   
+electronic game                                      41.700001   15.800000   
+Speakers                                             43.900002   27.200001   
+Plane tickets                                        40.200001   40.099998   
+electronic game                                      41.700001   45.299999   
+Sega Dreamcast                                       48.500000   48.799999   
+Plane tickets                                        40.200001   11.400000   
+Laptop                                               45.099998   38.799999   
+Sega Dreamcast                                       48.500000   9.300000    
+Barbie dolls                                         49.000000   2.800000    
+electronic game                                      41.700001   24.600000   
+Sega Dreamcast                                       42.000000   47.000000   
+Plane tickets                                        40.200001   47.799999   
+board game                                           40.299999   30.200001   
+Barbie dolls                                         45.900002   48.700001   
+electronic game                                      46.000000   12.300000   
+House                                                43.200001   5.400000    
+Sega Dreamcast                                       42.000000   33.500000   
+Nintendo 64 Gamecube                                 49.700001   28.900000   
+electronic game                                      46.000000   41.400002   
+Sega Dreamcast                                       48.500000   38.299999   
+Sega Dreamcast                                       48.500000   33.599998   
+Sega Dreamcast                                       42.000000   25.400000   
+Speakers                                             43.900002   46.200001   
+House                                                43.200001   36.900002   
+Barbie dolls                                         45.900002   0.100000    
+Speakers                                             43.900002   4.200000    
+electronic game                                      46.000000   6.100000    
+Sega Dreamcast                                       48.500000   43.599998   
+soft toy                                             43.099998   9.800000    
+electronic game                                      46.000000   38.200001   
+electronic game                                      41.700001   4.600000    
+Barbie dolls                                         49.000000   7.400000    
+Sega Dreamcast                                       48.500000   15.400000   
+Nintendo 64 Gamecube                                 49.700001   42.599998   
+Barbie dolls                                         49.000000   33.500000   
+Laptop                                               45.099998   49.500000   
+Nintendo 64 Gamecube                                 49.700001   2.000000    
+House                                                43.200001   35.900002   
+Speakers                                             43.900002   22.200001   
+Laptop                                               45.099998   39.799999   
+electronic game                                      41.700001   42.000000   
+Plane tickets                                        40.200001   11.000000   
+Barbie dolls                                         45.900002   35.500000   
+Laptop                                               45.099998   6.500000    
+soft toy                                             43.099998   30.600000   
+electronic game                                      46.000000   7.300000    
+Sega Dreamcast                                       42.000000   27.100000   
+electronic game                                      46.000000   39.000000   
+Laptop                                               45.099998   32.400002   
+electronic game                                      41.700001   37.299999   
+Nintendo 64 Gamecube                                 49.700001   12.800000   
+soft toy                                             43.099998   18.700001   
+Plane tickets                                        40.200001   16.700001   
+Sega Dreamcast                                       42.000000   44.500000   
+Plane tickets                                        40.200001   26.900000   
+soft toy                                             43.099998   5.300000    
+Sega Dreamcast                                       42.000000   0.600000    
+electronic game                                      46.000000   23.799999   
+Sega Dreamcast                                       42.000000   31.700001   
+electronic game                                      41.700001   30.100000   
+Barbie dolls                                         49.000000   9.900000    
+Barbie dolls                                         45.900002   29.799999   
+electronic game                                      41.700001   23.700001   
+Sega Dreamcast                                       48.500000   29.500000   
+Sega Dreamcast                                       42.000000   36.599998   
+board game                                           40.299999   11.800000   
+Nintendo 64 Gamecube                                 49.700001   29.500000   
+Plane tickets                                        40.200001   24.200001   
+Sega Dreamcast                                       48.500000   22.200001   
+Barbie dolls                                         45.900002   21.900000   
+Speakers                                             43.900002   35.299999   
+Plane tickets                                        40.200001   19.200001   
+Laptop                                               45.099998   18.299999   
+Plane tickets                                        40.200001   19.500000   
+Laptop                                               45.099998   42.000000   
+Plane tickets                                        40.200001   6.600000    
+electronic game                                      41.700001   32.900002   
+Plane tickets                                        40.200001   40.099998   
+Barbie dolls                                         49.000000   31.600000   
+electronic game                                      46.000000   20.600000   
+House                                                43.200001   33.700001   
+Barbie dolls                                         49.000000   47.700001   
+Sega Dreamcast                                       42.000000   28.100000   
+Sega Dreamcast                                       48.500000   0.500000    
+Barbie dolls                                         49.000000   39.900002   
+electronic game                                      46.000000   10.500000   
+Nintendo 64 Gamecube                                 49.700001   45.799999   
+Barbie dolls                                         49.000000   12.100000   
+House                                                43.200001   14.900000   
+board game                                           40.299999   41.599998   
+Speakers                                             43.900002   24.100000   
+soft toy                                             43.099998   30.600000   
+electronic game                                      46.000000   32.900002   
+Plane tickets                                        40.200001   19.500000   
+Speakers                                             43.900002   17.700001   
+board game                                           40.299999   27.900000   
+board game                                           40.299999   2.900000    
+Barbie dolls                                         45.900002   0.500000    
+House                                                43.200001   47.599998   
+Sega Dreamcast                                       42.000000   17.200001   
+House                                                43.200001   8.800000    
+electronic game                                      41.700001   16.100000   
+Speakers                                             43.900002   23.400000   
+Speakers                                             43.900002   6.500000    
+Laptop                                               45.099998   10.300000   
+board game                                           40.299999   9.800000    
+Sega Dreamcast                                       42.000000   43.299999   
+Sega Dreamcast                                       48.500000   0.600000    
+Plane tickets                                        40.200001   20.600000   
+Speakers                                             43.900002   10.600000   
+soft toy                                             43.099998   36.500000   
+soft toy                                             43.099998   11.900000   
+Sega Dreamcast                                       48.500000   45.299999   
+board game                                           40.299999   22.500000   
+electronic game                                      41.700001   30.900000   
+Plane tickets                                        40.200001   41.599998   
+Plane tickets                                        40.200001   27.900000   
+Nintendo 64 Gamecube                                 49.700001   18.400000   
+House                                                43.200001   36.299999   
+Laptop                                               45.099998   5.500000    
+Sega Dreamcast                                       42.000000   11.600000   
+Nintendo 64 Gamecube                                 49.700001   46.200001   
+electronic game                                      41.700001   9.100000    
+electronic game                                      41.700001   29.700001   
+House                                                43.200001   9.800000    
+House                                                43.200001   11.100000   
+Speakers                                             43.900002   0.100000    
+Laptop                                               45.099998   12.600000   
+Speakers                                             43.900002   15.900000   
+
+159 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::201691
+PAGENOTFOUND::20066
+READPAGE::20066
+PAGEFOUND::181625
+FLUSHPAGES::3
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  emp.empID, FirstName, LastName, dept.deptName, emph.amount_claimed
+ from  emp, dept, emph
+where  emp.empID = emph.empID and emp.deptID = dept.deptID and insured = "yes" and dept.deptID = 5 and amount_claimed < 20.000000;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - emp.empID, emp.FirstName, emp.LastName, dept.deptName, emph.amount_claimed
+
+ --- FILTER (16) dept.deptID =AttrType: INT *(int *)data=5
+
+ ---  --- NLJ (166) emp.deptID = dept.deptID
+
+ ---  ---  --- NLJ (166) emph.empID = emp.empID
+
+ ---  ---  ---  --- FILTER (166) emph.amount_claimed <AttrType: FLOAT *(float *)data=20
+
+ ---  ---  ---  ---  --- RM-Scan (emph 15 pgs, 5000 recs) emph.insured =AttrType: STRING (char *)data=yes
+
+ ---  ---  ---  --- IX-Scan (emp 716 pgs, 5000 recs, 5000 keys)
+
+ ---  ---  --- RM-Scan (dept 2 pgs, 10 recs)
+
+===================================
+
+empID       FirstName                                            LastName                                             deptName                                             amount_claimed 
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+2288        Evelyn                                               Kidman                                               Sales                                                18.200001      
+112         Hermione                                             Clinton                                              Sales                                                5.400000       
+1208        Elrond                                               Bin laden                                            Sales                                                16.200001      
+8           Evelyn                                               Smith                                                Sales                                                17.900000      
+2901        Sauron                                               Bin laden                                            Sales                                                18.400000      
+1835        Jack                                                 Proudfeet                                            Sales                                                16.900000      
+607         Gandalf                                              Clinton                                              Sales                                                3.700000       
+1078        Wendy                                                Smith                                                Sales                                                18.400000      
+895         Bill                                                 Bush                                                 Sales                                                9.100000       
+4775        Sauron                                               Granger                                              Sales                                                15.700000      
+3907        Frodo                                                Potter                                               Sales                                                7.400000       
+3364        Hermione                                             Cruise                                               Sales                                                6.800000       
+27          Evelyn                                               Bin laden                                            Sales                                                15.100000      
+
+13 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::6528
+PAGENOTFOUND::231
+READPAGE::231
+PAGEFOUND::6297
+FLUSHPAGES::4
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  items.itemName, price
+ from  emp, dept, items, sales
+where  emp.empID = dept.deptID and items.itemID = sales.itemID and emp.empID = sales.sellerID;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - items.itemName, items.price
+
+ --- NLJ (100) sales.itemID = items.itemID
+
+ ---  --- NLJ (100) emp.empID = sales.sellerID
+
+ ---  ---  --- NLJ (10) emp.empID = dept.deptID
+
+ ---  ---  ---  --- RM-Scan (emp 716 pgs, 5000 recs)
+
+ ---  ---  ---  --- RM-Scan (dept 2 pgs, 10 recs)
+
+ ---  ---  --- IX-Scan (sales 199 pgs, 50000 recs, 5000 keys)
+
+ ---  --- IX-Scan (items 107 pgs, 2000 recs, 2000 keys)
+
+===================================
+
+itemName                                             price       
+-----------------------------------------------------------------
+Laptop                                               2001.500000 
+Sega Dreamcast                                       1125.699951 
+soft toy                                             675.099976  
+board game                                           2147.800049 
+Luxury car                                           2963.399902 
+Barbie dolls                                         941.700012  
+Sega Dreamcast                                       1666.800049 
+Plane tickets                                        901.400024  
+Computer                                             1266.900024 
+PS1                                                  1345.000000 
+iPod                                                 2813.699951 
+electronic game                                      608.200012  
+PS1                                                  1001.299988 
+PS2                                                  2923.399902 
+Speakers                                             983.299988  
+Luxury car                                           2506.100098 
+PS1                                                  1350.599976 
+electronic game                                      1134.000000 
+Sega Dreamcast                                       3206.800049 
+Sega Dreamcast                                       2735.300049 
+electronic game                                      546.799988  
+Speakers                                             183.600006  
+Plane tickets                                        2502.300049 
+soft toy                                             2498.300049 
+Computer                                             199.899994  
+electronic game                                      148.699997  
+GameBoy                                              612.400024  
+Car                                                  2518.300049 
+House                                                2372.199951 
+Apartment                                            2896.100098 
+Apartment                                            2606.199951 
+electronic game                                      2305.199951 
+Luxury car                                           72.900002   
+Cruise package                                       2148.800049 
+board game                                           902.099976  
+Apartment                                            2015.400024 
+board game                                           1381.000000 
+Speakers                                             3142.500000 
+board game                                           477.299988  
+Laptop                                               1681.300049 
+Barbie dolls                                         295.000000  
+iPod                                                 951.799988  
+Barbie dolls                                         966.900024  
+iPod                                                 3050.800049 
+PS2                                                  1776.500000 
+Computer                                             3053.500000 
+electronic game                                      41.700001   
+Computer                                             479.700012  
+Luxury car                                           2449.199951 
+Computer                                             349.799988  
+Nintendo 64 Gamecube                                 2777.500000 
+electronic game                                      2813.100098 
+Luxury car                                           2329.600098 
+board game                                           2147.800049 
+Nintendo 64 Gamecube                                 638.500000  
+PS1                                                  1366.000000 
+soft toy                                             1852.300049 
+GameBoy                                              407.299988  
+Apartment                                            606.500000  
+Car                                                  400.299988  
+Computer                                             2998.100098 
+board game                                           1993.500000 
+Speakers                                             2555.100098 
+Nintendo 64 Gamecube                                 2441.100098 
+GameBoy                                              819.200012  
+Nintendo 64 Gamecube                                 334.899994  
+soft toy                                             2541.000000 
+Plane tickets                                        2065.300049 
+House                                                2047.199951 
+Laptop                                               2000.199951 
+PS2                                                  878.200012  
+PS2                                                  1776.500000 
+PS2                                                  2916.500000 
+Speakers                                             2944.199951 
+electronic game                                      2682.399902 
+iPod                                                 1353.199951 
+PS1                                                  1900.300049 
+Apartment                                            2606.199951 
+Luxury car                                           1632.800049 
+PS2                                                  2940.399902 
+Speakers                                             2842.000000 
+Speakers                                             2751.300049 
+Apartment                                            1815.199951 
+Luxury car                                           2475.100098 
+PS2                                                  2573.800049 
+electronic game                                      1136.300049 
+PS2                                                  898.299988  
+Plane tickets                                        134.500000  
+Plane tickets                                        1437.900024 
+Barbie dolls                                         293.399994  
+GameBoy                                              113.300003  
+board game                                           1128.199951 
+Plane tickets                                        40.200001   
+Luxury car                                           2115.899902 
+House                                                21.600000   
+iPod                                                 373.299988  
+Speakers                                             2261.399902 
+
+97 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::21773
+PAGENOTFOUND::996
+READPAGE::996
+PAGEFOUND::20777
+FLUSHPAGES::6
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  emp.manID, empID, FirstName, itemName, price
+ from  emp, sales, items, dept, manager
+where  emp.empID = sales.sellerID and items.itemID = sales.itemID and emp.deptID = dept.deptID and dept.deptID = 0 and price < 50.000000 and manager.deptID = dept.deptID and date < 50.000000 and salary > 10000 and emp.manID = manager.manID;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - emp.manID, emp.empID, emp.FirstName, items.itemName, items.price
+
+ --- FILTER (17) items.price <AttrType: FLOAT *(float *)data=50
+
+ ---  --- NLJ (53) sales.itemID = items.itemID
+
+ ---  ---  --- FILTER (53) sales.date <AttrType: FLOAT *(float *)data=50
+
+ ---  ---  ---  --- NLJ (160) emp.empID = sales.sellerID
+
+ ---  ---  ---  ---  --- FILTER (16) manager.deptID = dept.deptID
+
+ ---  ---  ---  ---  ---  --- NLJ (166) emp.manID = manager.manID
+
+ ---  ---  ---  ---  ---  ---  --- FILTER (166) dept.deptID =AttrType: INT *(int *)data=0
+
+ ---  ---  ---  ---  ---  ---  ---  --- NLJ (1665) emp.deptID = dept.deptID
+
+ ---  ---  ---  ---  ---  ---  ---  ---  --- RM-Scan (emp 716 pgs, 5000 recs) emp.salary >AttrType: INT *(int *)data=10000
+
+ ---  ---  ---  ---  ---  ---  ---  ---  --- RM-Scan (dept 2 pgs, 10 recs)
+
+ ---  ---  ---  ---  ---  ---  --- RM-Scan (manager 2 pgs, 500 recs)
+
+ ---  ---  ---  ---  --- IX-Scan (sales 199 pgs, 50000 recs, 5000 keys)
+
+ ---  ---  --- IX-Scan (items 107 pgs, 2000 recs, 2000 keys)
+
+===================================
+
+manID       empID       FirstName                                            itemName                                             price       
+----------------------------------------------------------------------------------------------------------------------------------------------
+169         3162        Frodo                                                PS2                                                  30.500000   
+384         1359        Evelyn                                               iPod                                                 5.300000    
+
+2 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::35851
+PAGENOTFOUND::1967
+READPAGE::1967
+PAGEFOUND::33884
+FLUSHPAGES::7
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  emp.empID, FirstName, dep.depID, relation, deph.amount_claimed
+ from  emp, dept, dep, deph, project
+where  emp.empID <= 200 and dept.deptID = 1 and dept.deptID <= 5 and dept.deptID > 0 and dept.deptID <> 10 and dept.deptID = emp.deptID and dep.empID = emp.empID and dep.relation = "son" and dep.relation <> "wife" and dep.depID = deph.depID and deph.amount_claimed < 100.000000 and deph.amount_claimed <> 200.000000 and deph.amount_claimed >= 0.000000 and project.projID <= 2;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - emp.empID, emp.FirstName, dep.depID, dep.relation, deph.amount_claimed
+
+ --- NLJ (10)  x-product 
+
+ ---  --- FILTER (0) dept.deptID <=AttrType: INT *(int *)data=5
+
+ ---  ---  --- FILTER (0) dept.deptID >AttrType: INT *(int *)data=0
+
+ ---  ---  ---  --- FILTER (3) dept.deptID <>AttrType: INT *(int *)data=10
+
+ ---  ---  ---  ---  --- FILTER (4) dept.deptID =AttrType: INT *(int *)data=1
+
+ ---  ---  ---  ---  ---  --- NLJ (49) emp.deptID = dept.deptID
+
+ ---  ---  ---  ---  ---  ---  --- FILTER (49) emp.empID <=AttrType: INT *(int *)data=200
+
+ ---  ---  ---  ---  ---  ---  ---  --- NLJ (150) dep.empID = emp.empID
+
+ ---  ---  ---  ---  ---  ---  ---  ---  --- FILTER (150) dep.relation <>AttrType: STRING (char *)data=wife
+
+ ---  ---  ---  ---  ---  ---  ---  ---  ---  --- FILTER (158) dep.relation =AttrType: STRING (char *)data=son
+
+ ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  --- NLJ (1580) deph.depID = dep.depID
+
+ ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  --- FILTER (1580) deph.amount_claimed <AttrType: FLOAT *(float *)data=100
+
+ ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  --- FILTER (4745) deph.amount_claimed <>AttrType: FLOAT *(float *)data=200
+
+ ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  --- RM-Scan (deph 42 pgs, 15000 recs) deph.amount_claimed >=AttrType: FLOAT *(float *)data=0
+
+ ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  --- IX-Scan (dep 407 pgs, 15000 recs, 15000 keys)
+
+ ---  ---  ---  ---  ---  ---  ---  ---  --- IX-Scan (emp 716 pgs, 5000 recs, 5000 keys)
+
+ ---  ---  ---  ---  ---  ---  --- RM-Scan (dept 2 pgs, 10 recs)
+
+ ---  --- RM-Scan (project 2 pgs, 10 recs) project.projID <=AttrType: INT *(int *)data=2
+
+===================================
+
+empID       FirstName                                            depID       relation                                             amount_claimed 
+-------------------------------------------------------------------------------------------------------------------------------------------------
+154         Hermione                                             10924       son                                                  0.000000       
+154         Hermione                                             10924       son                                                  0.000000       
+154         Hermione                                             10924       son                                                  0.000000       
+98          Joyce                                                9351        son                                                  57.500000      
+98          Joyce                                                9351        son                                                  57.500000      
+98          Joyce                                                9351        son                                                  57.500000      
+154         Hermione                                             2720        son                                                  0.000000       
+154         Hermione                                             2720        son                                                  0.000000       
+154         Hermione                                             2720        son                                                  0.000000       
+
+9 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::91375
+PAGENOTFOUND::18185
+READPAGE::18185
+PAGEFOUND::73190
+FLUSHPAGES::7
+
+REDBASE >> Statistics reset.
+
+REDBASE >> select  *
+ from  emp, emph, dep, deph, sales, items, dept
+where  dep.depID = deph.depID and dep.depID < 10 and emp.empID = emph.empID and dept.deptID = emp.deptID and emp.empID < 10 and sales.itemID = items.itemID and sales.salesID < 100 and sales.sellerID = dep.depID;
+
+Printing Physical Plan...
+===================================
+
+PROJECT - NULL.*
+
+ --- NLJ (-108438008) dep.depID = deph.depID
+
+ ---  --- NLJ (-72292) sales.itemID = items.itemID
+
+ ---  ---  --- FILTER (-72292) sales.salesID <AttrType: INT *(int *)data=100
+
+ ---  ---  ---  --- NLJ (-217096) dep.depID = sales.sellerID
+
+ ---  ---  ---  ---  --- NLJ (24975000)  x-product 
+
+ ---  ---  ---  ---  ---  --- NLJ (1665) emp.deptID = dept.deptID
+
+ ---  ---  ---  ---  ---  ---  --- FILTER (1665) emp.empID <AttrType: INT *(int *)data=10
+
+ ---  ---  ---  ---  ---  ---  ---  --- NLJ (5000) emph.empID = emp.empID
+
+ ---  ---  ---  ---  ---  ---  ---  ---  --- RM-Scan (emph 15 pgs, 5000 recs)
+
+ ---  ---  ---  ---  ---  ---  ---  ---  --- IX-Scan (emp 716 pgs, 5000 recs, 5000 keys)
+
+ ---  ---  ---  ---  ---  ---  --- RM-Scan (dept 2 pgs, 10 recs)
+
+ ---  ---  ---  ---  ---  --- IX-Scan (dep 407 pgs, 15000 recs, 15000 keys) dep.depID <AttrType: INT *(int *)data=10
+
+ ---  ---  ---  ---  --- IX-Scan (sales 199 pgs, 50000 recs, 5000 keys)
+
+ ---  ---  --- IX-Scan (items 107 pgs, 2000 recs, 2000 keys)
+
+ ---  --- RM-Scan (deph 42 pgs, 15000 recs)
+
+===================================
+
+emph.empID  emph.insured emph.amount_claimed emp.empID   FirstName                                            LastName                                             emp.deptID  salary      manID       dept.deptID deptName                                             deptHeadID  dep.depID   dep.empID   relation                                             salesID     sellerID    sales.itemID date        items.itemID itemName                                             price       deph.depID  deph.insured deph.amount_claimed 
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+1           yes          218.199997          1           Jack                                                 Bush                                                 4           9586        260         4           Research                                             445         8           2323        daughter                                             53          8           340          30.799999   340          PS2                                                  2916.500000 8           yes          235.000000          
+0           no           0.000000            0           Hermione                                             Bin laden                                            4           25094       20          4           Research                                             445         8           2323        daughter                                             53          8           340          30.799999   340          PS2                                                  2916.500000 8           yes          235.000000          
+2           no           0.000000            2           Evelyn                                               Granger                                              0           30438       223         0           Software Engineering                                 155         8           2323        daughter                                             53          8           340          30.799999   340          PS2                                                  2916.500000 8           yes          235.000000          
+8           yes          17.900000           8           Evelyn                                               Smith                                                5           130000      17          5           Sales                                                237         8           2323        daughter                                             53          8           340          30.799999   340          PS2                                                  2916.500000 8           yes          235.000000          
+7           no           0.000000            7           Harry                                                Atkins                                               9           187850      333         9           Software Engineering                                 320         8           2323        daughter                                             53          8           340          30.799999   340          PS2                                                  2916.500000 8           yes          235.000000          
+9           yes          485.700012          9           Wendy                                                Clinton                                              9           114992      102         9           Software Engineering                                 320         8           2323        daughter                                             53          8           340          30.799999   340          PS2                                                  2916.500000 8           yes          235.000000          
+4           yes          252.699997          4           Jack                                                 Kennedy                                              9           168128      453         9           Software Engineering                                 320         8           2323        daughter                                             53          8           340          30.799999   340          PS2                                                  2916.500000 8           yes          235.000000          
+6           no           0.000000            6           William                                              Potter                                               7           13960       109         7           Accounting                                           38          8           2323        daughter                                             53          8           340          30.799999   340          PS2                                                  2916.500000 8           yes          235.000000          
+3           yes          251.699997          3           Joyce                                                Snipes                                               9           10606       141         9           Software Engineering                                 320         8           2323        daughter                                             53          8           340          30.799999   340          PS2                                                  2916.500000 8           yes          235.000000          
+5           yes          30.100000           5           Elrond                                               Kidman                                               5           39106       61          5           Sales                                                237         8           2323        daughter                                             53          8           340          30.799999   340          PS2                                                  2916.500000 8           yes          235.000000          
+
+10 tuple(s).
+
+REDBASE >> Statistics
+----------
+GETPAGE::44392
+PAGENOTFOUND::8896
+READPAGE::8896
+PAGEFOUND::35496
+FLUSHPAGES::11
+
+REDBASE >> Bye.

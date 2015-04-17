@@ -1,0 +1,66 @@
+
+/*
+
+				dept
+				|
+				|
+				|
+				emp
+				|
+				|
+-----------------------------------------------------------------	
+|		|		|		|		|
+|		|		|		|	items	|	project
+|		|		|		|	|	|         |   
+manager		emph		dep		sales---|	assigned--|
+				|
+				|
+				|
+				deph
+
+
+*/
+
+drop table assigned;
+drop table project;
+drop table manager;
+drop table deph;
+drop table emph;
+drop table sales;
+drop table items;
+drop table dep;
+drop table emp;
+drop table dept;
+
+
+create table dept	(deptID i,	deptName c20, deptHeadID i);
+create table emp	(empID i,	FirstName c15, LastName c20, deptID i, salary i, manID i);
+create table dep	(depID i,	empID i, relation c10);
+create table items	(itemID i,	itemName c30, price f);
+create table sales	(salesID i, sellerID i, itemID i, date f);
+create table emph	(empID i , insured c3, amount_claimed f);
+create table deph	(depID i , insured c3, amount_claimed f);
+create table manager	(manID i , deptID i);
+create table project	(projID i,	desc c100, length i, completed f);
+create table assigned	(empID i, projID i );
+
+create index dept(deptID);
+create index emp(empID);
+create index dep(depID);
+create index items(itemID);
+create index sales(salesID);
+create index sales(sellerID);
+create index manager(manID);
+create index assigned(empID);
+
+
+load dept("../data/dept.data");
+load emp("../data/emp.data");
+load dep("../data/dep.data");
+load items("../data/items.data");
+load sales("../data/sales.data");
+load emph("../data/emph.data");
+load deph("../data/deph.data");
+load manager("../data/managers.data");
+load project("../data/projects.data");
+load assigned("../data/assigned.data");

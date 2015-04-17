@@ -1,0 +1,144 @@
+
+queryplans on;
+
+reset io; 
+/* dept whose projects 90% completed */
+select dept.deptName, FirstName, LastName, desc
+from dept, emp, project, assigned
+where project.completed > 90.0
+and emp.empID = assigned.empID
+and project.projID = assigned.projID
+and dept.deptID = emp.deptID
+and length = 20
+and emp.empID = emp.manID;
+print io;
+
+
+
+
+reset io; 
+/* dept whose emps all have salary > 199000 */
+select emp.FirstName, emp.LastName, dept.deptName, emp.salary
+from emp, dept 
+where emp.deptID = dept.deptID 
+and emp.salary > 199000;
+print io;
+
+
+
+
+reset io; 
+/* good one to optimize... */
+select items.itemName, emp.FirstName, price
+from items, emp, sales, emph
+where emp.empID = sales.sellerID
+and sales.itemID = items.itemID 
+and emph.empID = emp.empID
+and emph.amount_claimed > 100.0
+and price < 300.0
+and emp.deptID = 0
+and items.itemID <> 10
+and salary >= 100000
+and date < 50.0;
+print io;
+
+
+
+
+reset io; 
+select items.itemName, emp.FirstName, price
+from items, emp, sales
+where sales.sellerID = emp.empID
+and items.itemID = sales.itemID
+and price < 500.0
+and salesID < 100
+and emp.deptID <> 1;
+print io;
+
+
+
+
+reset io; 
+select itemName, price, date
+from items, sales
+where items.itemID = sales.itemID
+and price < 50.0
+and price > 40.0
+and date < 50.0;
+print io;
+
+
+
+
+reset io; 
+select emp.empID, FirstName, LastName, dept.deptName, emph.amount_claimed 
+from emp, dept, emph 
+where emp.empID = emph.empID
+and emp.deptID = dept.deptID
+and insured = "yes"
+and dept.deptID = 5
+and amount_claimed < 20.0;
+print io;
+
+
+
+
+reset io; 
+select items.itemName, price
+from emp, dept, items, sales 
+where emp.empID = dept.deptID and items.itemID = sales.itemID
+and emp.empID = sales.sellerID;
+print io;
+
+
+
+
+reset io; 
+select emp.manID, empID, FirstName, itemName, price
+from emp, sales, items, dept, manager
+where emp.empID = sales.sellerID 
+and items.itemID = sales.itemID
+and emp.deptID = dept.deptID
+and dept.deptID = 0
+and price < 50.0
+and manager.deptID = dept.deptID
+and date < 50.0
+and salary > 10000
+and emp.manID = manager.manID;
+print io;
+
+
+/* limit of memory */
+reset io;
+select emp.empID, FirstName, dep.depID, relation, deph.amount_claimed
+from emp, dept, dep, deph, project
+where emp.empID <= 200
+and dept.deptID = 1
+and dept.deptID <= 5
+and dept.deptID > 0
+and dept.deptID <> 10
+and dept.deptID = emp.deptID
+and dep.empID = emp.empID
+and dep.relation = "son"
+and dep.relation <> "wife"
+and dep.depID = deph.depID
+and deph.amount_claimed < 100.0
+and deph.amount_claimed <> 200.0
+and deph.amount_claimed >= 0.0
+and project.projID <= 2
+;
+print io;
+
+
+
+
+reset io; 
+/* disjoint relations */
+select * from emp, emph, dep, deph, sales, items, dept
+where dep.depID = deph.depID and dep.depID < 10
+and emp.empID = emph.empID and dept.deptID = emp.deptID and emp.empID < 10
+and sales.itemID = items.itemID and sales.salesID < 100
+and sales.sellerID = dep.depID;
+print io;
+
+
