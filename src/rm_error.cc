@@ -27,6 +27,11 @@ static char *RM_WarnMsg[] = {
   (char*)"page number is not valid",
   (char*)"attributes are not consistent",
   (char*)"scan is not open",
+  (char*)"file name is not valid",
+  (char*)"attribute type is not valid",
+  (char*)"attribute offset is not valid",
+  (char*)"operator is not valid",
+  (char*)"record is null pointer",
   (char*)"end of file",
 };
 

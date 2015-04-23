@@ -33,6 +33,24 @@ RM_FileScan::~RM_FileScan() {
 RC RM_FileScan::OpenScan(const RM_FileHandle &fileHandle, AttrType attrType, int attrLength,
                          int attrOffset, CompOp compOp, void *value, ClientHint pinHint) {
     // Check for erroneous input
+    if (attrType != INT && attrType != FLOAT && attrType != STRING) {
+        return RM_INVALID_ATTRIBUTE;
+    }
+
+    if (!fileHandle.isOpen) {
+        return RM_FILE_CLOSED;
+    }
+
+    int recordSize = (fileHandle.fileHeader).recordSize;
+    if (attrOffset > recordSize || attrOffset < 0) {
+        return RM_INVALID_OFFSET;
+    }
+
+    if (compOp != NO_OP && compOp != EQ_OP && compOp != NE_OP && compOp != LT_OP &&
+        compOp != GT_OP && compOp != LE_OP && compOp != GE_OP) {
+        return RM_INVALID_OPERATOR;
+    }
+
     if ((attrType == INT || attrType == FLOAT) && attrLength != 4) {
         return RM_ATTRIBUTE_NOT_CONSISTENT;
     }
@@ -56,6 +74,9 @@ RC RM_FileScan::OpenScan(const RM_FileHandle &fileHandle, AttrType attrType, int
     this->value = value;
     this->pinHint = pinHint;
 
+    // Set the scan open flag
+    scanOpen = TRUE;
+
     // Declare an integer for return code
     int rc;
 
@@ -75,30 +96,38 @@ RC RM_FileScan::OpenScan(const RM_FileHandle &fileHandle, AttrType attrType, int
 
     // Get the page number of the first data page
     PageNum pageNumber;
+    bool pageFound = true;
     if ((rc = pfFH.GetNextPage(headerPageNumber, pfPH))) {
-        // Return the error from the PF FileHandle
-        return rc;
+        if (rc == PF_EOF) {
+            pageNumber = RM_NO_FREE_PAGE;
+            pageFound = false;
+        }
+        else {
+            // Return the error from the PF FileHandle
+            return rc;
+        }
     }
-    if ((rc = pfPH.GetPageNum(pageNumber))) {
-        // Return the error from the PF PageHandle
-        return rc;
+    if (pageFound) {
+        if ((rc = pfPH.GetPageNum(pageNumber))) {
+            // Return the error from the PF PageHandle
+            return rc;
+        }
     }
 
     // Set the page and slot numbers
     this->pageNumber = pageNumber;
     this->slotNumber = 1;
 
-    // Set the scan open flag
-    scanOpen = TRUE;
-
     // Unpin the header and data page
     if ((rc = pfFH.UnpinPage(headerPageNumber))) {
         // Return the error from the PF FileHandle
         return rc;
     }
-    if ((rc = pfFH.UnpinPage(pageNumber))) {
-        // Return the error from the PF FileHandle
-        return rc;
+    if (pageFound) {
+        if ((rc = pfFH.UnpinPage(pageNumber))) {
+            // Return the error from the PF FileHandle
+            return rc;
+        }
     }
 
     // Return OK
@@ -146,9 +175,13 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
     char* pageData;
     char* bitmap;
 
+    // If the file is empty
+    if (pageNumber == RM_NO_FREE_PAGE) {
+        return RM_EOF;
+    }
+
     // Get the page corresponding to the page number
     if ((rc = pfFH.GetThisPage(pageNumber, pfPH))) {
-        // Return the error from the PF FileHandle
         return rc;
     }
     // Get the bitmap on the page
@@ -224,6 +257,7 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
             // Get the next page of the file
             rc = pfFH.GetNextPage(pageNumber, pfPH);
             if (rc == PF_EOF) {
+                pageNumber = RM_NO_FREE_PAGE;
                 // Return EOF
                 return RM_EOF;
             }

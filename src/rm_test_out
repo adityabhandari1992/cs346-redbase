@@ -1,130 +1,191 @@
 Starting RM component test.
--rw------- 1 adityasb operator 8192 Apr 12 19:03 testrel
-
-test1 starting
-*****************************
+TEST 1 BEGINNING ...................
 
 creating testrel
 
+*** File Creation Test: PASS
+
 opening testrel
 
+*** File Open Test: PASS
+
+adding 4000 records
+50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  1250  1300  1350  1400  1450  1500  1550  1600  1650  1700  1750  1800  1850  1900  1950  2000  2050  2100  2150  2200  2250  2300  2350  2400  2450  2500  2550  2600  2650  2700  2750  2800  2850  2900  2950  3000  3050  3100  3150  3200  3250  3300  3350  3400  3450  3500  3550  3600  3650  3700  3750  3800  3850  3900  3950  4000  
+
+*** Add Records Test: PASS
+
+*** Testing the EOF return code: PASS
+
+*** Invalid GetRec call: PASS
+
+*** Call to GetRec with RID (0,5): PASS
+
+*** Comparison between 2 FileScans: PASS
+
+*** Record Deletion (complete pages) Test : PASS
+
+adding 1000 records
+50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  
+
+*** Reuse Space (Add to new pages) Test: PASS
+
+adding 1000 records
+50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  
+
+*** Reuse Space (Should fill up old pages) Test: PASS
+
 Closing testrel
-doing "ls -l testrel"
+
+*** File Close Test: PASS
 
 destroying testrel
 
-test1 done
-*****************************
+*** File Destroy Test: PASS
+TEST 2 BEGINNING ...................
 
-test2 starting
-*****************************
+opening testrel
+
+*** Illegal File Open Test: PASS
+
+Closing testrel
+
+*** Illegal File Close Test: PASS
 
 creating testrel
 
-opening testrel
-
-adding 1200 records
-50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  -rw------- 1 adityasb operator 57344 Apr 12 19:03 testrel
-
-
-Closing testrel
-doing "ls -l testrel"
-
-destroying testrel
-
-test2 done
-*****************************
-
-test3 starting
-*****************************
+*** File Creation Test: PASS
 
 creating testrel
 
-opening testrel
-
-adding 1200 records
-50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  -rw------- 1 adityasb operator 57344 Apr 12 19:03 testrel
-
-
-Closing testrel
+*** Duplicate Creation Test: PASS
 
 opening testrel
+
+*** File Open Test: PASS
+
+opening testrel
+
+*** Illegal File Open Test: PASS
+
+adding 4000 records
+50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  1250  1300  1350  1400  1450  1500  1550  1600  1650  1700  1750  1800  1850  1900  1950  2000  2050  2100  2150  2200  2250  2300  2350  2400  2450  2500  2550  2600  2650  2700  2750  2800  2850  2900  2950  3000  3050  3100  3150  3200  3250  3300  3350  3400  3450  3500  3550  3600  3650  3700  3750  3800  3850  3900  3950  4000  
+
+*** Add Records Test: PASS
 
 verifying file contents
-Success!
+
+*** Verify File Test: PASS
 
 Closing testrel
-doing "ls -l testrel"
+
+*** File Close Test: PASS
+
+opening testrel
+
+*** File Open Test: PASS
+
+Closing testrel
+
+opening testrel
+
+*** File Scan INT EQ_OP Test: PASS
+Found:1.  Supposed to find: 1.
+
+*** File Scan INT GE_OP Test: PASS
+Found:15.  Supposed to find: 15.
+
+*** File Scan INT LT_OP Test: PASS
+Found:3985.  Supposed to find: 3985.
+
+*** File Scan INT EQ_OP Test: PASS
+Found:0.  Supposed to find: 0.
+
+*** File Scan FLOAT EQ_OP Test: PASS
+Found:1.  Supposed to find: 1.
+
+*** File Scan FLOAT NE_OP Test: PASS
+Found:3999.  Supposed to find: 3999.
+
+*** File Scan FLOAT LE_OP Test: PASS
+Found:100.  Supposed to find: 100.
+
+*** File Scan FLOAT GE_OP Test: PASS
+Found:3901.  Supposed to find: 3901.
+
+*** File Scan STRING LE_OP Test: PASS
+Found:3913.  Supposed to find: 3913.
+
+*** File Scan STRING GT_OP Test: PASS
+Found:87.  Supposed to find: 87.
+
+*** File Scan STRING NO_OP Test: PASS
+Found:4000.  Supposed to find: 4000.
+
+*** File Scan STRING NE_OP Test: PASS
+Found:4000.  Supposed to find: 4000.
+
+*** Filescan wrong type test : PASS 
+
+*** Filescan wrong operation test : PASS 
+
+*** Filescan memory violation test : PASS 
+
+*** Filescan memory violation test : PASS 
+
+*** Filescan wrong type length test : PASS 
+
+*** Filescan wrong type length test : PASS 
+
+*** Record Deletion Test : PASS
+
+*** File Scan STRING LE_OP Test: PASS
+Found:1956.  Supposed to find: 1956.
+
+adding 1000 records
+50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  
+
+*** Reuse Space (Add) Test: PASS
+
+*** Reuse Space (Verify) Test: PASS
+
+Closing testrel
+
+*** File Close Test: PASS
 
 destroying testrel
 
-test3 done
-*****************************
+*** File Destroy Test: PASS
 
-test4 starting
-*****************************
+TESTS 2 COMPLETE  ********************
+TEST 3 BEGINNING ...................
 
 creating testrel
 
-opening testrel
-
-adding 1200 records
-50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  -rw------- 1 adityasb operator 57344 Apr 12 19:03 testrel
-
-
-verifying file contents
-100 records in file (supposed to be 1200)
-
-Closing testrel
-
----------------------------------
+*** File Creation Test: PASS
 
 opening testrel
 
-Updating records in the file
+*** File Open Test: PASS
 
-verifying file contents
-90 records in file (supposed to be 1200)
+adding 4000 records
+50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  1250  1300  1350  1400  1450  1500  1550  1600  1650  1700  1750  1800  1850  1900  1950  2000  2050  2100  2150  2200  2250  2300  2350  2400  2450  2500  2550  2600  2650  2700  2750  2800  2850  2900  2950  3000  3050  3100  3150  3200  3250  3300  3350  3400  3450  3500  3550  3600  3650  3700  3750  3800  3850  3900  3950  4000  
+
+*** Add Records Test: PASS
+
+*** File Scan INT EQ_OP Test with DELETE: PASS
+Found:2000.  Supposed to find: 2000.
+
+*** Verify the number of records: PASS
+Found:2000.  Supposed to find: 2000.
+
+*** Get a Record from Deleted Page: PASS
 
 Closing testrel
-doing "ls -l testrel"
+
+*** File Close Test: PASS
 
 destroying testrel
 
-test4 done
-*****************************
-
-test5 starting
-*****************************
-
-creating testrel
-
-opening testrel
-
-adding 1200 records
-50  100  150  200  250  300  350  400  450  500  550  600  650  700  750  800  850  900  950  1000  1050  1100  1150  1200  -rw------- 1 adityasb operator 57344 Apr 12 19:03 testrel
-
-
-verifying file contents
-Success!
-
-Closing testrel
-
----------------------------------
-
-opening testrel
-
-Deleting records in the file
-
-verifying file contents
-1190 records in file (supposed to be 1200)
-
-Closing testrel
-doing "ls -l testrel"
-
-destroying testrel
-
-test5 done
-*****************************
+*** File Destroy Test: PASS
 Ending RM component test.
 

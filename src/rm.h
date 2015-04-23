@@ -183,7 +183,12 @@ void RM_PrintError(RC rc);
 #define RM_INVALID_PAGE_NUMBER      (START_RM_WARN + 6) // Page number is not valid
 #define RM_ATTRIBUTE_NOT_CONSISTENT (START_RM_WARN + 7) // Attribute is not consistent
 #define RM_SCAN_CLOSED              (START_RM_WARN + 8) // Scan is not open
-#define RM_EOF                      (START_RM_WARN + 9) // End of file
+#define RM_INVALID_FILENAME         (START_RM_WARN + 9) // Invalid filename
+#define RM_INVALID_ATTRIBUTE        (START_RM_WARN + 10) // Invalid attribute
+#define RM_INVALID_OFFSET           (START_RM_WARN + 11) // Invalid offset
+#define RM_INVALID_OPERATOR         (START_RM_WARN + 12) // Invalid operator
+#define RM_NULL_RECORD              (START_RM_WARN + 13) // Null record
+#define RM_EOF                      (START_RM_WARN + 14) // End of file
 #define RM_LASTWARN                 RM_EOF
 
 // Errors

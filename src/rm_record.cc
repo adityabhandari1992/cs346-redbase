@@ -21,6 +21,7 @@ RM_Record::RM_Record() {
 RM_Record::~RM_Record() {
     // Delete the data if it is a valid record
     if (isValid) {
+        isValid = false;
         delete[] pData;
     }
 }
@@ -40,8 +41,10 @@ RM_Record::RM_Record(const RM_Record &rec) {
 RM_Record& RM_Record::operator=(const RM_Record &rec) {
     // Check for self-assignment
     if (this != &rec) {
-        // Copy the data, rid, valid flag and record size
-        this->pData = rec.pData;
+        // Copy the data
+        memcpy(this->pData, rec.pData, rec.recordSize);
+
+        // Copy the rid, valid flag and record size
         this->rid = rec.rid;
         this->isValid = rec.isValid;
         this->recordSize = rec.recordSize;

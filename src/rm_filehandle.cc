@@ -97,7 +97,7 @@ RC RM_FileHandle::GetRec(const RID &rid, RM_Record &rec) const {
     }
 
     // Check whether the page number is valid
-    if (pageNumber < 0) {
+    if (pageNumber <= 0) {
         // Return error
         return RM_INVALID_PAGE_NUMBER;
     }
@@ -178,6 +178,11 @@ RC RM_FileHandle::InsertRec(const char *pData, RID &rid) {
     // Check if the file is open
     if (!isOpen) {
         return RM_FILE_CLOSED;
+    }
+
+    // Check that pData is not null
+    if (pData == NULL) {
+        return RM_NULL_RECORD;
     }
 
     // Declare an integer for the return code
@@ -350,7 +355,7 @@ RC RM_FileHandle::DeleteRec(const RID &rid) {
     }
 
     // Check whether the page number is valid
-    if (pageNumber < 0) {
+    if (pageNumber <= 0) {
         // Return error
         return RM_INVALID_PAGE_NUMBER;
     }
@@ -484,7 +489,7 @@ RC RM_FileHandle::UpdateRec(const RM_Record &rec) {
     }
 
     // Check whether the page number is valid
-    if (pageNumber < 0) {
+    if (pageNumber <= 0) {
         // Return error
         return RM_INVALID_PAGE_NUMBER;
     }

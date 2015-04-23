@@ -25,7 +25,7 @@ RM_Manager::~RM_Manager() {
 // Method: CreateFile(const char *fileName, int recordSize)
 // Create a file with the given filename and record size
 /* Steps:
-    1) Check for valid record size
+    1) Check for valid record size and filename
     2) Create file using the PF Manager
     3) Allocate a header page by opening the file
     4) Get the header page number and mark page as dirty
@@ -36,11 +36,16 @@ RM_Manager::~RM_Manager() {
 */
 RC RM_Manager::CreateFile(const char *fileName, int recordSize) {
     // Check for a valid record size
-    if (recordSize < 0) {
+    if (recordSize <= 0) {
         return RM_SMALL_RECORD;
     }
     if (recordSize > PF_PAGE_SIZE) {
         return RM_LARGE_RECORD;
+    }
+
+    // Check for valid filename
+    if (fileName == NULL) {
+        return RM_INVALID_FILENAME;
     }
 
     // Declare an integer for the return code
@@ -135,6 +140,11 @@ RC RM_Manager::DestroyFile(const char *fileName) {
     // Declare an integer for the return code
     int rc;
 
+    // Check for valid filename
+    if (fileName == NULL) {
+        return RM_INVALID_FILENAME;
+    }
+
     // Destroy the file using the PF Manager
     if ((rc = pfManager->DestroyFile(fileName))) {
         // Return the error from the PF Manager
@@ -159,6 +169,11 @@ RC RM_Manager::DestroyFile(const char *fileName) {
     5) Unpin the file header page
 */
 RC RM_Manager::OpenFile(const char *fileName, RM_FileHandle &fileHandle) {
+    // Check for valid filename
+    if (fileName == NULL) {
+        return RM_INVALID_FILENAME;
+    }
+
     // Check if the file handle is already open
     if (fileHandle.isOpen) {
         return RM_FILE_OPEN;
@@ -229,8 +244,7 @@ RC RM_Manager::OpenFile(const char *fileName, RM_FileHandle &fileHandle) {
         - Copy the modified data to the header page
         - Unpin the header page
         - Flush/force the page on to the disk
-    3) Unpin all the file pages
-    4) Close the file using the PF Manager
+    3) Close the file using the PF Manager
 */
 RC RM_Manager::CloseFile(RM_FileHandle &fileHandle) {
     // Check if the file handle refers to an open file
