@@ -69,11 +69,13 @@ struct IX_NodeHeader {
 /* Stores the following:
     1) numberRecords - Number of records in the bucket - integer
     2) recordCapacity - Maximum number of records - integer
-    3) nextBucket - Page number of the next chained bucket - PageNum
+    3) parentNode - Page number of the parent node - PageNum
+    4) nextBucket - Page number of the next chained bucket - PageNum
 */
 struct IX_BucketPageHeader {
     int numberRecords;
     int recordCapacity;
+    PageNum parentNode;
     // PageNum nextBucket;
 };
 

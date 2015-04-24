@@ -32,6 +32,7 @@ struct IX_IndexHeader {
 //
 class IX_IndexHandle {
     friend class IX_Manager;
+    friend class IX_IndexScan;
 public:
     IX_IndexHandle();
     ~IX_IndexHandle();
@@ -82,6 +83,27 @@ public:
 
     // Close index scan
     RC CloseScan();
+
+private:
+    PageNum pageNumber;                     // Current page number
+    int keyPosition;                        // Current key position
+    int bucketPosition;                        // Current bucket position
+    IX_IndexHandle indexHandle;             // Index handle for the index
+    AttrType attrType;                      // Attribute type
+    int attrLength;                         // Attribute length
+    CompOp compOp;                          // Comparison operator
+    void* value;                            // Value to be compared
+    ClientHint pinHint;                     // Pinning hint
+    int scanOpen;                           // Flag to track if scan open
+    int degree;                             // Degree of the nodes
+    int inBucket;                           // Flag whether currently in bucket
+
+    RC SearchEntry(PageNum node, PageNum &pageNumber, int &keyPosition);
+
+    template<typename T>
+    bool satisfiesCondition(T key, T value);
+    template<typename T>
+    bool satisfiesInterval(T key1, T key2, T value);
 };
 
 //
@@ -109,7 +131,7 @@ public:
 private:
     PF_Manager* pfManager;      // PF_Manager object
 
-    const char* generateIndexFileName(const char* fileName, int indexNo);
+    void generateIndexFileName(const char* fileName, int indexNo, std::string &indexFileName);
     int findDegreeOfNode(int attrLength);
 };
 
@@ -130,12 +152,13 @@ void IX_PrintError(RC rc);
 #define IX_BUCKET_FULL              (START_IX_WARN + 8) // Bucket full
 #define IX_EOF                      (START_IX_WARN + 9) // End of file
 #define IX_NULL_FILENAME            (START_IX_WARN + 10) // Null file name
-#define IX_INVALID_ATTRIBUTE        (START_IX_WARN + 11) // Invlaid attribute
-#define IX_LASTWARN                 IX_BUCKET_FULL
+#define IX_INVALID_ATTRIBUTE        (START_IX_WARN + 11) // Invalid attribute
+#define IX_INVALID_OPERATOR         (START_IX_WARN + 12) // Invalid operator
+#define IX_SCAN_CLOSED              (START_IX_WARN + 13) // Scan is closed
+#define IX_LASTWARN                 IX_SCAN_CLOSED
 
 // Errors
 #define IX_INVALIDNAME          (START_IX_ERR - 0) // Invalid PC file name
-#define IX_INCONSISTENT_BITMAP  (START_IX_ERR - 1) // Inconsistent bitmap in page
 
 // Error in UNIX system call or library routine
 #define IX_UNIX            (START_IX_ERR - 2) // Unix error

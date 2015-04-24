@@ -13,17 +13,25 @@
 
 using namespace std;
 
-//
-// Error table
-//
 static char *IX_WarnMsg[] = {
-  (char*)"record size is too large",
-  (char*)"record size is too small"
+  (char*)"index number is negative",
+  (char*)"index attribute is inconsistent",
+  (char*)"index file is open",
+  (char*)"index file is closed",
+  (char*)"index node is invalid",
+  (char*)"index key was not found",
+  (char*)"null index entry",
+  (char*)"index entry already exists",
+  (char*)"bucket full",
+  (char*)"end of index file",
+  (char*)"null file name",
+  (char*)"invalid attribute",
+  (char*)"invalid operator",
+  (char*)"scan is closed"
 };
 
 static char *IX_ErrorMsg[] = {
-  (char*)"invalid file name",
-  (char*)"inconsistent bitmap on file page"
+  (char*)"invalid file name"
 };
 
 //

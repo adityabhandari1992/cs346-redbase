@@ -221,6 +221,7 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                             bucketHeader->numberRecords = 1;
                             int recordCapacity = (PF_PAGE_SIZE-sizeof(IX_BucketPageHeader)) / (sizeof(RID));
                             bucketHeader->recordCapacity = recordCapacity;
+                            bucketHeader->parentNode = rootPage;
                             // bucketHeader->nextBucket = IX_NO_PAGE;
 
                             char* bucketData;
@@ -512,6 +513,7 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                             bucketHeader->numberRecords = 1;
                             int recordCapacity = (PF_PAGE_SIZE-sizeof(IX_BucketPageHeader)) / (sizeof(RID));
                             bucketHeader->recordCapacity = recordCapacity;
+                            bucketHeader->parentNode = rootPage;
                             // bucketHeader->nextBucket = IX_NO_PAGE;
 
                             char* bucketData;
@@ -806,6 +808,7 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                             bucketHeader->numberRecords = 1;
                             int recordCapacity = (PF_PAGE_SIZE-sizeof(IX_BucketPageHeader)) / (sizeof(RID));
                             bucketHeader->recordCapacity = recordCapacity;
+                            bucketHeader->parentNode = rootPage;
                             // bucketHeader->nextBucket = IX_NO_PAGE;
 
                             char* bucketData;
@@ -1169,6 +1172,7 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                         bucketHeader->numberRecords = 1;
                         int recordCapacity = (PF_PAGE_SIZE-sizeof(IX_BucketPageHeader)) / (sizeof(RID));
                         bucketHeader->recordCapacity = recordCapacity;
+                        bucketHeader->parentNode = node;
                         // bucketHeader->nextBucket = IX_NO_PAGE;
 
                         char* bucketData;
@@ -1401,6 +1405,7 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                         bucketHeader->numberRecords = 1;
                         int recordCapacity = (PF_PAGE_SIZE-sizeof(IX_BucketPageHeader)) / (sizeof(RID));
                         bucketHeader->recordCapacity = recordCapacity;
+                        bucketHeader->parentNode = node;
                         // bucketHeader->nextBucket = IX_NO_PAGE;
 
                         char* bucketData;
@@ -1637,6 +1642,7 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                         bucketHeader->numberRecords = 1;
                         int recordCapacity = (PF_PAGE_SIZE-sizeof(IX_BucketPageHeader)) / (sizeof(RID));
                         bucketHeader->recordCapacity = recordCapacity;
+                        bucketHeader->parentNode = node;
                         // bucketHeader->nextBucket = IX_NO_PAGE;
 
                         char* bucketData;

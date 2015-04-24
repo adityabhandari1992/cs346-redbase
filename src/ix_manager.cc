@@ -6,6 +6,7 @@
 
 #include "ix_internal.h"
 #include "ix.h"
+#include <string>
 #include <cstring>
 #include <cstdio>
 #include <sstream>
@@ -53,7 +54,9 @@ RC IX_Manager::CreateIndex(const char *fileName, int indexNo,
     int rc;
 
     // Generate the index filename
-    const char* indexFileName = generateIndexFileName(fileName, indexNo);
+    string fileNameString;
+    generateIndexFileName(fileName, indexNo, fileNameString);
+    const char* indexFileName = fileNameString.c_str();
 
     // Check attributes
     if (attrType != INT && attrType != FLOAT && attrType != STRING) {
@@ -162,7 +165,9 @@ RC IX_Manager::DestroyIndex(const char *fileName, int indexNo) {
     int rc;
 
     // Generate the index file name
-    const char* indexFileName = generateIndexFileName(fileName, indexNo);
+    string fileNameString;
+    generateIndexFileName(fileName, indexNo, fileNameString);
+    const char* indexFileName = fileNameString.c_str();
 
     // Destroy the file using the PF Manager
     if ((rc = pfManager->DestroyFile(indexFileName))) {
@@ -204,7 +209,9 @@ RC IX_Manager::OpenIndex(const char *fileName, int indexNo, IX_IndexHandle &inde
     int rc;
 
     // Generate the index file name
-    const char* indexFileName = generateIndexFileName(fileName, indexNo);
+    string fileNameString;
+    generateIndexFileName(fileName, indexNo, fileNameString);
+    const char* indexFileName = fileNameString.c_str();
 
     // Declare a PF FileHandle
     PF_FileHandle pfFH;
@@ -242,7 +249,6 @@ RC IX_Manager::OpenIndex(const char *fileName, int indexNo, IX_IndexHandle &inde
     // Store the data in the index header object
     IX_IndexHeader* iH = (IX_IndexHeader*) pData;
     memcpy(&indexHandle.indexHeader, iH, sizeof(IX_IndexHeader));
-
 
     // Unpin the header page
     if ((rc = pfFH.UnpinPage(headerPageNum))) {
@@ -329,18 +335,16 @@ RC IX_Manager::CloseIndex(IX_IndexHandle &indexHandle) {
 
 // Method: generateIndexFileName(const char* fileName, int indexNo)
 // Generate a const char* = fileName.indexNo
-const char* IX_Manager::generateIndexFileName(const char* fileName, int indexNo) {
+void IX_Manager::generateIndexFileName(const char* fileName, int indexNo, string &indexFileName) {
     string fileNameString(fileName);
-    string indexString = "";
-    indexString += ".";
 
+    string indexString = ".";
     stringstream convert;
     convert << indexNo;
     indexString += convert.str();
 
     fileNameString += indexString;
-    const char* indexFileName = fileNameString.c_str();
-    return indexFileName;
+    indexFileName = fileNameString;
 }
 
 // Method: findDegreeOfNode(int attrLength)
