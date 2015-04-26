@@ -182,120 +182,147 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
 
         // If the type is ROOT_LEAF
         if (type == ROOT_LEAF) {
+            // Check if pData is already a key
+            int index = -1;
             if (attrType == INT) {
-
-                // Check if pData is already a key
                 int* keyArray = (int*) keyData;
                 int givenKey = *static_cast<int*>(pData);
-                int index = -1;
                 for (int i=0; i<numberKeys; i++) {
                     if (keyArray[i] == givenKey) {
                         index = i;
                         break;
                     }
                 }
+            }
+            else if (attrType == FLOAT) {
+                float* keyArray = (float*) keyData;
+                float givenKey = *static_cast<float*>(pData);
+                for (int i=0; i<numberKeys; i++) {
+                    if (keyArray[i] == givenKey) {
+                        index = i;
+                        break;
+                    }
+                }
+            }
+            else {
+                string* keyArray = (string*) keyData;
+                char* givenKeyChar = static_cast<char*>(pData);
+                string givenKey = "";
+                for (int i=0; i < attrLength; i++) {
+                    givenKey += givenKeyChar[i];
+                }
+                for (int i=0; i<numberKeys; i++) {
+                    if (keyArray[i] == givenKey) {
+                        index = i;
+                        break;
+                    }
+                }
+            }
 
-                // If key exists, check if the same RID exists
-                if (index != -1) {
-                    IX_NodeValue value = valueArray[index];
-                    if (compareRIDs(value.rid, rid)) {
-                        return IX_ENTRY_EXISTS;
+            // If key exists, check if the same RID exists
+            if (index != -1) {
+                IX_NodeValue value = valueArray[index];
+                if (compareRIDs(value.rid, rid)) {
+                    return IX_ENTRY_EXISTS;
+                }
+                else {
+                    // Get the bucket page
+                    PageNum bucketPage = value.page;
+                    if (bucketPage == IX_NO_PAGE) {
+                        // Allocate a new bucket page
+                        PF_PageHandle bucketPFPH;
+                        if ((rc = pfFH.AllocatePage(bucketPFPH))) {
+                            return rc;
+                        }
+                        if ((rc = bucketPFPH.GetPageNum(bucketPage))) {
+                            return rc;
+                        }
+                        valueArray[index].page = bucketPage;
+                        memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
+
+                        // Initialize and copy the bucket header
+                        IX_BucketPageHeader* bucketHeader = new IX_BucketPageHeader;
+                        bucketHeader->numberRecords = 1;
+                        int recordCapacity = (PF_PAGE_SIZE-sizeof(IX_BucketPageHeader)) / (sizeof(RID));
+                        bucketHeader->recordCapacity = recordCapacity;
+                        bucketHeader->parentNode = rootPage;
+                        // bucketHeader->nextBucket = IX_NO_PAGE;
+
+                        char* bucketData;
+                        if ((rc = bucketPFPH.GetData(bucketData))) {
+                            return rc;
+                        }
+                        if ((rc = pfFH.MarkDirty(bucketPage))) {
+                            return rc;
+                        }
+                        memcpy(bucketData, (char*) bucketHeader, sizeof(IX_BucketPageHeader));
+                        delete bucketHeader;
+
+                        // Copy the RID to the bucket
+                        RID* ridList = new RID[recordCapacity];
+                        ridList[0] = rid;
+                        memcpy(bucketData+sizeof(IX_BucketPageHeader), ridList, sizeof(RID)*recordCapacity);
+
+                        // Unpin the bucket page
+                        if ((rc = pfFH.UnpinPage(bucketPage))) {
+                            return rc;
+                        }
                     }
                     else {
-                        // Get the bucket page
-                        PageNum bucketPage = value.page;
-                        if (bucketPage == IX_NO_PAGE) {
-                            // Allocate a new bucket page
-                            PF_PageHandle bucketPFPH;
-                            if ((rc = pfFH.AllocatePage(bucketPFPH))) {
-                                return rc;
-                            }
-                            if ((rc = bucketPFPH.GetPageNum(bucketPage))) {
-                                return rc;
-                            }
-                            valueArray[index].page = bucketPage;
-                            memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
+                        // Get the data from the bucket page
+                        PF_PageHandle bucketPFPH;
+                        char* bucketData;
+                        if ((rc = pfFH.GetThisPage(bucketPage, bucketPFPH))) {
+                            return rc;
+                        }
+                        if ((rc = bucketPFPH.GetData(bucketData))) {
+                            return rc;
+                        }
+                        if ((rc = pfFH.MarkDirty(bucketPage))) {
+                            return rc;
+                        }
 
-                            // Initialize and copy the bucket header
-                            IX_BucketPageHeader* bucketHeader = new IX_BucketPageHeader;
-                            bucketHeader->numberRecords = 1;
-                            int recordCapacity = (PF_PAGE_SIZE-sizeof(IX_BucketPageHeader)) / (sizeof(RID));
-                            bucketHeader->recordCapacity = recordCapacity;
-                            bucketHeader->parentNode = rootPage;
-                            // bucketHeader->nextBucket = IX_NO_PAGE;
+                        // Get the bucket page header
+                        IX_BucketPageHeader* bucketHeader = (IX_BucketPageHeader*) bucketData;
+                        int numberRecords = bucketHeader->numberRecords;
+                        int recordCapacity = bucketHeader->recordCapacity;
 
-                            char* bucketData;
-                            if ((rc = bucketPFPH.GetData(bucketData))) {
-                                return rc;
-                            }
-                            if ((rc = pfFH.MarkDirty(bucketPage))) {
-                                return rc;
-                            }
-                            memcpy(bucketData, (char*) bucketHeader, sizeof(IX_BucketPageHeader));
-                            delete bucketHeader;
-
-                            // Copy the RID to the bucket
-                            RID* ridList = new RID[recordCapacity];
-                            ridList[0] = rid;
-                            memcpy(bucketData+sizeof(IX_BucketPageHeader), ridList, sizeof(RID)*recordCapacity);
-
-                            // Unpin the bucket page
-                            if ((rc = pfFH.UnpinPage(bucketPage))) {
-                                return rc;
+                        // Check the entries in the bucket for the same rid
+                        char* ridData = bucketData + sizeof(IX_BucketPageHeader);
+                        RID* ridList = (RID*) ridData;
+                        for (int i=0; i<numberRecords; i++) {
+                            if (compareRIDs(ridList[i],rid)) {
+                                return IX_ENTRY_EXISTS;
                             }
                         }
-                        else {
-                            // Get the data from the bucket page
-                            PF_PageHandle bucketPFPH;
-                            char* bucketData;
-                            if ((rc = pfFH.GetThisPage(bucketPage, bucketPFPH))) {
-                                return rc;
-                            }
-                            if ((rc = bucketPFPH.GetData(bucketData))) {
-                                return rc;
-                            }
-                            if ((rc = pfFH.MarkDirty(bucketPage))) {
-                                return rc;
-                            }
 
-                            // Get the bucket page header
-                            IX_BucketPageHeader* bucketHeader = (IX_BucketPageHeader*) bucketData;
-                            int numberRecords = bucketHeader->numberRecords;
-                            int recordCapacity = bucketHeader->recordCapacity;
+                        // Insert the new RID if not found
+                        if (numberRecords == recordCapacity) {
+                            return IX_BUCKET_FULL;
+                        }
+                        ridList[numberRecords] = rid;
+                        memcpy(ridData, (char*) ridList, sizeof(sizeof(RID)*recordCapacity));
 
-                            // Check the entries in the bucket for the same rid
-                            char* ridData = bucketData + sizeof(IX_BucketPageHeader);
-                            RID* ridList = (RID*) ridData;
-                            for (int i=0; i<numberRecords; i++) {
-                                if (compareRIDs(ridList[i],rid)) {
-                                    return IX_ENTRY_EXISTS;
-                                }
-                            }
+                        bucketHeader->numberRecords++;
+                        memcpy(bucketData, (char*) bucketHeader, sizeof(IX_BucketPageHeader));
 
-                            // Insert the new RID if not found
-                            if (numberRecords == recordCapacity) {
-                                return IX_BUCKET_FULL;
-                            }
-                            ridList[numberRecords] = rid;
-                            memcpy(ridData, (char*) ridList, sizeof(sizeof(RID)*recordCapacity));
-
-                            bucketHeader->numberRecords++;
-                            memcpy(bucketData, (char*) bucketHeader, sizeof(IX_BucketPageHeader));
-
-                            // Unpin the bucket page
-                            if ((rc = pfFH.UnpinPage(bucketPage))) {
-                                return rc;
-                            }
+                        // Unpin the bucket page
+                        if ((rc = pfFH.UnpinPage(bucketPage))) {
+                            return rc;
                         }
                     }
                 }
+            }
 
-                // Else if the key is not present in the node
-                else {
-                    // If the node is not full
-                    if (numberKeys < keyCapacity) {
-                        // Find the position for this key
-                        int position = numberKeys;
+            // Else if the key is not present in the node
+            else {
+                // If the node is not full
+                if (numberKeys < keyCapacity) {
+                    // Find the position for this key
+                    int position = numberKeys;
+                    if (attrType == INT) {
+                        int* keyArray = (int*) keyData;
+                        int givenKey = *static_cast<int*>(pData);
                         for (int i=0; i<numberKeys; i++) {
                             if (givenKey < keyArray[i]) {
                                 position = i;
@@ -309,38 +336,82 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                             valueArray[i] = valueArray[i-1];
                         }
                         keyArray[position] = givenKey;
-                        valueArray[position].state = RID_FILLED;
-                        valueArray[position].rid = rid;
-                        valueArray[position].page = IX_NO_PAGE;
-
-                        nodeHeader->numberKeys++;
-
-                        // Copy the keys and values to the node
-                        memcpy(pageData, (char*) nodeHeader, sizeof(IX_NodeHeader));
                         memcpy(keyData, (char*) keyArray, attrLength*degree);
-                        memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
+                    }
+                    else if (attrType == FLOAT) {
+                        float* keyArray = (float*) keyData;
+                        float givenKey = *static_cast<float*>(pData);
+                        for (int i=0; i<numberKeys; i++) {
+                            if (givenKey < keyArray[i]) {
+                                position = i;
+                                break;
+                            }
+                        }
+
+                        // Move the other keys forward and insert the key
+                        for (int i=numberKeys; i>position; i--) {
+                            keyArray[i] = keyArray[i-1];
+                            valueArray[i] = valueArray[i-1];
+                        }
+                        keyArray[position] = givenKey;
+                        memcpy(keyData, (char*) keyArray, attrLength*degree);
+                    }
+                    else {
+                        string* keyArray = (string*) keyData;
+                        char* givenKeyChar = static_cast<char*>(pData);
+                        string givenKey = "";
+                        for (int i=0; i < attrLength; i++) {
+                            givenKey += givenKeyChar[i];
+                        }
+                        for (int i=0; i<numberKeys; i++) {
+                            if (givenKey < keyArray[i]) {
+                                position = i;
+                                break;
+                            }
+                        }
+
+                        // Move the other keys forward and insert the key
+                        for (int i=numberKeys; i>position; i--) {
+                            keyArray[i] = keyArray[i-1];
+                            valueArray[i] = valueArray[i-1];
+                        }
+                        keyArray[position] = givenKey;
+                        memcpy(keyData, (char*) keyArray, attrLength*degree);
                     }
 
-                    // If the node is full
-                    else {
-                        // Allocate a new node page
-                        PF_PageHandle newPFPH;
-                        char* newPageData;
-                        PageNum newPageNumber;
-                        if ((rc = pfFH.AllocatePage(newPFPH))) {
-                            return rc;
-                        }
-                        if ((rc = newPFPH.GetData(newPageData))) {
-                            return rc;
-                        }
-                        if ((rc = newPFPH.GetPageNum(newPageNumber))) {
-                            return rc;
-                        }
-                        if ((rc = pfFH.MarkDirty(newPageNumber))) {
-                            return rc;
-                        }
+                    valueArray[position].state = RID_FILLED;
+                    valueArray[position].rid = rid;
+                    valueArray[position].page = IX_NO_PAGE;
+                    nodeHeader->numberKeys++;
 
-                        // Copy half the keys to the new page
+                    // Copy the keys and values to the node
+                    memcpy(pageData, (char*) nodeHeader, sizeof(IX_NodeHeader));
+                    memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
+                }
+
+                // If the node is full
+                else {
+                    // Allocate a new node page
+                    PF_PageHandle newPFPH;
+                    char* newPageData;
+                    PageNum newPageNumber;
+                    if ((rc = pfFH.AllocatePage(newPFPH))) {
+                        return rc;
+                    }
+                    if ((rc = newPFPH.GetData(newPageData))) {
+                        return rc;
+                    }
+                    if ((rc = newPFPH.GetPageNum(newPageNumber))) {
+                        return rc;
+                    }
+                    if ((rc = pfFH.MarkDirty(newPageNumber))) {
+                        return rc;
+                    }
+
+                    // Copy half the keys to the new page
+                    if (attrType == INT) {
+                        int* keyArray = (int*) keyData;
+                        int givenKey = *static_cast<int*>(pData);
                         IX_NodeHeader* newNodeHeader = new IX_NodeHeader;
                         int* newKeyArray = new int[degree];
                         IX_NodeValue* newValueArray = new IX_NodeValue[degree+1];
@@ -428,6 +499,7 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                         newRootNodeHeader->keyCapacity = keyCapacity;
                         newRootNodeHeader->type = ROOT;
                         newRootNodeHeader->parent = IX_NO_PAGE;
+                        newRootNodeHeader->left = IX_NO_PAGE;
 
                         newRootKeyArray[0] = newKeyArray[0];
                         newRootValueArray[0].state = PAGE_ONLY;
@@ -448,6 +520,7 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                         // Update the parent pointers
                         nodeHeader->parent = newRootPage;
                         newNodeHeader->parent = newRootPage;
+                        newNodeHeader->left = rootPage;
 
                         // Copy the data in the pages
                         memcpy(newPageData, (char*) newNodeHeader, sizeof(IX_NodeHeader));
@@ -464,7 +537,6 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                         // Update the root page in the index header
                         indexHeader.rootPage = newRootPage;
                         headerModified = TRUE;
-
                         // Unpin the new pages
                         if ((rc = pfFH.UnpinPage(newRootPage))) {
                             return rc;
@@ -473,165 +545,10 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                             return rc;
                         }
                     }
-                }
-            }
-            else if (attrType == FLOAT) {
-                // Check if pData is already a key
-                float* keyArray = (float*) keyData;
-                float givenKey = *static_cast<float*>(pData);
-                int index = -1;
-                for (int i=0; i<numberKeys; i++) {
-                    if (keyArray[i] == givenKey) {
-                        index = i;
-                        break;
-                    }
-                }
 
-                // If key exists, check if the same RID exists
-                if (index != -1) {
-                    IX_NodeValue value = valueArray[index];
-                    if (compareRIDs(value.rid, rid)) {
-                        return IX_ENTRY_EXISTS;
-                    }
-                    else {
-                        // Get the bucket page
-                        PageNum bucketPage = value.page;
-                        if (bucketPage == IX_NO_PAGE) {
-                            // Allocate a new bucket page
-                            PF_PageHandle bucketPFPH;
-                            if ((rc = pfFH.AllocatePage(bucketPFPH))) {
-                                return rc;
-                            }
-                            if ((rc = bucketPFPH.GetPageNum(bucketPage))) {
-                                return rc;
-                            }
-                            valueArray[index].page = bucketPage;
-                            memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
-
-                            // Initialize and copy the bucket header
-                            IX_BucketPageHeader* bucketHeader = new IX_BucketPageHeader;
-                            bucketHeader->numberRecords = 1;
-                            int recordCapacity = (PF_PAGE_SIZE-sizeof(IX_BucketPageHeader)) / (sizeof(RID));
-                            bucketHeader->recordCapacity = recordCapacity;
-                            bucketHeader->parentNode = rootPage;
-                            // bucketHeader->nextBucket = IX_NO_PAGE;
-
-                            char* bucketData;
-                            if ((rc = bucketPFPH.GetData(bucketData))) {
-                                return rc;
-                            }
-                            if ((rc = pfFH.MarkDirty(bucketPage))) {
-                                return rc;
-                            }
-                            memcpy(bucketData, (char*) bucketHeader, sizeof(IX_BucketPageHeader));
-                            delete bucketHeader;
-
-                            // Copy the RID to the bucket
-                            RID* ridList = new RID[recordCapacity];
-                            ridList[0] = rid;
-                            memcpy(bucketData+sizeof(IX_BucketPageHeader), ridList, sizeof(RID)*recordCapacity);
-
-                            // Unpin the bucket page
-                            if ((rc = pfFH.UnpinPage(bucketPage))) {
-                                return rc;
-                            }
-                        }
-                        else {
-                            // Get the data from the bucket page
-                            PF_PageHandle bucketPFPH;
-                            char* bucketData;
-                            if ((rc = pfFH.GetThisPage(bucketPage, bucketPFPH))) {
-                                return rc;
-                            }
-                            if ((rc = bucketPFPH.GetData(bucketData))) {
-                                return rc;
-                            }
-                            if ((rc = pfFH.MarkDirty(bucketPage))) {
-                                return rc;
-                            }
-
-                            // Get the bucket page header
-                            IX_BucketPageHeader* bucketHeader = (IX_BucketPageHeader*) bucketData;
-                            int numberRecords = bucketHeader->numberRecords;
-                            int recordCapacity = bucketHeader->recordCapacity;
-
-                            // Check the entries in the bucket for the same rid
-                            char* ridData = bucketData + sizeof(IX_BucketPageHeader);
-                            RID* ridList = (RID*) ridData;
-                            for (int i=0; i<numberRecords; i++) {
-                                if (compareRIDs(ridList[i], rid)) {
-                                    return IX_ENTRY_EXISTS;
-                                }
-                            }
-
-                            // Insert the new RID if not found
-                            if (numberRecords == recordCapacity) {
-                                return IX_BUCKET_FULL;
-                            }
-                            ridList[numberRecords] = rid;
-                            memcpy(ridData, (char*) ridList, sizeof(sizeof(RID)*recordCapacity));
-
-                            bucketHeader->numberRecords++;
-                            memcpy(bucketData, (char*) bucketHeader, sizeof(IX_BucketPageHeader));
-
-                            // Unpin the bucket page
-                            if ((rc = pfFH.UnpinPage(bucketPage))) {
-                                return rc;
-                            }
-                        }
-                    }
-                }
-
-                // Else if the key is not present in the node
-                else {
-                    // If the node is not full
-                    if (numberKeys < keyCapacity) {
-                        // Find the position for this key
-                        int position = numberKeys;
-                        for (int i=0; i<numberKeys; i++) {
-                            if (givenKey < keyArray[i]) {
-                                position = i;
-                                break;
-                            }
-                        }
-
-                        // Move the other keys forward and insert the key
-                        for (int i=numberKeys; i>position; i--) {
-                            keyArray[i] = keyArray[i-1];
-                            valueArray[i] = valueArray[i-1];
-                        }
-                        keyArray[position] = givenKey;
-                        valueArray[position].state = RID_FILLED;
-                        valueArray[position].rid = rid;
-                        valueArray[position].page = IX_NO_PAGE;
-
-                        nodeHeader->numberKeys++;
-
-                        // Copy the keys and values to the node
-                        memcpy(keyData, (char*) keyArray, attrLength*degree);
-                        memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
-                    }
-
-                    // If the node is full
-                    else {
-                        // Allocate a new node page
-                        PF_PageHandle newPFPH;
-                        char* newPageData;
-                        PageNum newPageNumber;
-                        if ((rc = pfFH.AllocatePage(newPFPH))) {
-                            return rc;
-                        }
-                        if ((rc = newPFPH.GetData(newPageData))) {
-                            return rc;
-                        }
-                        if ((rc = newPFPH.GetPageNum(newPageNumber))) {
-                            return rc;
-                        }
-                        if ((rc = pfFH.MarkDirty(newPageNumber))) {
-                            return rc;
-                        }
-
-                        // Copy half the keys to the new page
+                    else if (attrType == FLOAT) {
+                        float* keyArray = (float*) keyData;
+                        float givenKey = *static_cast<float*>(pData);
                         IX_NodeHeader* newNodeHeader = new IX_NodeHeader;
                         float* newKeyArray = new float[degree];
                         IX_NodeValue* newValueArray = new IX_NodeValue[degree+1];
@@ -719,6 +636,7 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                         newRootNodeHeader->keyCapacity = keyCapacity;
                         newRootNodeHeader->type = ROOT;
                         newRootNodeHeader->parent = IX_NO_PAGE;
+                        newRootNodeHeader->left = IX_NO_PAGE;
 
                         newRootKeyArray[0] = newKeyArray[0];
                         newRootValueArray[0].state = PAGE_ONLY;
@@ -739,6 +657,7 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                         // Update the parent pointers
                         nodeHeader->parent = newRootPage;
                         newNodeHeader->parent = newRootPage;
+                        newNodeHeader->left = rootPage;
 
                         // Copy the data in the pages
                         memcpy(newPageData, (char*) newNodeHeader, sizeof(IX_NodeHeader));
@@ -755,7 +674,6 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                         // Update the root page in the index header
                         indexHeader.rootPage = newRootPage;
                         headerModified = TRUE;
-
                         // Unpin the new pages
                         if ((rc = pfFH.UnpinPage(newRootPage))) {
                             return rc;
@@ -764,169 +682,14 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                             return rc;
                         }
                     }
-                }
-            }
-            else {
-                // Check if pData is already a key
-                string* keyArray = (string*) keyData;
-                char* givenKeyChar = static_cast<char*>(pData);
-                string givenKey = "";
-                for (int i=0; i < attrLength; i++) {
-                    givenKey += givenKeyChar[i];
-                }
-                int index = -1;
-                for (int i=0; i<numberKeys; i++) {
-                    if (keyArray[i] == givenKey) {
-                        index = i;
-                        break;
-                    }
-                }
 
-                // If key exists, check if the same RID exists
-                if (index != -1) {
-                    IX_NodeValue value = valueArray[index];
-                    if (compareRIDs(value.rid, rid)) {
-                        return IX_ENTRY_EXISTS;
-                    }
                     else {
-                        // Get the bucket page
-                        PageNum bucketPage = value.page;
-                        if (bucketPage == IX_NO_PAGE) {
-                            // Allocate a new bucket page
-                            PF_PageHandle bucketPFPH;
-                            if ((rc = pfFH.AllocatePage(bucketPFPH))) {
-                                return rc;
-                            }
-                            if ((rc = bucketPFPH.GetPageNum(bucketPage))) {
-                                return rc;
-                            }
-                            valueArray[index].page = bucketPage;
-                            memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
-
-                            // Initialize and copy the bucket header
-                            IX_BucketPageHeader* bucketHeader = new IX_BucketPageHeader;
-                            bucketHeader->numberRecords = 1;
-                            int recordCapacity = (PF_PAGE_SIZE-sizeof(IX_BucketPageHeader)) / (sizeof(RID));
-                            bucketHeader->recordCapacity = recordCapacity;
-                            bucketHeader->parentNode = rootPage;
-                            // bucketHeader->nextBucket = IX_NO_PAGE;
-
-                            char* bucketData;
-                            if ((rc = bucketPFPH.GetData(bucketData))) {
-                                return rc;
-                            }
-                            if ((rc = pfFH.MarkDirty(bucketPage))) {
-                                return rc;
-                            }
-                            memcpy(bucketData, (char*) bucketHeader, sizeof(IX_BucketPageHeader));
-                            delete bucketHeader;
-
-                            // Copy the RID to the bucket
-                            RID* ridList = new RID[recordCapacity];
-                            ridList[0] = rid;
-                            memcpy(bucketData+sizeof(IX_BucketPageHeader), ridList, sizeof(RID)*recordCapacity);
-
-                            // Unpin the bucket page
-                            if ((rc = pfFH.UnpinPage(bucketPage))) {
-                                return rc;
-                            }
+                        string* keyArray = (string*) keyData;
+                        char* givenKeyChar = static_cast<char*>(pData);
+                        string givenKey = "";
+                        for (int i=0; i < attrLength; i++) {
+                            givenKey += givenKeyChar[i];
                         }
-                        else {
-                            // Get the data from the bucket page
-                            PF_PageHandle bucketPFPH;
-                            char* bucketData;
-                            if ((rc = pfFH.GetThisPage(bucketPage, bucketPFPH))) {
-                                return rc;
-                            }
-                            if ((rc = bucketPFPH.GetData(bucketData))) {
-                                return rc;
-                            }
-                            if ((rc = pfFH.MarkDirty(bucketPage))) {
-                                return rc;
-                            }
-
-                            // Get the bucket page header
-                            IX_BucketPageHeader* bucketHeader = (IX_BucketPageHeader*) bucketData;
-                            int numberRecords = bucketHeader->numberRecords;
-                            int recordCapacity = bucketHeader->recordCapacity;
-
-                            // Check the entries in the bucket for the same rid
-                            char* ridData = bucketData + sizeof(IX_BucketPageHeader);
-                            RID* ridList = (RID*) ridData;
-                            for (int i=0; i<numberRecords; i++) {
-                                if (compareRIDs(ridList[i], rid)) {
-                                    return IX_ENTRY_EXISTS;
-                                }
-                            }
-
-                            // Insert the new RID if not found
-                            if (numberRecords == recordCapacity) {
-                                return IX_BUCKET_FULL;
-                            }
-                            ridList[numberRecords] = rid;
-                            memcpy(ridData, (char*) ridList, sizeof(sizeof(RID)*recordCapacity));
-
-                            bucketHeader->numberRecords++;
-                            memcpy(bucketData, (char*) bucketHeader, sizeof(IX_BucketPageHeader));
-
-                            // Unpin the bucket page
-                            if ((rc = pfFH.UnpinPage(bucketPage))) {
-                                return rc;
-                            }
-                        }
-                    }
-                }
-
-                // Else if the key is not present in the node
-                else {
-                    // If the node is not full
-                    if (numberKeys < keyCapacity) {
-                        // Find the position for this key
-                        int position = numberKeys;
-                        for (int i=0; i<numberKeys; i++) {
-                            if (givenKey < keyArray[i]) {
-                                position = i;
-                                break;
-                            }
-                        }
-
-                        // Move the other keys forward and insert the key
-                        for (int i=numberKeys; i>position; i--) {
-                            keyArray[i] = keyArray[i-1];
-                            valueArray[i] = valueArray[i-1];
-                        }
-                        keyArray[position] = givenKey;
-                        valueArray[position].state = RID_FILLED;
-                        valueArray[position].rid = rid;
-                        valueArray[position].page = IX_NO_PAGE;
-
-                        nodeHeader->numberKeys++;
-
-                        // Copy the keys and values to the node
-                        memcpy(keyData, (char*) keyArray, attrLength*degree);
-                        memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
-                    }
-
-                    // If the node is full
-                    else {
-                        // Allocate a new node page
-                        PF_PageHandle newPFPH;
-                        char* newPageData;
-                        PageNum newPageNumber;
-                        if ((rc = pfFH.AllocatePage(newPFPH))) {
-                            return rc;
-                        }
-                        if ((rc = newPFPH.GetData(newPageData))) {
-                            return rc;
-                        }
-                        if ((rc = newPFPH.GetPageNum(newPageNumber))) {
-                            return rc;
-                        }
-                        if ((rc = pfFH.MarkDirty(newPageNumber))) {
-                            return rc;
-                        }
-
-                        // Copy half the keys to the new page
                         IX_NodeHeader* newNodeHeader = new IX_NodeHeader;
                         string* newKeyArray = new string[degree];
                         IX_NodeValue* newValueArray = new IX_NodeValue[degree+1];
@@ -1014,6 +777,7 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                         newRootNodeHeader->keyCapacity = keyCapacity;
                         newRootNodeHeader->type = ROOT;
                         newRootNodeHeader->parent = IX_NO_PAGE;
+                        newRootNodeHeader->left = IX_NO_PAGE;
 
                         newRootKeyArray[0] = newKeyArray[0];
                         newRootValueArray[0].state = PAGE_ONLY;
@@ -1034,6 +798,7 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                         // Update the parent pointers
                         nodeHeader->parent = newRootPage;
                         newNodeHeader->parent = newRootPage;
+                        newNodeHeader->left = rootPage;
 
                         // Copy the data in the pages
                         memcpy(newPageData, (char*) newNodeHeader, sizeof(IX_NodeHeader));
@@ -1050,7 +815,6 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                         // Update the root page in the index header
                         indexHeader.rootPage = newRootPage;
                         headerModified = TRUE;
-
                         // Unpin the new pages
                         if ((rc = pfFH.UnpinPage(newRootPage))) {
                             return rc;
@@ -1134,6 +898,7 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
 
     // If the node is a LEAF
     if (type == LEAF) {
+        // TODO: HERE!
         if (attrType ==  INT) {
             // Check if pData is already a key
             int* keyArray = (int*) keyData;
@@ -1264,7 +1029,10 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                     valueArray[position].rid = rid;
                     valueArray[position].page = IX_NO_PAGE;
 
+                    nodeHeader->numberKeys++;
+
                     // Copy the keys and values to the node
+                    memcpy(nodeData, (char*) nodeHeader, sizeof(IX_NodeHeader));
                     memcpy(keyData, (char*) keyArray, attrLength*degree);
                     memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
                 }
@@ -1351,12 +1119,27 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                         newNodeHeader->numberKeys++;
                     }
 
+                    // Copy the data to the pages
+                    memcpy(nodeData, (char*) nodeHeader, sizeof(IX_NodeHeader));
+                    memcpy(keyData, (char*) keyArray, attrLength*degree);
+                    memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
+
+                    memcpy(newPageData + sizeof(IX_NodeHeader), (char*) newKeyArray, attrLength*degree);
+                    memcpy(newPageData + sizeof(IX_NodeHeader) + attrLength*degree, (char*) newValueArray, sizeof(IX_NodeValue)*(degree+1));
+                    int keyToPushUp = newKeyArray[0];
+                    delete[] newKeyArray;
+                    delete[] newValueArray;
+
                     // Get the parent node
                     PageNum parentNode = nodeHeader->parent;
                     newNodeHeader->parent = parentNode;
+                    newNodeHeader->left = node;
+
+                    memcpy(newPageData, (char*) newNodeHeader, sizeof(IX_NodeHeader));
+                    delete newNodeHeader;
 
                     // Call the pushKeyUp function to push the new key up
-                    if ((rc = pushKeyUp((void*) newKeyArray, parentNode, node, newPageNumber))) {
+                    if ((rc = pushKeyUp((void*) &keyToPushUp, parentNode, node, newPageNumber))) {
                         return rc;
                     }
 
@@ -1497,7 +1280,10 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                     valueArray[position].rid = rid;
                     valueArray[position].page = IX_NO_PAGE;
 
+                    nodeHeader->numberKeys++;
+
                     // Copy the keys and values to the node
+                    memcpy(nodeData, (char*) nodeHeader, sizeof(IX_NodeHeader));
                     memcpy(keyData, (char*) keyArray, attrLength*degree);
                     memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
                 }
@@ -1584,12 +1370,28 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                         newNodeHeader->numberKeys++;
                     }
 
+                    // Copy the data to the pages
+                    memcpy(nodeData, (char*) nodeHeader, sizeof(IX_NodeHeader));
+                    memcpy(keyData, (char*) keyArray, attrLength*degree);
+                    memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
+
+                    memcpy(newPageData + sizeof(IX_NodeHeader), (char*) newKeyArray, attrLength*degree);
+                    memcpy(newPageData + sizeof(IX_NodeHeader) + attrLength*degree, (char*) newValueArray, sizeof(IX_NodeValue)*(degree+1));
+                    float keyToPushUp = newKeyArray[0];
+                    delete[] newKeyArray;
+                    delete[] newValueArray;
+
+
                     // Get the parent node
                     PageNum parentNode = nodeHeader->parent;
                     newNodeHeader->parent = parentNode;
+                    newNodeHeader->left = node;
+
+                    memcpy(newPageData, (char*) newNodeHeader, sizeof(IX_NodeHeader));
+                    delete newNodeHeader;
 
                     // Call the pushKeyUp function to push the new key up
-                    if ((rc = pushKeyUp((void*) newKeyArray, parentNode, node, newPageNumber))) {
+                    if ((rc = pushKeyUp((void*) &keyToPushUp, parentNode, node, newPageNumber))) {
                         return rc;
                     }
 
@@ -1734,7 +1536,10 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                     valueArray[position].rid = rid;
                     valueArray[position].page = IX_NO_PAGE;
 
+                    nodeHeader->numberKeys++;
+
                     // Copy the keys and values to the node
+                    memcpy(nodeData, (char*) nodeHeader, sizeof(IX_NodeHeader));
                     memcpy(keyData, (char*) keyArray, attrLength*degree);
                     memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
                 }
@@ -1821,12 +1626,28 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                         newNodeHeader->numberKeys++;
                     }
 
+                    // Copy the data to the pages
+                    memcpy(nodeData, (char*) nodeHeader, sizeof(IX_NodeHeader));
+                    memcpy(keyData, (char*) keyArray, attrLength*degree);
+                    memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
+
+                    memcpy(newPageData + sizeof(IX_NodeHeader), (char*) newKeyArray, attrLength*degree);
+                    memcpy(newPageData + sizeof(IX_NodeHeader) + attrLength*degree, (char*) newValueArray, sizeof(IX_NodeValue)*(degree+1));
+                    string keyToPushUp = newKeyArray[0];
+                    delete[] newKeyArray;
+                    delete[] newValueArray;
+
+
                     // Get the parent node
                     PageNum parentNode = nodeHeader->parent;
                     newNodeHeader->parent = parentNode;
+                    newNodeHeader->left = node;
+
+                    memcpy(newPageData, (char*) newNodeHeader, sizeof(IX_NodeHeader));
+                    delete newNodeHeader;
 
                     // Call the pushKeyUp function to push the new key up
-                    if ((rc = pushKeyUp((void*) newKeyArray, parentNode, node, newPageNumber))) {
+                    if ((rc = pushKeyUp((void*) &keyToPushUp, parentNode, node, newPageNumber))) {
                         return rc;
                     }
 
@@ -1912,7 +1733,7 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
     }
 }
 
-// Method: pushKeyUp(void* pData, PageNum node)
+// Method: pushKeyUp(void* pData, PageNum node, PageNum left, PageNum right)
 // Push a key up to the parent during split
 /* Steps:
     1) Get the node page
@@ -1966,6 +1787,7 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
     int numberKeys = nodeHeader->numberKeys;
     int keyCapacity = nodeHeader->keyCapacity;
 
+    // TODO: HERE!
     if (attrType == INT) {
         int* keyArray = (int*) keyData;
         int givenKey = *static_cast<int*>(pData);
@@ -1984,15 +1806,19 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
             // Move the other keys forward and insert the key
             for (int i=numberKeys; i>position; i--) {
                 keyArray[i] = keyArray[i-1];
-                valueArray[i] = valueArray[i-1];
+                valueArray[i+1] = valueArray[i];
             }
+            valueArray[position+1] = valueArray[position];
             keyArray[position] = givenKey;
             valueArray[position].state = PAGE_ONLY;
             valueArray[position].page = left;
             valueArray[position].rid = dummyRID;
             valueArray[position+1].page = right;
 
+            nodeHeader->numberKeys++;
+
             // Copy the keys and values to the node
+            memcpy(nodeData, (char*) nodeHeader, sizeof(IX_NodeHeader));
             memcpy(keyData, (char*) keyArray, attrLength*degree);
             memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
         }
@@ -2143,6 +1969,7 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
                 newRootNodeHeader->keyCapacity = keyCapacity;
                 newRootNodeHeader->type = ROOT;
                 newRootNodeHeader->parent = IX_NO_PAGE;
+                newRootNodeHeader->left = IX_NO_PAGE;
 
                 newRootKeyArray[0] = keyToPushUp;
                 newRootValueArray[0].state = PAGE_ONLY;
@@ -2163,6 +1990,7 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
                 // Update the parent pointers
                 nodeHeader->parent = newRootPage;
                 newNodeHeader->parent = newRootPage;
+                newNodeHeader->left = node;
 
                 // Update the root page in the index header
                 indexHeader.rootPage = newRootPage;
@@ -2178,6 +2006,7 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
             else {
                 // Make recursive call with the parent node
                 newNodeHeader->parent = parentNode;
+                newNodeHeader->left = node;
                 if ((rc = pushKeyUp((void*) &keyToPushUp, parentNode, node, newPageNumber))) {
                     return rc;
                 }
@@ -2220,15 +2049,19 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
             // Move the other keys forward and insert the key
             for (int i=numberKeys; i>position; i--) {
                 keyArray[i] = keyArray[i-1];
-                valueArray[i] = valueArray[i-1];
+                valueArray[i+1] = valueArray[i];
             }
+            valueArray[position+1] = valueArray[position];
             keyArray[position] = givenKey;
             valueArray[position].state = PAGE_ONLY;
             valueArray[position].page = left;
             valueArray[position].rid = dummyRID;
             valueArray[position+1].page = right;
 
+            nodeHeader->numberKeys++;
+
             // Copy the keys and values to the node
+            memcpy(nodeData, (char*) nodeHeader, sizeof(IX_NodeHeader));
             memcpy(keyData, (char*) keyArray, attrLength*degree);
             memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
         }
@@ -2379,6 +2212,7 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
                 newRootNodeHeader->keyCapacity = keyCapacity;
                 newRootNodeHeader->type = ROOT;
                 newRootNodeHeader->parent = IX_NO_PAGE;
+                newRootNodeHeader->left = IX_NO_PAGE;
 
                 newRootKeyArray[0] = keyToPushUp;
                 newRootValueArray[0].state = PAGE_ONLY;
@@ -2399,6 +2233,7 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
                 // Update the parent pointers
                 nodeHeader->parent = newRootPage;
                 newNodeHeader->parent = newRootPage;
+                newNodeHeader->left = node;
 
                 // Update the root page in the index header
                 indexHeader.rootPage = newRootPage;
@@ -2414,6 +2249,7 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
             else {
                 // Make recursive call with the parent node
                 newNodeHeader->parent = parentNode;
+                newNodeHeader->left = node;
                 if ((rc = pushKeyUp((void*) &keyToPushUp, parentNode, node, newPageNumber))) {
                     return rc;
                 }
@@ -2460,15 +2296,19 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
             // Move the other keys forward and insert the key
             for (int i=numberKeys; i>position; i--) {
                 keyArray[i] = keyArray[i-1];
-                valueArray[i] = valueArray[i-1];
+                valueArray[i+1] = valueArray[i];
             }
+            valueArray[position+1] = valueArray[position];
             keyArray[position] = givenKey;
             valueArray[position].state = PAGE_ONLY;
             valueArray[position].page = left;
             valueArray[position].rid = dummyRID;
             valueArray[position+1].page = right;
 
+            nodeHeader->numberKeys++;
+
             // Copy the keys and values to the node
+            memcpy(nodeData, (char*) nodeHeader, sizeof(IX_NodeHeader));
             memcpy(keyData, (char*) keyArray, attrLength*degree);
             memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
         }
@@ -2619,6 +2459,7 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
                 newRootNodeHeader->keyCapacity = keyCapacity;
                 newRootNodeHeader->type = ROOT;
                 newRootNodeHeader->parent = IX_NO_PAGE;
+                newRootNodeHeader->left = IX_NO_PAGE;
 
                 newRootKeyArray[0] = keyToPushUp;
                 newRootValueArray[0].state = PAGE_ONLY;
@@ -2639,6 +2480,7 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
                 // Update the parent pointers
                 nodeHeader->parent = newRootPage;
                 newNodeHeader->parent = newRootPage;
+                newNodeHeader->left = node;
 
                 // Update the root page in the index header
                 indexHeader.rootPage = newRootPage;
@@ -2654,6 +2496,7 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
             else {
                 // Make recursive call with the parent node
                 newNodeHeader->parent = parentNode;
+                newNodeHeader->left = node;
                 if ((rc = pushKeyUp((void*) &keyToPushUp, parentNode, node, newPageNumber))) {
                     return rc;
                 }
@@ -2687,13 +2530,85 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
     return OK_RC;
 }
 
+
 // Method: DeleteEntry(void *pData, const RID &rid)
 // Delete a new index entry
 /* Steps:
-
+    1) Get the root page
+    2) If root page does not exist, return warning
+    3) Else get the data from the root page
+    4) If type of node is ROOT_LEAF
+        - Call DeleleFromLeaf with the root node
+    5) Else if type is ROOT
+        - Get the leaf page containing the data recursively
+        - Call DeleteFromLeaf with the leaf page
+    6) Unpin the root page
+    7) Return OK
 */
 RC IX_IndexHandle::DeleteEntry(void *pData, const RID &rid) {
-    return 0;
+    // Declare an integer for the return code
+    int rc;
+
+    // Check if the index handle is open
+    if (!isOpen) {
+        return IX_INDEX_CLOSED;
+    }
+
+    // Check if pData is null
+    if (pData == NULL) {
+        return IX_NULL_ENTRY;
+    }
+
+    // Get the root page
+    PageNum rootPage = indexHeader.rootPage;
+    if (rootPage == IX_NO_PAGE) {
+        return IX_DELETE_ENTRY_NOT_FOUND;
+    }
+    else {
+        // Get the root page data
+        PF_PageHandle pfPH;
+        char* rootData;
+        if ((rc = pfFH.GetThisPage(rootPage, pfPH))) {
+            return rc;
+        }
+        if ((rc = pfPH.GetData(rootData))) {
+            return rc;
+        }
+
+        IX_NodeHeader* rootHeader = (IX_NodeHeader*) rootData;
+        IX_NodeType type = rootHeader->type;
+
+        // If the type is ROOT_LEAF
+        if (type == ROOT_LEAF) {
+            if ((rc = DeleteFromLeaf(pData, rid, rootPage))) {
+                return rc;
+            }
+        }
+
+        // Else if the type is ROOT
+        else {
+            PageNum leafPage = IX_NO_PAGE;
+            if ((rc = SearchEntry(pData, rootPage, leafPage))) {
+                return rc;
+            }
+            if (leafPage == IX_NO_PAGE) {
+                return IX_DELETE_ENTRY_NOT_FOUND;
+            }
+            else {
+                if ((rc = DeleteFromLeaf(pData, rid, leafPage))) {
+                    return rc;
+                }
+            }
+        }
+
+        // Unpin the root page
+        if ((rc = pfFH.UnpinPage(rootPage))) {
+            return rc;
+        }
+
+        // Return OK
+        return OK_RC;
+    }
 }
 
 // Method: ForcePages()
@@ -2743,206 +2658,597 @@ RC IX_IndexHandle::ForcePages() {
 }
 
 
-// // Method: SearchEntry(void *pData, const RID &rid)
-// // Search for an entry in the B+ Tree index
-// /* Steps:
-//     1) Get the root page number from the index header
-//     2) Call the recursive search function with the root page number
-// */
-// RC IX_IndexHandle::SearchEntry(void *pData, const RID &rid) {
-//     // Declare an integer for the return code
-//     int rc;
+// Method: SearchEntry(void* pData, PageNum node, PageNum &pageNumber)
+// Recursively search for an index entry
+/* Steps:
+    1) Get the data in the node page
+    2) Check the type of node
+    3) If leaf node
+        - Set page number
+        - Unpin the current node page
+    4) If root/internal node
+        - Search for corresponding pointer to next node
+        - Unpin the current node page
+        - Recursive call with the next node page
+    5) Return OK
+*/
+RC IX_IndexHandle::SearchEntry(void* pData, PageNum node, PageNum &pageNumber) {
+    // Declare an integer for the return code
+    int rc;
 
-//     // Call the recursive function with the root page
-//     PageNum rootPage = indexHeader.rootPage;
-//     if ((rc = SearchEntryRecursive(pData, rid, rootPage))) {
-//         return rc;
-//     }
+    if (node == IX_NO_PAGE) {
+        return IX_DELETE_ENTRY_NOT_FOUND;
+    }
 
-//     // Return OK
-//     return OK_RC;
-// }
+    // Get the data in the node page
+    PF_PageHandle pfPH;
+    if ((rc = pfFH.GetThisPage(node, pfPH))) {
+        return rc;
+    }
+    char* nodeData;
+    if ((rc = pfPH.GetData(nodeData))) {
+        return rc;
+    }
 
-// // Method: SearchEntryRecursive(void* pData, RID &rid, PageNum node)
-// // Recursively search for the entry in the tree
-// /* Steps:
-//     1) Get the data in the node page
-//     2) Check type of node in the node header
-//     3) If leaf node
-//         - Search for the value of pData in the node
-//         - Get the corresponding bucket page/RID
-//         - Unpin the current node page
-//         - Return the bucket page number
-//     4) If root/internal node
-//         - Search for corresponding pointer to next node
-//         - Unpin the current node page
-//         - Recursive call with the next node page number
-// */
-// RC IX_IndexHandle::SearchEntryRecursive(void *pData, RID &rid, PageNum node) {
-//     // Declare an integer for the return code
-//     int rc;
+    AttrType attrType = indexHeader.attrType;
+    int attrLength = indexHeader.attrLength;
+    int degree = indexHeader.degree;
 
-//     // Get the data in the node page
-//     PF_PageHandle pfPH;
-//     if ((rc = pfFH.GetThisPage(node, pfPH))) {
-//         // Return the error from the PF FileHandle
-//         return rc;
-//     }
-//     char* nodeData;
-//     if ((rc = pfPH.GetData(nodeData))) {
-//         // Return the error from the PF PageHandle
-//         return rc;
-//     }
+    // Get the node type
+    IX_NodeHeader* nodeHeader = (IX_NodeHeader*) nodeData;
+    IX_NodeType nodeType = nodeHeader->type;
+    int numberKeys = nodeHeader->numberKeys;
+    char* keyData = nodeData + sizeof(IX_NodeHeader);
+    char* valueData = keyData + attrLength*degree;
+    IX_NodeValue* valueArray = (IX_NodeValue*) valueData;
 
-//     // Get the node type
-//     IX_NodeHeader* nodeHeader = (IX_NodeHeader*) nodeData;
-//     IX_NodeType nodeType = nodeHeader->type;
-//     int numberKeys = nodeHeader.numberKeys;
-//     int attrLength = indexHeader.attrLength;
-//     AttrType attrType = indexHeader.attrType;
+    // If leaf node
+    if (nodeType == LEAF || nodeType == ROOT_LEAF) {
+        // Set the page number to return
+        pageNumber = node;
 
-//     // If leaf node
-//     // Search for the value of pData in the node
-//     if (nodeType == LEAF) {
-//         // Start at the first key
-//         char* keyData = nodeData + sizeof(IX_NodeHeader);
+        // Unpin the node page
+        if ((rc = pfFH.UnpinPage(node))) {
+            return rc;
+        }
+    }
 
-//         // Iterate over the number of keys
-//         for (int i=0; i<numberKeys; i++) {
-//             if (equalAttribute(attrType, keyData, pData)) {
-//                 int valueOffset = sizeof(IX_NodeHeader) + (nodeHeader.keyCapacity)*attrLength + i*sizeof(IX_NodeValue);
-//                 IX_NodeValue* nodeValue = (IX_NodeValue*) nodeData + valueOffset;
-//                 // TODO: Return the bucket page number / RID?
+    // Else if it is an internal node find the next page
+    else if (nodeType == NODE || nodeType == ROOT) {
+        PageNum nextPage = IX_NO_PAGE;
+        if (attrType == INT) {
+            int* keyArray = (int*) keyData;
+            int intValue = *static_cast<int*>(pData);
+            if (satisfiesInterval(0, keyArray[0], intValue)) {
+                nextPage = valueArray[0].page;
+            }
+            else {
+                bool found;
+                for (int i=1; i<numberKeys; i++) {
+                    if (satisfiesInterval(keyArray[i-1], keyArray[i], intValue)) {
+                        nextPage = valueArray[i].page;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) nextPage = valueArray[numberKeys].page;
+            }
+        }
+        else if (attrType == FLOAT) {
+            float* keyArray = (float*) keyData;
+            float floatValue = *static_cast<float*>(pData);
+            if (satisfiesInterval((float) 0, keyArray[0], floatValue)) {
+                nextPage = valueArray[0].page;
+            }
+            else {
+                bool found;
+                for (int i=1; i<numberKeys; i++) {
+                    if (satisfiesInterval(keyArray[i-1], keyArray[i], floatValue)) {
+                        nextPage = valueArray[i].page;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) nextPage = valueArray[numberKeys].page;
+            }
+        }
+        else {
+            string* keyArray = (string*) keyData;
+            char* valueChar = static_cast<char*>(pData);
+            string stringValue = "";
+            for (int i=0; i < indexHeader.attrLength; i++) {
+                stringValue += valueChar[i];
+            }
+            if (satisfiesInterval((string)"", keyArray[0], stringValue)) {
+                nextPage = valueArray[0].page;
+            }
+            else {
+                bool found;
+                for (int i=1; i<numberKeys; i++) {
+                    if (satisfiesInterval(keyArray[i-1], keyArray[i], stringValue)) {
+                        nextPage = valueArray[i].page;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) nextPage = valueArray[numberKeys].page;
+            }
+        }
 
-//                 // Unpin the page
-//                 if ((rc = pfFH.UnpinPage(node))) {
-//                     // Return the error from the PF File Handle
-//                     return rc;
-//                 }
+        // Unpin the current page
+        if ((rc = pfFH.UnpinPage(node))) {
+            return rc;
+        }
 
-//                 // Return OK
-//                 return OK_RC;
-//             }
-//             keyData += attrLength;
-//         }
+        // Recursive call with the next node
+        if ((rc = SearchEntry(pData, nextPage, pageNumber))) {
+            return rc;
+        }
+    }
 
-//         // Unpin the page
-//         if ((rc = pfFH.UnpinPage(node))) {
-//             // Return the error from the PF File Handle
-//             return rc;
-//         }
+    // Return OK
+    return OK_RC;
+}
 
-//         // Key was not found
-//         return IX_KEY_NOT_FOUND;
-//     }
+// Method: DeleteFromLeaf(void* pData, const RID &rid, PageNum node)
+// Delete an entry from a leaf node
+/* Steps:
+    1) Get the page data
+    2) Search for the key in the node
+    3) If not found, return warning
+    4) Get RID at the corresponding location
+    5) If RID match
+        - If bucket exists
+            - Replace RID with last RID from bucket
+            - Unpin bucket page
+            - If bucket becomes empty, dispose the bucket page and change node entry
+        - If bucket does not exist
+            - Delete entry from the node
+            - If node becomes empty, dispose page and push the deletion up
+            - Else if first entry in node, replace the key in the parent node
+    6) If RID does not match
+        - If bucket exists
+            - Search for the RID in the ridList
+            - If not found, return warning
+            - If found, shift all entries to the left
+            - Unpin bucket page
+            - If bucket becomes empty, dispose the bucket page and change node entry
+        - If bucket does not exist
+            - Return warning
+    7) Unpin node page
+    8) Return OK
+*/
+RC IX_IndexHandle::DeleteFromLeaf(void* pData, const RID &rid, PageNum node) {
+    // Declare an integer for the return code
+    int rc;
 
-//     // Else if root/internal node
-//     // Search for the key greater than pData in the node
-//     else {
-//         // Start at the first key
-//         char* keyData = nodeData + sizeof(IX_NodeHeader);
-//         bool found = false;
+    bool disposeFlag = false;
+    // Get the node data
+    PF_PageHandle pfPH;
+    char* nodeData;
+    if ((rc = pfFH.GetThisPage(node, pfPH))) {
+        return rc;
+    }
+    if ((rc = pfPH.GetData(nodeData))) {
+        return rc;
+    }
+    if ((rc = pfFH.MarkDirty(node))) {
+        return rc;
+    }
 
-//         // Iterate over the number of keys
-//         for (int i=0; i<numberKeys; i++) {
-//             if (largerAttribute(attrType, keyData, pData)) {
-//                 int valueOffset = sizeof(IX_NodeHeader) + (nodeHeader.keyCapacity)*attrLength + i*sizeof(IX_NodeValue);
-//                 IX_NodeValue* nodeValue = (IX_NodeValue*) nodeData + valueOffset;
+    AttrType attrType = indexHeader.attrType;
+    int attrLength = indexHeader.attrLength;
+    int degree = indexHeader.degree;
+    IX_NodeHeader* nodeHeader = (IX_NodeHeader*) nodeData;
+    int numberKeys = nodeHeader->numberKeys;
+    char* keyData = nodeData + sizeof(IX_NodeHeader);
+    char* valueData = keyData + attrLength*degree;
+    IX_NodeValue* valueArray = (IX_NodeValue*) valueData;
+    int keyPosition = -1;
 
-//                 // Check that it is a page pointer only
-//                 if (nodeValue->state != PAGE_ONLY) {
-//                     return IX_INCONSISTENT_NODE;
-//                 }
-
-//                 // Get the next page pointer
-//                 PageNum nextPage = nodeValue->page;
-
-//                 // Unpin the page
-//                 if ((rc = pfFH.UnpinPage(node))) {
-//                     // Return the error from the PF File Handle
-//                     return rc;
-//                 }
-
-//                 // Make the recursive call with the next page number
-//                 return SearchEntryRecursive(pData, rid, nextPage);
-//             }
-//         }
-//     }
-// }
-
-
-// Method: bool equalAttribute(AttrType attrType, char* nodeData, void* pData)
-// Compare attribute values and return a boolean
-bool IX_IndexHandle::equalAttribute(AttrType attrType, char* nodeData, void* pData) {
     if (attrType == INT) {
-        int nodeKey = getIntegerValue(nodeData);
-        int givenKey = *static_cast<int*>(pData);
-        return (nodeKey == givenKey);
+        int* keyArray = (int*) keyData;
+        int givenValue = *static_cast<int*>(pData);
+        for (int i=0; i<numberKeys; i++) {
+            if (keyArray[i] == givenValue) {
+                keyPosition = i;
+                break;
+            }
+        }
     }
     else if (attrType == FLOAT) {
-        float nodeKey = getFloatValue(nodeData);
-        float givenKey = *static_cast<float*>(pData);
-        return (nodeKey == givenKey);
+        float* keyArray = (float*) keyData;
+        float givenValue = *static_cast<float*>(pData);
+        for (int i=0; i<numberKeys; i++) {
+            if (keyArray[i] == givenValue) {
+                keyPosition = i;
+                break;
+            }
+        }
     }
     else {
-        string nodeKey = getStringValue(nodeData);
-        char* givenKeyChar = static_cast<char*>(pData);
-        string givenKey = "";
+        string* keyArray = (string*) keyData;
+        char* givenValueChar = static_cast<char*>(pData);
+        string givenValue = "";
         for (int i=0; i < indexHeader.attrLength; i++) {
-            givenKey += givenKeyChar[i];
+            givenValue += givenValueChar[i];
         }
-        return (nodeKey == givenKey);
+        for (int i=0; i<numberKeys; i++) {
+            if (keyArray[i] == givenValue) {
+                keyPosition = i;
+                break;
+            }
+        }
     }
-}
 
-// Method: bool largerAttribute(AttrType attrType, char* nodeData, void* pData)
-// Compare attribute values and return a boolean
-bool IX_IndexHandle::largerAttribute(AttrType attrType, char* nodeData, void* pData) {
-    if (attrType == INT) {
-        int nodeKey = getIntegerValue(nodeData);
-        int givenKey = *static_cast<int*>(pData);
-        return (nodeKey > givenKey);
-    }
-    else if (attrType == FLOAT) {
-        float nodeKey = getFloatValue(nodeData);
-        float givenKey = *static_cast<float*>(pData);
-        return (nodeKey > givenKey);
+    // If not found
+    if (keyPosition == -1) {
+        return IX_DELETE_ENTRY_NOT_FOUND;
     }
     else {
-        string nodeKey = getStringValue(nodeData);
-        char* givenKeyChar = static_cast<char*>(pData);
-        string givenKey = "";
-        for (int i=0; i < indexHeader.attrLength; i++) {
-            givenKey += givenKeyChar[i];
+        // Check if the RID at the position matches
+        IX_NodeValue value = valueArray[keyPosition];
+        PageNum bucketPage = value.page;
+        if (compareRIDs(rid, value.rid)) {
+            // If bucket exists
+            if (bucketPage != IX_NO_PAGE) {
+                // Get the bucket data
+                PF_PageHandle bucketPH;
+                char* bucketData;
+                if ((rc = pfFH.GetThisPage(bucketPage, bucketPH))) {
+                    return rc;
+                }
+                if ((rc = bucketPH.GetData(bucketData))) {
+                    return rc;
+                }
+                if ((rc = pfFH.MarkDirty(bucketPage))) {
+                    return rc;
+                }
+
+                IX_BucketPageHeader* bucketHeader = (IX_BucketPageHeader*) bucketData;
+                int numberRecords = bucketHeader->numberRecords;
+                char* ridData = bucketData + sizeof(IX_BucketPageHeader);
+                RID* ridList = (RID*) ridData;
+
+                // Get the last RID from the bucket
+                RID newRID = ridList[numberRecords-1];
+                valueArray[keyPosition].rid = newRID;
+                bucketHeader->numberRecords--;
+                memcpy(bucketData, (char*) bucketHeader, sizeof(IX_BucketPageHeader));
+
+                // Unpin bucket page
+                if ((rc = pfFH.UnpinPage(bucketPage))) {
+                    return rc;
+                }
+
+                // Dispose bucket page if empty
+                if(bucketHeader->numberRecords == 0) {
+                    valueArray[keyPosition].page = IX_NO_PAGE;
+                    if ((rc = pfFH.DisposePage(bucketPage))) {
+                        return rc;
+                    }
+                }
+            }
+
+            // Else if bucket does not exist
+            else {
+                if ((rc = pfFH.MarkDirty(node))) {
+                    return rc;
+                }
+                // Shift the keys and values to the left
+                for (int i=keyPosition+1; i<numberKeys; i++) {
+                    if (attrType == INT) {
+                        int* keyArray = (int*) keyData;
+                        keyArray[i-1] = keyArray[i];
+                        memcpy(keyData, (char*) keyArray, attrLength*degree);
+                    }
+                    else if (attrType == FLOAT) {
+                        float* keyArray = (float*) keyData;
+                        keyArray[i-1] = keyArray[i];
+                        memcpy(keyData, (char*) keyArray, attrLength*degree);
+                    }
+                    else {
+                        string* keyArray = (string*) keyData;
+                        keyArray[i-1] = keyArray[i];
+                        memcpy(keyData, (char*) keyArray, attrLength*degree);
+                    }
+                    valueArray[i-1] = valueArray[i];
+                }
+                nodeHeader->numberKeys--;
+
+                // Check if the node has become empty
+                if (nodeHeader->numberKeys == 0) {
+                    disposeFlag = true;
+
+                    // Change the pointer from the left page
+                    PageNum right = valueArray[degree].page;
+                    PageNum left = nodeHeader->left;
+                    PF_PageHandle leftPH;
+                    char* leftData;
+                    if ((rc = pfFH.GetThisPage(left, leftPH))) {
+                        return rc;
+                    }
+                    if ((rc = leftPH.GetData(leftData))) {
+                        return rc;
+                    }
+                    if ((rc = pfFH.MarkDirty(left))) {
+                        return rc;
+                    }
+
+                    char* leftValueData = leftData + sizeof(IX_NodeHeader) + attrLength*degree;
+                    IX_NodeValue* leftValueArray = (IX_NodeValue*) leftValueData;
+                    leftValueArray[degree].page = right;
+                    memcpy(leftValueData, (char*) leftValueArray, sizeof(IX_NodeValue)*(degree+1));
+
+                    if ((rc = pfFH.UnpinPage(left))) {
+                        return rc;
+                    }
+
+                    // Change the pointer in the right page
+                    PF_PageHandle rightPH;
+                    char* rightData;
+                    if ((rc = pfFH.GetThisPage(right, rightPH))) {
+                        return rc;
+                    }
+                    if ((rc = rightPH.GetData(rightData))) {
+                        return rc;
+                    }
+                    if ((rc = pfFH.MarkDirty(right))) {
+                        return rc;
+                    }
+
+                    IX_NodeHeader* rightHeader = (IX_NodeHeader*) rightData;
+                    rightHeader->left = left;
+                    memcpy(rightData, (char*) rightHeader, sizeof(IX_NodeHeader));
+
+                    if ((rc = pfFH.UnpinPage(right))) {
+                        return rc;
+                    }
+
+                    // Push the node deletion to the parent
+                    PageNum parent = nodeHeader->parent;
+                    if (parent == IX_NO_PAGE) {
+                        indexHeader.rootPage = IX_NO_PAGE;
+                        headerModified = TRUE;
+                    }
+                    else {
+                        // Call the push deletion up method
+                        if ((rc = pushDeletionUp(parent, node))) {
+                            return rc;
+                        }
+                    }
+                }
+            }
         }
-        return (nodeKey > givenKey);
+        else {
+            // If bucket exists
+            if (bucketPage != IX_NO_PAGE) {
+                // Get the bucket data
+                PF_PageHandle bucketPH;
+                char* bucketData;
+                if ((rc = pfFH.GetThisPage(bucketPage, bucketPH))) {
+                    return rc;
+                }
+                if ((rc = bucketPH.GetData(bucketData))) {
+                    return rc;
+                }
+                if ((rc = pfFH.MarkDirty(bucketPage))) {
+                    return rc;
+                }
+
+                IX_BucketPageHeader* bucketHeader = (IX_BucketPageHeader*) bucketData;
+                int numberRecords = bucketHeader->numberRecords;
+                char* ridData = bucketData + sizeof(IX_BucketPageHeader);
+                RID* ridList = (RID*) ridData;
+
+                // Search for the RID
+                int position = -1;
+                for (int i=0; i<numberRecords; i++) {
+                    if (compareRIDs(ridList[i], rid)) {
+                        position = i;
+                        break;
+                    }
+                }
+                if (position == -1) {
+                    return IX_DELETE_ENTRY_NOT_FOUND;
+                }
+
+                // Shift the RIDs to the left
+                for (int i=position+1; i<numberRecords; i++) {
+                    ridList[i-1] = ridList[i];
+                }
+                bucketHeader->numberRecords--;
+                memcpy(bucketData, (char*) bucketHeader, sizeof(IX_BucketPageHeader));
+                memcpy(ridData, (char*) ridList, sizeof(RID)*bucketHeader->numberRecords);
+
+                // Unpin bucket page
+                if ((rc = pfFH.UnpinPage(bucketPage))) {
+                    return rc;
+                }
+
+                // Dispose bucket page if empty
+                if(bucketHeader->numberRecords == 0) {
+                    valueArray[keyPosition].page = IX_NO_PAGE;
+                    if ((rc = pfFH.DisposePage(bucketPage))) {
+                        return rc;
+                    }
+                }
+            }
+
+            // Else if bucket does not exist
+            else {
+                return IX_DELETE_ENTRY_NOT_FOUND;
+            }
+        }
+
+        // Copy the data to the node page
+        memcpy(nodeData, (char*) nodeHeader, sizeof(IX_NodeHeader));
+        memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
+
+        // Unpin the node page
+        if ((rc = pfFH.UnpinPage(node))) {
+            return rc;
+        }
+
+        // Dispose the node page if dispose flag is true
+        if (disposeFlag) {
+            if ((rc = pfFH.DisposePage(node))) {
+                return rc;
+            }
+        }
     }
+
+    // Return OK
+    return OK_RC;
 }
 
-// Method: int getIntegerValue(char* data)
-// Get integer attribute value
-int IX_IndexHandle::getIntegerValue(char* data) {
-    int recordValue;
-    memcpy(&recordValue, data, sizeof(recordValue));
-    return recordValue;
-}
+// Method: pushDeletionUp(PageNum node, PageNum child)
+// Recursively push the deletion up the tree
+/* Steps:
+    1) Get the node data
+    2) Find the position of the key to delete
+    3) Shift the keys and values to the left
+    4) If the node is ROOT
+        - If the node has become empty, set root page to IX_NO_PAGE
+    5) Else if the node is not ROOT
+        - If the node has become empty, dispose the page
+        - Call recursive function with parent node
+    6) Unpin and dispose the page if needed
+    7) Return OK
+*/
+RC IX_IndexHandle::pushDeletionUp(PageNum node, PageNum child) {
+    // Declare an integer for the return code
+    int rc;
+    bool disposeFlag = false;
 
-// Method: float getFloatValue(char* data)
-// Get float attribute value
-float IX_IndexHandle::getFloatValue(char* data) {
-    float recordValue;
-    memcpy(&recordValue, data, sizeof(recordValue));
-    return recordValue;
-}
-
-// Method: string getStringValue(char* data)
-// Get string attribute value
-string IX_IndexHandle::getStringValue(char* data) {
-    string recordValue = "";
-    for (int i=0; i < indexHeader.attrLength; i++) {
-        recordValue += data[i];
+    if (node == IX_NO_PAGE) {
+        return IX_INCONSISTENT_NODE;
     }
-    return recordValue;
+
+    // Get the node data
+    PF_PageHandle pfPH;
+    char* nodeData;
+    if ((rc = pfFH.GetThisPage(node, pfPH))) {
+        return rc;
+    }
+    if ((rc = pfPH.GetData(nodeData))) {
+        return rc;
+    }
+    if ((rc = pfFH.MarkDirty(node))) {
+        return rc;
+    }
+
+    int attrLength = indexHeader.attrLength;
+    AttrType attrType = indexHeader.attrType;
+    int degree = indexHeader.degree;
+    IX_NodeHeader* nodeHeader = (IX_NodeHeader*) nodeData;
+    char* keyData = nodeData + sizeof(IX_NodeHeader);
+    char* valueData = keyData + attrLength*degree;
+    IX_NodeValue* valueArray = (IX_NodeValue*) valueData;
+    int numberKeys = nodeHeader->numberKeys;
+    IX_NodeType type = nodeHeader->type;
+
+    // Find the position of the key to delete
+    int keyPosition = -1;
+    for (int i=0; i<=numberKeys; i++) {
+        if (valueArray[i].page == child) {
+            keyPosition = i;
+        }
+    }
+
+    // Shift the keys and values to the left
+    if (keyPosition == -1) {
+        return IX_INCONSISTENT_NODE;
+    }
+    else if (keyPosition == 0) {
+        if (attrType == INT) {
+            int* keyArray = (int*) keyData;
+            for (int i=1; i<numberKeys; i++) {
+                keyArray[i-1] = keyArray[i];
+                valueArray[i-1] = valueArray[i];
+            }
+            memcpy(keyData, (char*) keyArray, attrLength*degree);
+        }
+        else if (attrType == FLOAT) {
+            float* keyArray = (float*) keyData;
+            for (int i=1; i<numberKeys; i++) {
+                keyArray[i-1] = keyArray[i];
+                valueArray[i-1] = valueArray[i];
+            }
+            memcpy(keyData, (char*) keyArray, attrLength*degree);
+        }
+        else {
+            string* keyArray = (string*) keyData;
+            for (int i=1; i<numberKeys; i++) {
+                keyArray[i-1] = keyArray[i];
+                valueArray[i-1] = valueArray[i];
+            }
+            memcpy(keyData, (char*) keyArray, attrLength*degree);
+        }
+    }
+    else {
+        if (attrType == INT) {
+            int* keyArray = (int*) keyData;
+            for (int i=keyPosition; i<numberKeys; i++) {
+                keyArray[i-1] = keyArray[i];
+                valueArray[i] = valueArray[i+1];
+            }
+            memcpy(keyData, (char*) keyArray, attrLength*degree);
+        }
+        else if (attrType == FLOAT) {
+            float* keyArray = (float*) keyData;
+            for (int i=keyPosition; i<numberKeys; i++) {
+                keyArray[i-1] = keyArray[i];
+                valueArray[i] = valueArray[i+1];
+            }
+            memcpy(keyData, (char*) keyArray, attrLength*degree);
+        }
+        else {
+            string* keyArray = (string*) keyData;
+            for (int i=keyPosition; i<numberKeys; i++) {
+                keyArray[i-1] = keyArray[i];
+                valueArray[i] = valueArray[i+1];
+            }
+            memcpy(keyData, (char*) keyArray, attrLength*degree);
+        }
+    }
+
+    // Update the number of keys
+    nodeHeader->numberKeys--;
+
+    // Check if the node has become empty
+    if (nodeHeader->numberKeys == 0) {
+        // If the node is ROOT
+        if (type == ROOT) {
+            indexHeader.rootPage = IX_NO_PAGE;
+            headerModified = TRUE;
+        }
+        else {
+            // Make recursive call with the parent node
+            if ((rc = pushDeletionUp(nodeHeader->parent, node))) {
+                return rc;
+            }
+        }
+    }
+
+    // Copy the data to the node page
+    memcpy(nodeData, (char*) nodeHeader, sizeof(IX_NodeHeader));
+    memcpy(valueData, (char*) valueArray, sizeof(IX_NodeValue)*(degree+1));
+
+    // Unpin the node page
+    if ((rc = pfFH.UnpinPage(node))) {
+        return rc;
+    }
+
+    // Dispose the page if dispose flag is true
+    if (disposeFlag) {
+        if ((rc = pfFH.DisposePage(node))) {
+            return rc;
+        }
+    }
+
+    // Return OK
+    return OK_RC;
 }
 
 // Method: compareRIDs(RID &rid1, RID &rid2)
@@ -2957,4 +3263,11 @@ bool IX_IndexHandle::compareRIDs(const RID &rid1, const RID &rid2) {
     rid2.GetSlotNum(slotNum2);
 
     return (pageNum1 == pageNum2 && slotNum1 == slotNum2);
+}
+
+// Method: satisfiesInterval(T key1, T key2, T value)
+// Boolean whether the value satisfies the given interval
+template<typename T>
+bool IX_IndexHandle::satisfiesInterval(T key1, T key2, T value) {
+    return (value >= key1 && value < key2);
 }

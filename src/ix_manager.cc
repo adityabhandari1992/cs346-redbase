@@ -54,8 +54,7 @@ RC IX_Manager::CreateIndex(const char *fileName, int indexNo,
     int rc;
 
     // Generate the index filename
-    string fileNameString;
-    generateIndexFileName(fileName, indexNo, fileNameString);
+    string fileNameString = generateIndexFileName(fileName, indexNo);
     const char* indexFileName = fileNameString.c_str();
 
     // Check attributes
@@ -165,8 +164,7 @@ RC IX_Manager::DestroyIndex(const char *fileName, int indexNo) {
     int rc;
 
     // Generate the index file name
-    string fileNameString;
-    generateIndexFileName(fileName, indexNo, fileNameString);
+    string fileNameString = generateIndexFileName(fileName, indexNo);
     const char* indexFileName = fileNameString.c_str();
 
     // Destroy the file using the PF Manager
@@ -209,8 +207,7 @@ RC IX_Manager::OpenIndex(const char *fileName, int indexNo, IX_IndexHandle &inde
     int rc;
 
     // Generate the index file name
-    string fileNameString;
-    generateIndexFileName(fileName, indexNo, fileNameString);
+    string fileNameString = generateIndexFileName(fileName, indexNo);
     const char* indexFileName = fileNameString.c_str();
 
     // Declare a PF FileHandle
@@ -294,6 +291,9 @@ RC IX_Manager::CloseIndex(IX_IndexHandle &indexHandle) {
         if ((rc = pfPH.GetPageNum(headerPageNum))) {
             return rc;
         }
+        if ((rc = pfFH.MarkDirty(headerPageNum))) {
+            return rc;
+        }
 
         // Get the data from the header page
         char* pData;
@@ -305,18 +305,15 @@ RC IX_Manager::CloseIndex(IX_IndexHandle &indexHandle) {
         char* newPData = (char*) &indexHandle.indexHeader;
         memcpy(pData, newPData, sizeof(IX_IndexHeader));
 
-        // Flush the modified header page
-        if ((rc = pfFH.ForcePages(headerPageNum))) {
-            return rc;
-        }
-
         // Unpin the header page
-        if ((rc = pfFH.MarkDirty(headerPageNum))) {
-            return rc;
-        }
         if ((rc = pfFH.UnpinPage(headerPageNum))) {
             return rc;
         }
+
+        // // Flush the modified header page
+        // if ((rc = pfFH.ForcePages(headerPageNum))) {
+        //     return rc;
+        // }
     }
 
     // Close the file using the PF Manager
@@ -335,16 +332,10 @@ RC IX_Manager::CloseIndex(IX_IndexHandle &indexHandle) {
 
 // Method: generateIndexFileName(const char* fileName, int indexNo)
 // Generate a const char* = fileName.indexNo
-void IX_Manager::generateIndexFileName(const char* fileName, int indexNo, string &indexFileName) {
-    string fileNameString(fileName);
-
-    string indexString = ".";
+string IX_Manager::generateIndexFileName(const char* fileName, int indexNo) {
     stringstream convert;
-    convert << indexNo;
-    indexString += convert.str();
-
-    fileNameString += indexString;
-    indexFileName = fileNameString;
+    convert << fileName << "." << indexNo;
+    return convert.str();
 }
 
 // Method: findDegreeOfNode(int attrLength)

@@ -27,7 +27,8 @@ static char *IX_WarnMsg[] = {
   (char*)"null file name",
   (char*)"invalid attribute",
   (char*)"invalid operator",
-  (char*)"scan is closed"
+  (char*)"scan is closed",
+  (char*)"delete an entry that does not exist"
 };
 
 static char *IX_ErrorMsg[] = {

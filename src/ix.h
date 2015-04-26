@@ -55,12 +55,16 @@ private:
     RC InsertEntryRecursive(void *pData, const RID &rid, PageNum node);
     RC pushKeyUp(void* pData, PageNum node, PageNum left, PageNum right);
 
-    bool equalAttribute(AttrType attrType, char* nodeData, void* pData);
-    bool largerAttribute(AttrType attrType, char* nodeData, void* pData);
-    int getIntegerValue(char* data);
-    float getFloatValue(char* data);
-    std::string getStringValue(char* data);
+    RC SearchEntry(void* pData, PageNum node, PageNum &pageNumber);
+    RC DeleteFromLeaf(void* pData, const RID &rid, PageNum node);
+    RC pushDeletionUp(PageNum node, PageNum child);
     bool compareRIDs(const RID &rid1, const RID &rid2);
+
+    template<typename T>
+    bool satisfiesInterval(T key1, T key2, T value);
+
+    // template<typename T>
+    // RC InsertInRootLeaf(void* pData, RID &rid, char* keyData, char* valueData, int numberKeys, int keyCapacity);
 };
 
 //
@@ -131,7 +135,7 @@ public:
 private:
     PF_Manager* pfManager;      // PF_Manager object
 
-    void generateIndexFileName(const char* fileName, int indexNo, std::string &indexFileName);
+    std::string generateIndexFileName(const char* fileName, int indexNo);
     int findDegreeOfNode(int attrLength);
 };
 
@@ -155,7 +159,8 @@ void IX_PrintError(RC rc);
 #define IX_INVALID_ATTRIBUTE        (START_IX_WARN + 11) // Invalid attribute
 #define IX_INVALID_OPERATOR         (START_IX_WARN + 12) // Invalid operator
 #define IX_SCAN_CLOSED              (START_IX_WARN + 13) // Scan is closed
-#define IX_LASTWARN                 IX_SCAN_CLOSED
+#define IX_DELETE_ENTRY_NOT_FOUND   (START_IX_WARN + 14) // Delete an entry that does not exist
+#define IX_LASTWARN                 IX_DELETE_ENTRY_NOT_FOUND
 
 // Errors
 #define IX_INVALIDNAME          (START_IX_ERR - 0) // Invalid PC file name

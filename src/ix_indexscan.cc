@@ -195,6 +195,7 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
         if ((rc = pfFH.UnpinPage(pageNumber))) {
             return rc;
         }
+        bool unpinned = true;
 
         // Check if the current key satisfies the condition
         while (true) {
@@ -226,9 +227,36 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
 
             // If end of a node
             if (keyPosition == numberKeys) {
+                PageNum previousPage = pageNumber;
                 pageNumber = valueArray[degree].page;
                 keyPosition = 0;
-                if (pageNumber == IX_NO_PAGE) return IX_EOF;
+
+                // Unpin the previous page
+                if (!unpinned) {
+                    if ((rc = pfFH.UnpinPage(previousPage))) {
+                       return rc;
+                    }
+                }
+
+                if (pageNumber == IX_NO_PAGE) {
+                    return IX_EOF;
+                }
+                else {
+                    // Get the new page
+                    if ((rc = pfFH.GetThisPage(pageNumber, pfPH))) {
+                        return rc;
+                    }
+                    if ((rc = pfPH.GetData(pageData))) {
+                        return rc;
+                    }
+                    unpinned = false;
+
+                    nodeHeader = (IX_NodeHeader*) pageData;
+                    numberKeys = nodeHeader->numberKeys;
+                    keyData = pageData + sizeof(IX_NodeHeader);
+                    valueData = keyData + attrLength*degree;
+                    valueArray = (IX_NodeValue*) valueData;
+                }
             }
         }
 
@@ -293,6 +321,13 @@ RC IX_IndexScan::CloseScan() {
 RC IX_IndexScan::SearchEntry(PageNum node, PageNum &pageNumber, int &keyPosition) {
     // Declare an integer for the return code
     int rc;
+
+
+    if (node == IX_NO_PAGE) {
+        pageNumber = IX_NO_PAGE;
+        keyPosition = -1;
+        return OK_RC;
+    }
 
     // Get the data in the node page
     PF_FileHandle pfFH = indexHandle.pfFH;
@@ -370,12 +405,15 @@ RC IX_IndexScan::SearchEntry(PageNum node, PageNum &pageNumber, int &keyPosition
 
     // Else if it is an internal node find the next page
     else if (nodeType == NODE || nodeType == ROOT) {
-        PageNum nextPage;
+        PageNum nextPage = IX_NO_PAGE;
         if (attrType == INT) {
             int* keyArray = (int*) keyData;
             int intValue = *static_cast<int*>(value);
-            if (satisfiesInterval(0, keyArray[0], intValue)) {
+            if (intValue < keyArray[0]) {
                 nextPage = valueArray[0].page;
+            }
+            else if (intValue >= keyArray[numberKeys-1]) {
+                nextPage = valueArray[numberKeys].page;
             }
             else {
                 bool found;
@@ -392,8 +430,11 @@ RC IX_IndexScan::SearchEntry(PageNum node, PageNum &pageNumber, int &keyPosition
         else if (attrType == FLOAT) {
             float* keyArray = (float*) keyData;
             float floatValue = *static_cast<float*>(value);
-            if (satisfiesInterval((float) 0, keyArray[0], floatValue)) {
+            if (floatValue < keyArray[0]) {
                 nextPage = valueArray[0].page;
+            }
+            else if (floatValue >= keyArray[numberKeys-1]) {
+                nextPage = valueArray[numberKeys].page;
             }
             else {
                 bool found;
@@ -414,8 +455,11 @@ RC IX_IndexScan::SearchEntry(PageNum node, PageNum &pageNumber, int &keyPosition
             for (int i=0; i < attrLength; i++) {
                 stringValue += charValue[i];
             }
-            if (satisfiesInterval((string)"", keyArray[0], stringValue)) {
+            if (stringValue < keyArray[0]) {
                 nextPage = valueArray[0].page;
+            }
+            else if (stringValue >= keyArray[numberKeys-1]) {
+                nextPage = valueArray[numberKeys].page;
             }
             else {
                 bool found;

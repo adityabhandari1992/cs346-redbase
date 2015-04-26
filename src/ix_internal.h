@@ -57,12 +57,14 @@ struct IX_NodeValue {
     2) keyCapacity - Number of keys the node can accommodate - integer
     3) type - Type of the node - IX_NodeType
     4) parent - Parent node - PageNum
+    5) left - Left sibling node - PageNum
 */
 struct IX_NodeHeader {
     int numberKeys;
     int keyCapacity;
     IX_NodeType type;
     PageNum parent;
+    PageNum left;
 };
 
 // IX_BucketPageHeader: Struct for the index bucket page header
