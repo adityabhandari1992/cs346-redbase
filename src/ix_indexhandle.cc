@@ -121,18 +121,19 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
         delete[] valueArray;
 
         // Allocate a key array to the node
+        char* keyData = pageData + sizeof(IX_NodeHeader);
         if (attrType == INT) {
             int* keyArray = new int[degree];
             int givenKey = *static_cast<int*>(pData);
             keyArray[0] = givenKey;
-            memcpy(pageData+sizeof(IX_NodeHeader), keyArray, attrLength*degree);
+            memcpy(keyData, keyArray, attrLength*degree);
             delete[] keyArray;
         }
         else if (attrType == FLOAT) {
             float* keyArray = new float[degree];
             float givenKey = *static_cast<float*>(pData);
             keyArray[0] = givenKey;
-            memcpy(pageData+sizeof(IX_NodeHeader), keyArray, attrLength*degree);
+            memcpy(keyData, keyArray, attrLength*degree);
             delete[] keyArray;
         }
         else {
@@ -143,7 +144,7 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                 givenKey += givenKeyChar[i];
             }
             keyArray[0] = givenKey;
-            memcpy(pageData+sizeof(IX_NodeHeader), keyArray, attrLength*degree);
+            memcpy(keyData, keyArray, attrLength*degree);
             delete[] keyArray;
         }
 
