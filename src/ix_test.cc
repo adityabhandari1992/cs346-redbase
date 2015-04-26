@@ -591,7 +591,7 @@ RC Test4(void)
    IX_IndexHandle ih;
    int            index=0;
    int            i;
-   int            value=100;
+   int            value=FEW_ENTRIES/2;
    RID            rid;
 
    printf("Test4: Inequality scans... \n");

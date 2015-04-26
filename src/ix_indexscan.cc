@@ -322,7 +322,6 @@ RC IX_IndexScan::SearchEntry(PageNum node, PageNum &pageNumber, int &keyPosition
     // Declare an integer for the return code
     int rc;
 
-
     if (node == IX_NO_PAGE) {
         pageNumber = IX_NO_PAGE;
         keyPosition = -1;
@@ -406,71 +405,76 @@ RC IX_IndexScan::SearchEntry(PageNum node, PageNum &pageNumber, int &keyPosition
     // Else if it is an internal node find the next page
     else if (nodeType == NODE || nodeType == ROOT) {
         PageNum nextPage = IX_NO_PAGE;
-        if (attrType == INT) {
-            int* keyArray = (int*) keyData;
-            int intValue = *static_cast<int*>(value);
-            if (intValue < keyArray[0]) {
-                nextPage = valueArray[0].page;
-            }
-            else if (intValue >= keyArray[numberKeys-1]) {
-                nextPage = valueArray[numberKeys].page;
-            }
-            else {
-                bool found;
-                for (int i=1; i<numberKeys; i++) {
-                    if (satisfiesInterval(keyArray[i-1], keyArray[i], intValue)) {
-                        nextPage = valueArray[i].page;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) nextPage = valueArray[numberKeys].page;
-            }
-        }
-        else if (attrType == FLOAT) {
-            float* keyArray = (float*) keyData;
-            float floatValue = *static_cast<float*>(value);
-            if (floatValue < keyArray[0]) {
-                nextPage = valueArray[0].page;
-            }
-            else if (floatValue >= keyArray[numberKeys-1]) {
-                nextPage = valueArray[numberKeys].page;
-            }
-            else {
-                bool found;
-                for (int i=1; i<numberKeys; i++) {
-                    if (satisfiesInterval(keyArray[i-1], keyArray[i], floatValue)) {
-                        nextPage = valueArray[i].page;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) nextPage = valueArray[numberKeys].page;
-            }
+        if (compOp == LT_OP || compOp == LE_OP) {
+            nextPage = valueArray[0].page;
         }
         else {
-            string* keyArray = (string*) keyData;
-            char* charValue = static_cast<char*>(value);
-            string stringValue = "";
-            for (int i=0; i < attrLength; i++) {
-                stringValue += charValue[i];
+            if (attrType == INT) {
+                int* keyArray = (int*) keyData;
+                int intValue = *static_cast<int*>(value);
+                if (intValue < keyArray[0]) {
+                    nextPage = valueArray[0].page;
+                }
+                else if (intValue >= keyArray[numberKeys-1]) {
+                    nextPage = valueArray[numberKeys].page;
+                }
+                else {
+                    bool found;
+                    for (int i=1; i<numberKeys; i++) {
+                        if (satisfiesInterval(keyArray[i-1], keyArray[i], intValue)) {
+                            nextPage = valueArray[i].page;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) nextPage = valueArray[numberKeys].page;
+                }
             }
-            if (stringValue < keyArray[0]) {
-                nextPage = valueArray[0].page;
-            }
-            else if (stringValue >= keyArray[numberKeys-1]) {
-                nextPage = valueArray[numberKeys].page;
+            else if (attrType == FLOAT) {
+                float* keyArray = (float*) keyData;
+                float floatValue = *static_cast<float*>(value);
+                if (floatValue < keyArray[0]) {
+                    nextPage = valueArray[0].page;
+                }
+                else if (floatValue >= keyArray[numberKeys-1]) {
+                    nextPage = valueArray[numberKeys].page;
+                }
+                else {
+                    bool found;
+                    for (int i=1; i<numberKeys; i++) {
+                        if (satisfiesInterval(keyArray[i-1], keyArray[i], floatValue)) {
+                            nextPage = valueArray[i].page;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) nextPage = valueArray[numberKeys].page;
+                }
             }
             else {
-                bool found;
-                for (int i=1; i<numberKeys; i++) {
-                    if (satisfiesInterval(keyArray[i-1], keyArray[i], stringValue)) {
-                        nextPage = valueArray[i].page;
-                        found = true;
-                        break;
-                    }
+                string* keyArray = (string*) keyData;
+                char* charValue = static_cast<char*>(value);
+                string stringValue = "";
+                for (int i=0; i < attrLength; i++) {
+                    stringValue += charValue[i];
                 }
-                if (!found) nextPage = valueArray[numberKeys].page;
+                if (stringValue < keyArray[0]) {
+                    nextPage = valueArray[0].page;
+                }
+                else if (stringValue >= keyArray[numberKeys-1]) {
+                    nextPage = valueArray[numberKeys].page;
+                }
+                else {
+                    bool found;
+                    for (int i=1; i<numberKeys; i++) {
+                        if (satisfiesInterval(keyArray[i-1], keyArray[i], stringValue)) {
+                            nextPage = valueArray[i].page;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) nextPage = valueArray[numberKeys].page;
+                }
             }
         }
 

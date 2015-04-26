@@ -25,6 +25,9 @@ IX_IndexHandle::~IX_IndexHandle() {
     // Nothing to free
 }
 
+
+/************** CODE FOR INSERT ENTRY *****************/
+
 // Method: InsertEntry(void *pData, const RID &rid)
 // Insert a new index entry
 /* Steps:
@@ -1072,10 +1075,14 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                     newNodeHeader->keyCapacity = keyCapacity;
                     newNodeHeader->type = LEAF;
 
-                    // Update the last pointer in the left node
+                    // Update the last pointer in the nodes
+                    PageNum previousRight = valueArray[keyCapacity].page;
                     valueArray[keyCapacity].state = PAGE_ONLY;
                     valueArray[keyCapacity].page = newPageNumber;
                     valueArray[keyCapacity].rid = dummyRID;
+                    newValueArray[keyCapacity].state = PAGE_ONLY;
+                    newValueArray[keyCapacity].page = previousRight;
+                    newValueArray[keyCapacity].rid = dummyRID;
 
                     // Insert the new key
                     if (givenKey < newKeyArray[0]) {
@@ -1323,10 +1330,14 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                     newNodeHeader->keyCapacity = keyCapacity;
                     newNodeHeader->type = LEAF;
 
-                    // Update the last pointer in the left node
+                    // Update the last pointer in the nodes
+                    PageNum previousRight = valueArray[keyCapacity].page;
                     valueArray[keyCapacity].state = PAGE_ONLY;
                     valueArray[keyCapacity].page = newPageNumber;
                     valueArray[keyCapacity].rid = dummyRID;
+                    newValueArray[keyCapacity].state = PAGE_ONLY;
+                    newValueArray[keyCapacity].page = previousRight;
+                    newValueArray[keyCapacity].rid = dummyRID;
 
                     // Insert the new key
                     if (givenKey < newKeyArray[0]) {
@@ -1579,10 +1590,14 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                     newNodeHeader->keyCapacity = keyCapacity;
                     newNodeHeader->type = LEAF;
 
-                    // Update the last pointer in the left node
+                    // Update the last pointer in the nodes
+                    PageNum previousRight = valueArray[keyCapacity].page;
                     valueArray[keyCapacity].state = PAGE_ONLY;
                     valueArray[keyCapacity].page = newPageNumber;
                     valueArray[keyCapacity].rid = dummyRID;
+                    newValueArray[keyCapacity].state = PAGE_ONLY;
+                    newValueArray[keyCapacity].page = previousRight;
+                    newValueArray[keyCapacity].rid = dummyRID;
 
                     // Insert the new key
                     if (givenKey < newKeyArray[0]) {
@@ -2531,6 +2546,8 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
 }
 
 
+/************** CODE FOR DELETE ENTRY *****************/
+
 // Method: DeleteEntry(void *pData, const RID &rid)
 // Delete a new index entry
 /* Steps:
@@ -3250,6 +3267,7 @@ RC IX_IndexHandle::pushDeletionUp(PageNum node, PageNum child) {
     // Return OK
     return OK_RC;
 }
+
 
 // Method: compareRIDs(RID &rid1, RID &rid2)
 // Boolean whether the two RIDs are the same
