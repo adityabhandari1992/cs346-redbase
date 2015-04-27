@@ -66,7 +66,7 @@ RC IX_Manager::CreateIndex(const char *fileName, int indexNo,
     if ((attrType == INT || attrType == FLOAT) && attrLength != 4) {
         return IX_INCONSISTENT_ATTRIBUTE;
     }
-    if (attrType == STRING && (attrLength < 1 && attrLength > MAXSTRINGLEN)) {
+    if (attrType == STRING && (attrLength < 1 || attrLength > MAXSTRINGLEN)) {
         return IX_INCONSISTENT_ATTRIBUTE;
     }
 

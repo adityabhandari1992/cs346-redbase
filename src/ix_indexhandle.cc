@@ -137,13 +137,12 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
             delete[] keyArray;
         }
         else {
-            string* keyArray = new string[degree];
+            char* keyArray = new char[attrLength*degree];
             char* givenKeyChar = static_cast<char*>(pData);
-            string givenKey = "";
-            for (int i=0; i < attrLength; i++) {
-                givenKey += givenKeyChar[i];
+            string givenKey(givenKeyChar);
+            for (int i=0; i<attrLength; i++) {
+                keyArray[i] = givenKey[i];
             }
-            keyArray[0] = givenKey;
             memcpy(keyData, keyArray, attrLength*degree);
             delete[] keyArray;
         }
@@ -210,14 +209,12 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                 }
             }
             else {
-                string* keyArray = (string*) keyData;
+                char* keyArray = (char*) keyData;
                 char* givenKeyChar = static_cast<char*>(pData);
-                string givenKey = "";
-                for (int i=0; i < attrLength; i++) {
-                    givenKey += givenKeyChar[i];
-                }
+                string givenKey(givenKeyChar);
                 for (int i=0; i<numberKeys; i++) {
-                    if (keyArray[i] == givenKey) {
+                    string currentKey(keyArray+i*attrLength);
+                    if (currentKey == givenKey) {
                         index = i;
                         break;
                     }
@@ -362,14 +359,12 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                         memcpy(keyData, (char*) keyArray, attrLength*degree);
                     }
                     else {
-                        string* keyArray = (string*) keyData;
+                        char* keyArray = (char*) keyData;
                         char* givenKeyChar = static_cast<char*>(pData);
-                        string givenKey = "";
-                        for (int i=0; i < attrLength; i++) {
-                            givenKey += givenKeyChar[i];
-                        }
+                        string givenKey(givenKeyChar);
                         for (int i=0; i<numberKeys; i++) {
-                            if (givenKey < keyArray[i]) {
+                            string currentKey(keyArray + i*attrLength);
+                            if (givenKey < currentKey) {
                                 position = i;
                                 break;
                             }
@@ -377,10 +372,14 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
 
                         // Move the other keys forward and insert the key
                         for (int i=numberKeys; i>position; i--) {
-                            keyArray[i] = keyArray[i-1];
+                            for (int j=0; j<attrLength; j++) {
+                                keyArray[i*attrLength + j] = keyArray[(i-1)*attrLength + j];
+                            }
                             valueArray[i] = valueArray[i-1];
                         }
-                        keyArray[position] = givenKey;
+                        for (int j=0; j<attrLength; j++) {
+                            keyArray[position*attrLength + j] = givenKey[j];
+                        }
                         memcpy(keyData, (char*) keyArray, attrLength*degree);
                     }
 
@@ -689,17 +688,16 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                     }
 
                     else {
-                        string* keyArray = (string*) keyData;
+                        char* keyArray = (char*) keyData;
                         char* givenKeyChar = static_cast<char*>(pData);
-                        string givenKey = "";
-                        for (int i=0; i < attrLength; i++) {
-                            givenKey += givenKeyChar[i];
-                        }
+                        string givenKey(givenKeyChar);
                         IX_NodeHeader* newNodeHeader = new IX_NodeHeader;
-                        string* newKeyArray = new string[degree];
+                        char* newKeyArray = new char[attrLength*degree];
                         IX_NodeValue* newValueArray = new IX_NodeValue[degree+1];
                         for (int i=numberKeys/2; i<numberKeys; i++) {
-                            newKeyArray[i-numberKeys/2] = keyArray[i];
+                            for (int j=0; j <attrLength; j++) {
+                                newKeyArray[(i-numberKeys/2)*attrLength+j] = keyArray[i*attrLength+j];
+                            }
                             newValueArray[i-numberKeys/2] = valueArray[i];
                         }
 
@@ -716,20 +714,27 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                         valueArray[keyCapacity].rid = dummyRID;
 
                         // Insert the new key
-                        if (givenKey < newKeyArray[0]) {
+                        string firstKey(newKeyArray);
+                        if (givenKey < firstKey) {
                             // Insert in the left node
                             int position = numberKeys/2;
                             for (int i=0; i<numberKeys/2; i++) {
-                                if (givenKey < keyArray[i]) {
+                                string currentKey(keyArray + i*attrLength);
+                                if (givenKey < currentKey) {
                                     position = i;
                                     break;
                                 }
                             }
                             for (int i=numberKeys/2; i>position; i--) {
-                                keyArray[i] = keyArray[i-1];
+                                for (int j=0; j<attrLength; j++) {
+                                    keyArray[i*attrLength + j] = keyArray[(i-1)*attrLength + j];
+                                }
                                 valueArray[i] = valueArray[i-1];
                             }
-                            keyArray[position] = givenKey;
+
+                            for (int j=0; j<attrLength; j++) {
+                                keyArray[position*attrLength + j] = givenKey[j];
+                            }
                             valueArray[position].state = RID_FILLED;
                             valueArray[position].rid = rid;
                             valueArray[position].page = IX_NO_PAGE;
@@ -740,16 +745,22 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                             // Insert in the right node
                             int position = numberKeys - numberKeys/2;
                             for (int i=0; i< numberKeys - numberKeys/2; i++) {
-                                if (givenKey < newKeyArray[i]) {
+                                string currentKey(newKeyArray + i*attrLength);
+                                if (givenKey < currentKey) {
                                     position = i;
                                     break;
                                 }
                             }
                             for (int i=numberKeys-numberKeys/2; i>position; i--) {
-                                newKeyArray[i] = newKeyArray[i-1];
+                                for (int j=0; j<attrLength; j++) {
+                                    newKeyArray[i*attrLength + j] = newKeyArray[(i-1)*attrLength + j];
+                                }
                                 newValueArray[i] = newValueArray[i-1];
                             }
-                            newKeyArray[position] = givenKey;
+
+                            for (int j=0; j<attrLength; j++) {
+                                newKeyArray[position*attrLength + j] = givenKey[j];
+                            }
                             newValueArray[position].state = RID_FILLED;
                             newValueArray[position].rid = rid;
                             newValueArray[position].page = IX_NO_PAGE;
@@ -776,7 +787,7 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
 
                         // Set the keys and values
                         IX_NodeHeader* newRootNodeHeader = new IX_NodeHeader;
-                        string* newRootKeyArray = new string[degree];
+                        char* newRootKeyArray = new char[attrLength*degree];
                         IX_NodeValue* newRootValueArray = new IX_NodeValue[degree+1];
                         newRootNodeHeader->numberKeys = 1;
                         newRootNodeHeader->keyCapacity = keyCapacity;
@@ -784,7 +795,9 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                         newRootNodeHeader->parent = IX_NO_PAGE;
                         newRootNodeHeader->left = IX_NO_PAGE;
 
-                        newRootKeyArray[0] = newKeyArray[0];
+                        for (int i=0; i<attrLength; i++) {
+                            newRootKeyArray[i] = newKeyArray[i];
+                        }
                         newRootValueArray[0].state = PAGE_ONLY;
                         newRootValueArray[0].page = rootPage;
                         newRootValueArray[0].rid = dummyRID;
@@ -1463,15 +1476,13 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
         }
         else {
             // Check if pData is already a key
-            string* keyArray = (string*) keyData;
+            char* keyArray = (char*) keyData;
             char* givenKeyChar = static_cast<char*>(pData);
-            string givenKey = "";
-            for (int i=0; i < indexHeader.attrLength; i++) {
-                givenKey += givenKeyChar[i];
-            }
+            string givenKey(givenKeyChar);
             int index = -1;
             for (int i=0; i<numberKeys; i++) {
-                if (keyArray[i] == givenKey) {
+                string currentKey(keyArray + i*attrLength);
+                if (currentKey == givenKey) {
                     index = i;
                     break;
                 }
@@ -1579,7 +1590,8 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                     // Find the position for this key
                     int position = numberKeys;
                     for (int i=0; i<numberKeys; i++) {
-                        if (givenKey < keyArray[i]) {
+                        string currentKey(keyArray + i*attrLength);
+                        if (givenKey < currentKey) {
                             position = i;
                             break;
                         }
@@ -1587,10 +1599,14 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
 
                     // Move the other keys forward and insert the key
                     for (int i=numberKeys; i>position; i--) {
-                        keyArray[i] = keyArray[i-1];
+                        for (int j=0; j<attrLength; j++) {
+                            keyArray[i*attrLength + j] = keyArray[(i-1)*attrLength + j];
+                        }
                         valueArray[i] = valueArray[i-1];
                     }
-                    keyArray[position] = givenKey;
+                    for (int j=0; j<attrLength; j++) {
+                        keyArray[position*attrLength + j] = givenKey[j];
+                    }
                     valueArray[position].state = RID_FILLED;
                     valueArray[position].rid = rid;
                     valueArray[position].page = IX_NO_PAGE;
@@ -1624,10 +1640,12 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
 
                     // Copy half the keys to the new page
                     IX_NodeHeader* newNodeHeader = new IX_NodeHeader;
-                    string* newKeyArray = new string[degree];
+                    char* newKeyArray = new char[attrLength*degree];
                     IX_NodeValue* newValueArray = new IX_NodeValue[degree+1];
                     for (int i=numberKeys/2; i<numberKeys; i++) {
-                        newKeyArray[i-numberKeys/2] = keyArray[i];
+                        for (int j=0; j<attrLength; j++) {
+                            newKeyArray[(i-numberKeys/2)*attrLength + j] = keyArray[i*attrLength + j];
+                        }
                         newValueArray[i-numberKeys/2] = valueArray[i];
                     }
 
@@ -1671,20 +1689,26 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                     }
 
                     // Insert the new key
-                    if (givenKey < newKeyArray[0]) {
+                    string firstKey(newKeyArray);
+                    if (givenKey < firstKey) {
                         // Insert in the left node
                         int position = numberKeys/2;
                         for (int i=0; i<numberKeys/2; i++) {
-                            if (givenKey < keyArray[i]) {
+                            string currentKey(keyArray + i*attrLength);
+                            if (givenKey < currentKey) {
                                 position = i;
                                 break;
                             }
                         }
                         for (int i=numberKeys/2; i>position; i--) {
-                            keyArray[i] = keyArray[i-1];
+                            for (int j=0; j<attrLength; j++) {
+                                keyArray[i*attrLength + j] = keyArray[(i-1)*attrLength + j];
+                            }
                             valueArray[i] = valueArray[i-1];
                         }
-                        keyArray[position] = givenKey;
+                        for (int j=0; j < attrLength; j++) {
+                            keyArray[position*attrLength + j] = givenKey[j];
+                        }
                         valueArray[position].state = RID_FILLED;
                         valueArray[position].rid = rid;
                         valueArray[position].page = IX_NO_PAGE;
@@ -1695,16 +1719,21 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                         // Insert in the right node
                         int position = numberKeys - numberKeys/2;
                         for (int i=0; i< numberKeys - numberKeys/2; i++) {
-                            if (givenKey < newKeyArray[i]) {
+                            string currentKey(newKeyArray + i*attrLength);
+                            if (givenKey < currentKey) {
                                 position = i;
                                 break;
                             }
                         }
                         for (int i=numberKeys-numberKeys/2; i>position; i--) {
-                            newKeyArray[i] = newKeyArray[i-1];
+                            for (int j=0; j<attrLength; j++) {
+                                newKeyArray[i*attrLength + j] = newKeyArray[(i-1)*attrLength + j];
+                            }
                             newValueArray[i] = newValueArray[i-1];
                         }
-                        newKeyArray[position] = givenKey;
+                        for (int j=0; j < attrLength; j++) {
+                            newKeyArray[position*attrLength + j] = givenKey[j];
+                        }
                         newValueArray[position].state = RID_FILLED;
                         newValueArray[position].rid = rid;
                         newValueArray[position].page = IX_NO_PAGE;
@@ -1719,7 +1748,10 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
 
                     memcpy(newPageData + sizeof(IX_NodeHeader), (char*) newKeyArray, attrLength*degree);
                     memcpy(newPageData + sizeof(IX_NodeHeader) + attrLength*degree, (char*) newValueArray, sizeof(IX_NodeValue)*(degree+1));
-                    string keyToPushUp = newKeyArray[0];
+                    string keyToPushUp = "";
+                    for (int j=0; j<attrLength; j++) {
+                        keyToPushUp += newKeyArray[j];
+                    }
                     delete[] newKeyArray;
                     delete[] newValueArray;
 
@@ -1786,17 +1818,15 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
             nextNode = valueArray[position].page;
         }
         else {
-            string* keyArray = (string*) keyData;
+            char* keyArray = (char*) keyData;
             char* givenKeyChar = static_cast<char*>(pData);
-            string givenKey = "";
-            for (int i=0; i < indexHeader.attrLength; i++) {
-                givenKey += givenKeyChar[i];
-            }
+            string givenKey(givenKeyChar);
 
             // Search for corresponding pointer to next node
             int position = numberKeys;
             for (int i=0; i<numberKeys; i++) {
-                if (givenKey < keyArray[i]) {
+                string currentKey(keyArray + i*attrLength);
+                if (givenKey < currentKey) {
                     position = i;
                     break;
                 }
@@ -1873,7 +1903,6 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
     int numberKeys = nodeHeader->numberKeys;
     int keyCapacity = nodeHeader->keyCapacity;
 
-    // TODO: HERE!
     if (attrType == INT) {
         int* keyArray = (int*) keyData;
         int givenKey = *static_cast<int*>(pData);
@@ -2361,19 +2390,17 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
     }
 
     else {
-        string* keyArray = (string*) keyData;
+        char* keyArray = (char*) keyData;
         char* givenKeyChar = static_cast<char*>(pData);
-        string givenKey = "";
-        for (int i=0; i < indexHeader.attrLength; i++) {
-            givenKey += givenKeyChar[i];
-        }
+        string givenKey(givenKeyChar);
 
         // If the node is not full
         if (numberKeys < keyCapacity) {
             // Find the position for this key
             int position = numberKeys;
             for (int i=0; i<numberKeys; i++) {
-                if (givenKey < keyArray[i]) {
+                string currentKey(keyArray + i*attrLength);
+                if (givenKey < currentKey) {
                     position = i;
                     break;
                 }
@@ -2381,11 +2408,15 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
 
             // Move the other keys forward and insert the key
             for (int i=numberKeys; i>position; i--) {
-                keyArray[i] = keyArray[i-1];
+                for (int j=0; j<attrLength; j++) {
+                    keyArray[i*attrLength + j] = keyArray[(i-1)*attrLength + j];
+                }
                 valueArray[i+1] = valueArray[i];
             }
             valueArray[position+1] = valueArray[position];
-            keyArray[position] = givenKey;
+            for (int j=0; j<attrLength; j++) {
+                keyArray[position*attrLength + j] = givenKey[j];
+            }
             valueArray[position].state = PAGE_ONLY;
             valueArray[position].page = left;
             valueArray[position].rid = dummyRID;
@@ -2420,10 +2451,12 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
 
             // Copy half the keys to the new page
             IX_NodeHeader* newNodeHeader = new IX_NodeHeader;
-            string* newKeyArray = new string[degree];
+            char* newKeyArray = new char[attrLength*degree];
             IX_NodeValue* newValueArray = new IX_NodeValue[degree+1];
             for (int i=numberKeys/2; i<numberKeys; i++) {
-                newKeyArray[i-numberKeys/2] = keyArray[i];
+                for (int j=0; j<attrLength; j++) {
+                    newKeyArray[(i-numberKeys/2)*attrLength + j] = keyArray[i*attrLength + j];
+                }
                 newValueArray[i-numberKeys/2] = valueArray[i];
             }
 
@@ -2440,20 +2473,26 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
             valueArray[keyCapacity].rid = dummyRID;
 
             // Insert the new key
-            if (givenKey < newKeyArray[0]) {
+            string firstKey(newKeyArray);
+            if (givenKey < firstKey) {
                 // Insert in the left node
                 int position = numberKeys/2;
                 for (int i=0; i<numberKeys/2; i++) {
-                    if (givenKey < keyArray[i]) {
+                    string currentKey(keyArray + i*attrLength);
+                    if (givenKey < currentKey) {
                         position = i;
                         break;
                     }
                 }
                 for (int i=numberKeys/2; i>position; i--) {
-                    keyArray[i] = keyArray[i-1];
+                    for (int j=0; j<attrLength; j++) {
+                        keyArray[i*attrLength] = keyArray[(i-1)*attrLength];
+                    }
                     valueArray[i] = valueArray[i-1];
                 }
-                keyArray[position] = givenKey;
+                for (int j=0; j<attrLength; j++) {
+                    keyArray[position*attrLength + j] = givenKey[j];
+                }
                 valueArray[position].state = PAGE_ONLY;
                 valueArray[position].page = left;
                 valueArray[position].rid = dummyRID;
@@ -2465,16 +2504,21 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
                 // Insert in the right node
                 int position = numberKeys - numberKeys/2;
                 for (int i=0; i< numberKeys - numberKeys/2; i++) {
-                    if (givenKey < newKeyArray[i]) {
+                    string currentKey(newKeyArray + i*attrLength);
+                    if (givenKey < currentKey) {
                         position = i;
                         break;
                     }
                 }
                 for (int i=numberKeys-numberKeys/2; i>position; i--) {
-                    newKeyArray[i] = newKeyArray[i-1];
+                    for (int j=0; j<attrLength; j++) {
+                        newKeyArray[i*attrLength + j] = newKeyArray[(i-1)*attrLength + j];
+                    }
                     newValueArray[i] = newValueArray[i-1];
                 }
-                newKeyArray[position] = givenKey;
+                for (int j=0; j<attrLength; j++) {
+                    newKeyArray[position*attrLength + j] = givenKey[j];
+                }
                 newValueArray[position].state = PAGE_ONLY;
                 newValueArray[position].page = left;
                 newValueArray[position].rid = dummyRID;
@@ -2484,9 +2528,14 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
             }
 
             // Remove the first key from the right node
-            string keyToPushUp = newKeyArray[0];
+            string keyToPushUp = "";
+            for (int j=0; j<attrLength; j++) {
+                keyToPushUp += newKeyArray[j];
+            }
             for (int i=0; i<newNodeHeader->numberKeys; i++) {
-                newKeyArray[i] = newKeyArray[i+1];
+                for (int j=0; j<attrLength; j++) {
+                    newKeyArray[i*attrLength + j] = newKeyArray[(i+1)*attrLength + j];
+                }
                 newValueArray[i] = newValueArray[i+1];
             }
             newNodeHeader->numberKeys--;
@@ -2539,7 +2588,7 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
 
                 // Set the keys and values
                 IX_NodeHeader* newRootNodeHeader = new IX_NodeHeader;
-                string* newRootKeyArray = new string[degree];
+                char* newRootKeyArray = new char[attrLength*degree];
                 IX_NodeValue* newRootValueArray = new IX_NodeValue[degree+1];
                 newRootNodeHeader->numberKeys = 1;
                 newRootNodeHeader->keyCapacity = keyCapacity;
@@ -2547,7 +2596,9 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
                 newRootNodeHeader->parent = IX_NO_PAGE;
                 newRootNodeHeader->left = IX_NO_PAGE;
 
-                newRootKeyArray[0] = keyToPushUp;
+                for (int j=0; j<attrLength; j++) {
+                    newRootKeyArray[j] = keyToPushUp[j];
+                }
                 newRootValueArray[0].state = PAGE_ONLY;
                 newRootValueArray[0].page = node;
                 newRootValueArray[0].rid = dummyRID;
@@ -2699,53 +2750,6 @@ RC IX_IndexHandle::DeleteEntry(void *pData, const RID &rid) {
     }
 }
 
-// Method: ForcePages()
-// Force index pages to disk
-RC IX_IndexHandle::ForcePages() {
-    // Declare an integer for the return code
-    int rc;
-
-    // Get the first page
-    PageNum pageNum;
-    PF_PageHandle pfPH;
-    if ((rc = pfFH.GetFirstPage(pfPH))) {
-        return rc;
-    }
-    if ((rc = pfPH.GetPageNum(pageNum))) {
-        return rc;
-    }
-
-    // Get next page number
-    PageNum nextPage;
-    PF_PageHandle nextPFPH;
-    while (true) {
-        if ((rc = pfFH.GetNextPage(pageNum, nextPFPH))) {
-            return rc;
-        }
-        if ((rc = pfFH.UnpinPage(pageNum))) {
-            return rc;
-        }
-
-        // Force the pages using the PF FileHandle
-        if ((rc = pfFH.ForcePages(pageNum))) {
-            return rc;
-        }
-
-        if ((rc = nextPFPH.GetPageNum(nextPage))) {
-            if (rc == PF_EOF) {
-                break;
-            }
-            return rc;
-        }
-
-        pageNum = nextPage;
-    }
-
-    // Return OK
-    return OK_RC;
-}
-
-
 // Method: SearchEntry(void* pData, PageNum node, PageNum &pageNumber)
 // Recursively search for an index entry
 /* Steps:
@@ -2847,22 +2851,23 @@ RC IX_IndexHandle::SearchEntry(void* pData, PageNum node, PageNum &pageNumber) {
             }
         }
         else {
-            string* keyArray = (string*) keyData;
+            char* keyArray = (char*) keyData;
             char* valueChar = static_cast<char*>(pData);
-            string stringValue = "";
-            for (int i=0; i < indexHeader.attrLength; i++) {
-                stringValue += valueChar[i];
-            }
-            if (stringValue < keyArray[0]) {
+            string stringValue(valueChar);
+            string firstKey(keyArray);
+            string lastKey(keyArray + (numberKeys-1)*attrLength);
+            if (stringValue < firstKey) {
                 nextPage = valueArray[0].page;
             }
-            else if (stringValue >= keyArray[numberKeys-1]) {
+            else if (stringValue >= lastKey) {
                 nextPage = valueArray[numberKeys].page;
             }
             else {
                 bool found;
                 for (int i=1; i<numberKeys; i++) {
-                    if (satisfiesInterval(keyArray[i-1], keyArray[i], stringValue)) {
+                    string currentKey(keyArray + i*attrLength);
+                    string previousKey(keyArray + (i-1)*attrLength);
+                    if (satisfiesInterval(previousKey, currentKey, stringValue)) {
                         nextPage = valueArray[i].page;
                         found = true;
                         break;
@@ -2964,14 +2969,12 @@ RC IX_IndexHandle::DeleteFromLeaf(void* pData, const RID &rid, PageNum node) {
         }
     }
     else {
-        string* keyArray = (string*) keyData;
+        char* keyArray = (char*) keyData;
         char* givenValueChar = static_cast<char*>(pData);
-        string givenValue = "";
-        for (int i=0; i < indexHeader.attrLength; i++) {
-            givenValue += givenValueChar[i];
-        }
+        string givenValue(givenValueChar);
         for (int i=0; i<numberKeys; i++) {
-            if (keyArray[i] == givenValue) {
+            string currentKey(keyArray + i*attrLength);
+            if (currentKey == givenValue) {
                 keyPosition = i;
                 break;
             }
@@ -3045,8 +3048,10 @@ RC IX_IndexHandle::DeleteFromLeaf(void* pData, const RID &rid, PageNum node) {
                         memcpy(keyData, (char*) keyArray, attrLength*degree);
                     }
                     else {
-                        string* keyArray = (string*) keyData;
-                        keyArray[i-1] = keyArray[i];
+                        char* keyArray = (char*) keyData;
+                        for (int j=0; j<attrLength; j++) {
+                            keyArray[(i-1)*attrLength + j] = keyArray[i*attrLength + j];
+                        }
                         memcpy(keyData, (char*) keyArray, attrLength*degree);
                     }
                     valueArray[i-1] = valueArray[i];
@@ -3296,9 +3301,11 @@ RC IX_IndexHandle::pushDeletionUp(PageNum node, PageNum child) {
                 memcpy(keyData, (char*) keyArray, attrLength*degree);
             }
             else {
-                string* keyArray = (string*) keyData;
+                char* keyArray = (char*) keyData;
                 for (int i=1; i<numberKeys; i++) {
-                    keyArray[i-1] = keyArray[i];
+                    for (int j=0; j<attrLength; j++) {
+                        keyArray[(i-1)*attrLength + j] = keyArray[i*attrLength + j];
+                    }
                     valueArray[i-1] = valueArray[i];
                 }
                 valueArray[numberKeys-1] = valueArray[numberKeys];
@@ -3325,9 +3332,11 @@ RC IX_IndexHandle::pushDeletionUp(PageNum node, PageNum child) {
                 memcpy(keyData, (char*) keyArray, attrLength*degree);
             }
             else {
-                string* keyArray = (string*) keyData;
+                char* keyArray = (char*) keyData;
                 for (int i=keyPosition; i<numberKeys; i++) {
-                    keyArray[i-1] = keyArray[i];
+                    for (int j=0; j<attrLength; j++) {
+                        keyArray[(i-1)*attrLength + j] = keyArray[i*attrLength + j];
+                    }
                     valueArray[i] = valueArray[i+1];
                 }
                 valueArray[numberKeys-1] = valueArray[numberKeys];
@@ -3377,6 +3386,52 @@ RC IX_IndexHandle::pushDeletionUp(PageNum node, PageNum child) {
     return OK_RC;
 }
 
+
+// Method: ForcePages()
+// Force index pages to disk
+RC IX_IndexHandle::ForcePages() {
+    // Declare an integer for the return code
+    int rc;
+
+    // Get the first page
+    PageNum pageNum;
+    PF_PageHandle pfPH;
+    if ((rc = pfFH.GetFirstPage(pfPH))) {
+        return rc;
+    }
+    if ((rc = pfPH.GetPageNum(pageNum))) {
+        return rc;
+    }
+
+    // Get next page number
+    PageNum nextPage;
+    PF_PageHandle nextPFPH;
+    while (true) {
+        if ((rc = pfFH.GetNextPage(pageNum, nextPFPH))) {
+            return rc;
+        }
+        if ((rc = pfFH.UnpinPage(pageNum))) {
+            return rc;
+        }
+
+        // Force the pages using the PF FileHandle
+        if ((rc = pfFH.ForcePages(pageNum))) {
+            return rc;
+        }
+
+        if ((rc = nextPFPH.GetPageNum(nextPage))) {
+            if (rc == PF_EOF) {
+                break;
+            }
+            return rc;
+        }
+
+        pageNum = nextPage;
+    }
+
+    // Return OK
+    return OK_RC;
+}
 
 // Method: compareRIDs(RID &rid1, RID &rid2)
 // Boolean whether the two RIDs are the same

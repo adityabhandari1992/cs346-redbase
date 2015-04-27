@@ -41,9 +41,9 @@ RC IX_IndexScan::OpenScan(const IX_IndexHandle &indexHandle, CompOp compOp,
         return IX_INVALID_OPERATOR;
     }
 
-    // If the value is a null pointer, set compOp to NO_OP
+    // If the value is a null pointer
     if (compOp != NO_OP && value == NULL) {
-        compOp = NO_OP;
+        return IX_INVALID_OPERATOR;
     }
 
     // Store the class variables
@@ -79,6 +79,8 @@ RC IX_IndexScan::OpenScan(const IX_IndexHandle &indexHandle, CompOp compOp,
         if ((rc = SearchEntry(rootPage, firstPage, position))) {
             return rc;
         }
+
+        cout << "first page = " << firstPage << endl;
 
         // Store the page number and key positions
         this->pageNumber = firstPage;
@@ -212,13 +214,11 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
                     break;
             }
             else {
-                string* keyArray = (string*) keyData;
+                char* keyArray = (char*) keyData;
                 char* givenValueChar = static_cast<char*>(value);
-                string givenValue = "";
-                for (int i=0; i < attrLength; i++) {
-                    givenValue += givenValueChar[i];
-                }
-                if (satisfiesCondition(keyArray[keyPosition], givenValue))
+                string givenValue(givenValueChar);
+                string currentKey(keyArray + keyPosition*attrLength);
+                if (satisfiesCondition(currentKey, givenValue))
                     break;
             }
 
@@ -375,14 +375,12 @@ RC IX_IndexScan::SearchEntry(PageNum node, PageNum &pageNumber, int &keyPosition
             }
         }
         else {
-            string* keyArray = (string*) keyData;
+            char* keyArray = (char*) keyData;
             char* charValue = static_cast<char*>(value);
-            string stringValue = "";
-            for (int i=0; i < attrLength; i++) {
-                stringValue += charValue[i];
-            }
+            string stringValue(charValue);
             for (int i=0; i<numberKeys; i++) {
-                if (satisfiesCondition(keyArray[i], stringValue)) {
+                string currentKey(keyArray + i*attrLength);
+                if (satisfiesCondition(currentKey, stringValue)) {
                     pageNumber = node;
                     keyPosition = i;
                     found = true;
@@ -452,22 +450,23 @@ RC IX_IndexScan::SearchEntry(PageNum node, PageNum &pageNumber, int &keyPosition
                 }
             }
             else {
-                string* keyArray = (string*) keyData;
+                char* keyArray = (char*) keyData;
                 char* charValue = static_cast<char*>(value);
-                string stringValue = "";
-                for (int i=0; i < attrLength; i++) {
-                    stringValue += charValue[i];
-                }
-                if (stringValue < keyArray[0]) {
+                string stringValue(charValue);
+                string firstKey(keyArray);
+                string lastKey(keyArray + (numberKeys-1)*attrLength);
+                if (stringValue < firstKey) {
                     nextPage = valueArray[0].page;
                 }
-                else if (stringValue >= keyArray[numberKeys-1]) {
+                else if (stringValue >= lastKey) {
                     nextPage = valueArray[numberKeys].page;
                 }
                 else {
                     bool found;
                     for (int i=1; i<numberKeys; i++) {
-                        if (satisfiesInterval(keyArray[i-1], keyArray[i], stringValue)) {
+                        string currentKey(keyArray + i*attrLength);
+                        string previousKey(keyArray + (i-1)*attrLength);
+                        if (satisfiesInterval(previousKey, currentKey, stringValue)) {
                             nextPage = valueArray[i].page;
                             found = true;
                             break;
