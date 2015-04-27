@@ -33,7 +33,7 @@ using namespace std;
 #define FILENAME     "testrel"        // test file name
 #define BADFILE      "/abc/def/xyz"   // bad file name
 #define STRLEN       39               // length of strings to index
-#define FEW_ENTRIES  2000
+#define FEW_ENTRIES  4000
 #define MANY_ENTRIES 1000
 #define NENTRIES     5000             // Size of values array
 #define PROG_UNIT    200              // how frequently to give progress
@@ -391,7 +391,7 @@ RC DeleteStringEntries(IX_IndexHandle &ih, int nEntries)
    int     i;
    char    value[STRLEN+1];
 
-   printf("             Deleting %d float entries\n", nEntries);
+   printf("             Deleting %d string entries\n", nEntries);
    ran(nEntries);
    for (i = 0; i < nEntries; i++) {
       sprintf(value, "number %d", values[i] + 1);
@@ -483,6 +483,136 @@ RC VerifyIntIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
    return (0);
 }
 
+RC VerifyFloatIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
+{
+   RC      rc;
+   int     i;
+   RID     rid;
+   IX_IndexScan scan;
+   PageNum pageNum;
+   SlotNum slotNum;
+
+   // Assume values still contains the array of values inserted/deleted
+
+   printf("Verifying index contents\n");
+
+   for (i = nStart; i < nStart + nEntries; i++) {
+      float value = values[i] + 1;
+
+      if ((rc = scan.OpenScan(ih, EQ_OP, &value))) {
+         printf("Verify error: opening scan\n");
+         return (rc);
+      }
+
+      rc = scan.GetNextEntry(rid);
+      if (!bExists && rc == 0) {
+         printf("Verify error: found non-existent entry %d\n", value);
+         return (IX_EOF);  // What should be returned here?
+      }
+      else if (bExists && rc == IX_EOF) {
+         printf("Verify error: entry %d not found\n", value);
+         return (IX_EOF);  // What should be returned here?
+      }
+      else if (rc != 0 && rc != IX_EOF)
+         return (rc);
+
+      if (bExists && rc == 0) {
+         // Did we get the right entry?
+         if ((rc = rid.GetPageNum(pageNum)) ||
+               (rc = rid.GetSlotNum(slotNum)))
+            return (rc);
+
+         if (pageNum != value || slotNum != (value*2)) {
+            printf("Verify error: incorrect rid (%d,%d) found for entry %d\n",
+                  pageNum, slotNum, value);
+            return (IX_EOF);  // What should be returned here?
+         }
+
+         // Is there another entry?
+         rc = scan.GetNextEntry(rid);
+         if (rc == 0) {
+            printf("Verify error: found two entries with same value %d\n", value);
+            return (IX_EOF);  // What should be returned here?
+         }
+         else if (rc != IX_EOF)
+            return (rc);
+      }
+
+      if ((rc = scan.CloseScan())) {
+         printf("Verify error: closing scan\n");
+         return (rc);
+      }
+   }
+
+   return (0);
+}
+
+RC VerifyStringIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
+{
+   RC      rc;
+   int     i;
+   RID     rid;
+   IX_IndexScan scan;
+   PageNum pageNum;
+   SlotNum slotNum;
+   char value[STRLEN];
+
+   // Assume values still contains the array of values inserted/deleted
+
+   printf("Verifying index contents\n");
+
+   for (i = nStart; i < nStart + nEntries; i++) {
+      memset(value, ' ', STRLEN);
+      sprintf(value, "number %d", values[i] + 1);
+
+      if ((rc = scan.OpenScan(ih, EQ_OP, &value))) {
+         printf("Verify error: opening scan\n");
+         return (rc);
+      }
+
+      rc = scan.GetNextEntry(rid);
+      if (!bExists && rc == 0) {
+         printf("Verify error: found non-existent entry %s\n", value);
+         return (IX_EOF);  // What should be returned here?
+      }
+      else if (bExists && rc == IX_EOF) {
+         printf("Verify error: entry %s not found\n", value);
+         return (IX_EOF);  // What should be returned here?
+      }
+      else if (rc != 0 && rc != IX_EOF)
+         return (rc);
+
+      if (bExists && rc == 0) {
+         // Did we get the right entry?
+         if ((rc = rid.GetPageNum(pageNum)) ||
+               (rc = rid.GetSlotNum(slotNum)))
+            return (rc);
+
+         if (pageNum != values[i] + 1 || slotNum != ((values[i] + 1)*2)) {
+            printf("Verify error: incorrect rid (%d,%d) found for entry %s\n",
+                  pageNum, slotNum, value);
+            return (IX_EOF);  // What should be returned here?
+         }
+
+         // Is there another entry?
+         rc = scan.GetNextEntry(rid);
+         if (rc == 0) {
+            printf("Verify error: found two entries with same value %s\n", value);
+            return (IX_EOF);  // What should be returned here?
+         }
+         else if (rc != IX_EOF)
+            return (rc);
+      }
+
+      if ((rc = scan.CloseScan())) {
+         printf("Verify error: closing scan\n");
+         return (rc);
+      }
+   }
+
+   return (0);
+}
+
 /////////////////////////////////////////////////////////////////////
 // Sample test functions follow.                                   //
 /////////////////////////////////////////////////////////////////////
@@ -498,7 +628,7 @@ RC Test1(void)
 
    printf("Test 1: create, open, close, delete an index... \n");
 
-   if ((rc = ixm.CreateIndex(FILENAME, index, INT, sizeof(int))))
+   if ((rc = ixm.CreateIndex(FILENAME, index, STRING, STRLEN)))
       return (rc);
    if ((rc = ixm.OpenIndex(FILENAME, index, ih)))
       return rc;
@@ -525,24 +655,24 @@ RC Test2(void)
 
    printf("Test2: Insert a few integer entries into an index... \n");
 
-   if ((rc = ixm.CreateIndex(FILENAME, index, INT, sizeof(int))) ||
+   if ((rc = ixm.CreateIndex(FILENAME, index, STRING, STRLEN)) ||
          (rc = ixm.OpenIndex(FILENAME, index, ih)) ||
-         (rc = InsertIntEntries(ih, FEW_ENTRIES)) ||
+         (rc = InsertStringEntries(ih, FEW_ENTRIES)) ||
          (rc = ixm.CloseIndex(ih)) ||
          (rc = ixm.OpenIndex(FILENAME, index, ih)) ||
 
          // ensure inserted entries are all there
-         (rc = VerifyIntIndex(ih, 0, FEW_ENTRIES, TRUE)) ||
+         (rc = VerifyStringIndex(ih, 0, FEW_ENTRIES, TRUE)) ||
 
          // ensure an entry not inserted is not there
-         (rc = VerifyIntIndex(ih, FEW_ENTRIES, 1, FALSE)) ||
+         (rc = VerifyStringIndex(ih, FEW_ENTRIES, 1, FALSE)) ||
          (rc = ixm.CloseIndex(ih)))
       return (rc);
 
    LsFiles(FILENAME);
 
-   // if ((rc = ixm.DestroyIndex(FILENAME, index)))
-   //    return (rc);
+   if ((rc = ixm.DestroyIndex(FILENAME, index)))
+      return (rc);
 
    printf("Passed Test 2\n\n");
    return (0);
@@ -555,21 +685,21 @@ RC Test3(void)
 {
    RC rc;
    int index=0;
-   int nDelete = 0;
+   int nDelete = FEW_ENTRIES * 8/10;
    IX_IndexHandle ih;
 
    printf("Test3: Delete a few integer entries from an index... \n");
 
-   if ((rc = ixm.CreateIndex(FILENAME, index, INT, sizeof(int))) ||
+   if ((rc = ixm.CreateIndex(FILENAME, index, STRING, STRLEN)) ||
          (rc = ixm.OpenIndex(FILENAME, index, ih)) ||
-         (rc = InsertIntEntries(ih, FEW_ENTRIES)) ||
-         (rc = DeleteIntEntries(ih, nDelete)) ||
+         (rc = InsertStringEntries(ih, FEW_ENTRIES)) ||
+         (rc = DeleteStringEntries(ih, nDelete)) ||
          (rc = ixm.CloseIndex(ih)) ||
          (rc = ixm.OpenIndex(FILENAME, index, ih)) ||
          // ensure deleted entries are gone
-         (rc = VerifyIntIndex(ih, 0, nDelete, FALSE)) ||
+         (rc = VerifyStringIndex(ih, 0, nDelete, FALSE)) ||
          // ensure non-deleted entries still exist
-         (rc = VerifyIntIndex(ih, nDelete, FEW_ENTRIES - nDelete, TRUE)) ||
+         (rc = VerifyStringIndex(ih, nDelete, FEW_ENTRIES - nDelete, TRUE)) ||
          (rc = ixm.CloseIndex(ih)))
       return (rc);
 
@@ -591,14 +721,14 @@ RC Test4(void)
    IX_IndexHandle ih;
    int            index=0;
    int            i;
-   int            value=FEW_ENTRIES/2;
+   float          value=FEW_ENTRIES/2;
    RID            rid;
 
    printf("Test4: Inequality scans... \n");
 
-   if ((rc = ixm.CreateIndex(FILENAME, index, INT, sizeof(int))) ||
+   if ((rc = ixm.CreateIndex(FILENAME, index, STRING, STRLEN)) ||
          (rc = ixm.OpenIndex(FILENAME, index, ih)) ||
-         (rc = InsertIntEntries(ih, FEW_ENTRIES)))
+         (rc = InsertStringEntries(ih, FEW_ENTRIES)))
       return (rc);
 
    // Scan <

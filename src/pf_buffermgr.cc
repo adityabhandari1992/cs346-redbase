@@ -248,6 +248,8 @@ RC PF_BufferMgr::GetPage(int fd, PageNum pageNum, char **ppBuffer,
          return (rc);
    }
 
+   // cout << "Page pinned: " << pageNum << " count: " << bufTable[slot].pinCount << endl;
+
    // Point ppBuffer to page
    *ppBuffer = bufTable[slot].pData;
 
@@ -299,6 +301,9 @@ RC PF_BufferMgr::AllocatePage(int fd, PageNum pageNum, char **ppBuffer)
 #ifdef PF_LOG
    WriteLog("Succesfully allocated page.\n");
 #endif
+
+
+   // cout << "Page pinned: " << pageNum << " count: " << bufTable[slot].pinCount << endl;
 
    // Point ppBuffer to page
    *ppBuffer = bufTable[slot].pData;
@@ -387,6 +392,9 @@ RC PF_BufferMgr::UnpinPage(int fd, PageNum pageNum)
             (rc = LinkHead (slot)))
          return (rc);
    }
+
+
+   // cout << "Page unpinned: " << pageNum << " count: " << bufTable[slot].pinCount << endl;
 
    // Return ok
    return (0);

@@ -80,8 +80,6 @@ RC IX_IndexScan::OpenScan(const IX_IndexHandle &indexHandle, CompOp compOp,
             return rc;
         }
 
-        cout << "first page = " << firstPage << endl;
-
         // Store the page number and key positions
         this->pageNumber = firstPage;
         this->keyPosition = position;
