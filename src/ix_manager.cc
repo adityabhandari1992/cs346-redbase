@@ -223,6 +223,10 @@ RC IX_Manager::OpenIndex(const char *fileName, int indexNo, IX_IndexHandle &inde
     indexHandle.isOpen = TRUE;
     indexHandle.headerModified = FALSE;
 
+    // Initialize the last deleted entry
+    indexHandle.lastDeletedEntry.keyValue = NULL;
+    indexHandle.lastDeletedEntry.rid = dummyRID;
+
     // Store the index header in memory
     // Create PF page handle for the header page
     PF_PageHandle pfPH;
@@ -315,6 +319,10 @@ RC IX_Manager::CloseIndex(IX_IndexHandle &indexHandle) {
         //     return rc;
         // }
     }
+
+    // Free the last scanned entry array
+    char* temp = static_cast<char*> (indexHandle.lastDeletedEntry.keyValue);
+    delete[] temp;
 
     // Close the file using the PF Manager
     if ((rc = pfManager->CloseFile(pfFH))) {

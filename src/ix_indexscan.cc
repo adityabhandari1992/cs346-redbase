@@ -121,6 +121,10 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
 
     // Check the current page
     if (pageNumber == IX_NO_PAGE) {
+        // Free the last scanned entry array
+        char* temp = static_cast<char*> (lastScannedEntry.keyValue);
+        delete[] temp;
+
         return IX_EOF;
     }
 
@@ -227,6 +231,10 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
 
         // Check that we have not reached the end of file
         if (pageNumber == IX_NO_PAGE) {
+            // Free the last scanned entry array
+            char* temp = static_cast<char*> (lastScannedEntry.keyValue);
+            delete[] temp;
+
             return IX_EOF;
         }
 
@@ -304,6 +312,10 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
                 }
 
                 if (pageNumber == IX_NO_PAGE) {
+                    // Free the last scanned entry array
+                    char* temp = static_cast<char*> (lastScannedEntry.keyValue);
+                    delete[] temp;
+
                     return IX_EOF;
                 }
                 else {
@@ -354,10 +366,6 @@ RC IX_IndexScan::CloseScan() {
 
     // Set scan open flag to FALSE
     scanOpen = FALSE;
-
-    // Free the last scanned entry array
-    char* temp = static_cast<char*> (lastScannedEntry.keyValue);
-    delete[] temp;
 
     // Return OK
     return OK_RC;
@@ -588,8 +596,8 @@ bool IX_IndexScan::satisfiesInterval(T key1, T key2, T value) {
 // Method: compareRIDs(RID &rid1, RID &rid2)
 // Boolean whether the two RIDs are the same
 bool IX_IndexScan::compareRIDs(const RID &rid1, const RID &rid2) {
-    PageNum pageNum1, pageNum2;
-    SlotNum slotNum1, slotNum2;
+    PageNum pageNum1 = -1, pageNum2 = -1;
+    SlotNum slotNum1 = -1, slotNum2 = -1;
 
     rid1.GetPageNum(pageNum1);
     rid1.GetSlotNum(slotNum1);
@@ -611,10 +619,9 @@ bool IX_IndexScan::compareEntries(const IX_Entry &e1, const IX_Entry &e2) {
         if (key1 == key2) keyMatch = true;
     }
     else if (attrType == FLOAT) {
-        float key1 = *static_cast<float*> (e1.keyValue);
-        float key2 = *static_cast<float*> (e2.keyValue);
+        float key1 = *(float*) (e1.keyValue);
+        float key2 = *(float*) (e2.keyValue);
         if (key1 == key2) keyMatch = true;
-
     }
     else {
         char* key1Char = static_cast<char*> (e1.keyValue);

@@ -18,18 +18,11 @@ IX_IndexHandle::IX_IndexHandle() {
 
     // Initialize the index header
     indexHeader.rootPage = IX_NO_PAGE;
-
-    // Initialize the last deleted entry
-    lastDeletedEntry.keyValue = NULL;
-    lastDeletedEntry.rid = dummyRID;
 }
 
 // Destructor
 IX_IndexHandle::~IX_IndexHandle() {
     // Nothing to free
-    // Free the last scanned entry array
-    char* temp = static_cast<char*> (lastDeletedEntry.keyValue);
-    delete[] temp;
 }
 
 
@@ -397,7 +390,7 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                             }
                             valueArray[i] = valueArray[i-1];
                         }
-                        strcpy(keyArray + position*attrLength, givenKeyChar);
+                        strcpy(keyArray + position*attrLength, givenKey.c_str());
                         memcpy(keyData, (char*) keyArray, attrLength*degree);
                     }
 
@@ -780,7 +773,7 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                                 valueArray[i] = valueArray[i-1];
                             }
 
-                            strcpy(keyArray + position*attrLength, givenKeyChar);
+                            strcpy(keyArray + position*attrLength, givenKey.c_str());
                             valueArray[position].state = RID_FILLED;
                             valueArray[position].rid = rid;
                             valueArray[position].page = IX_NO_PAGE;
@@ -804,7 +797,7 @@ RC IX_IndexHandle::InsertEntry(void *pData, const RID &rid) {
                                 newValueArray[i] = newValueArray[i-1];
                             }
 
-                            strcpy(newKeyArray + position*attrLength, givenKeyChar);
+                            strcpy(newKeyArray + position*attrLength, givenKey.c_str());
                             newValueArray[position].state = RID_FILLED;
                             newValueArray[position].rid = rid;
                             newValueArray[position].page = IX_NO_PAGE;
@@ -1025,6 +1018,7 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                         }
                         ridList[0] = rid;
                         memcpy(bucketData+sizeof(IX_BucketPageHeader), ridList, sizeof(RID)*recordCapacity);
+                        delete[] ridList;
 
                         // Unpin the bucket page
                         if ((rc = pfFH.UnpinPage(bucketPage))) {
@@ -1312,6 +1306,7 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                         }
                         ridList[0] = rid;
                         memcpy(bucketData+sizeof(IX_BucketPageHeader), ridList, sizeof(RID)*recordCapacity);
+                        delete[] ridList;
 
                         // Unpin the bucket page
                         if ((rc = pfFH.UnpinPage(bucketPage))) {
@@ -1602,6 +1597,7 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                         }
                         ridList[0] = rid;
                         memcpy(bucketData+sizeof(IX_BucketPageHeader), ridList, sizeof(RID)*recordCapacity);
+                        delete[] ridList;
 
                         // Unpin the bucket page
                         if ((rc = pfFH.UnpinPage(bucketPage))) {
@@ -1675,7 +1671,7 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                         }
                         valueArray[i] = valueArray[i-1];
                     }
-                    strcpy(keyArray + position*attrLength, givenKeyChar);
+                    strcpy(keyArray + position*attrLength, givenKey.c_str());
                     valueArray[position].state = RID_FILLED;
                     valueArray[position].rid = rid;
                     valueArray[position].page = IX_NO_PAGE;
@@ -1781,7 +1777,7 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                             }
                             valueArray[i] = valueArray[i-1];
                         }
-                        strcpy(keyArray + position*attrLength, givenKeyChar);
+                        strcpy(keyArray + position*attrLength, givenKey.c_str());
                         valueArray[position].state = RID_FILLED;
                         valueArray[position].rid = rid;
                         valueArray[position].page = IX_NO_PAGE;
@@ -1804,7 +1800,7 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
                             }
                             newValueArray[i] = newValueArray[i-1];
                         }
-                        strcpy(newKeyArray + position*attrLength, givenKeyChar);
+                        strcpy(newKeyArray + position*attrLength, givenKey.c_str());
                         newValueArray[position].state = RID_FILLED;
                         newValueArray[position].rid = rid;
                         newValueArray[position].page = IX_NO_PAGE;
@@ -2497,7 +2493,7 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
                 valueArray[i+1] = valueArray[i];
             }
             valueArray[position+1] = valueArray[position];
-            strcpy(keyArray + position*attrLength, givenKeyChar);
+            strcpy(keyArray + position*attrLength, givenKey.c_str());
             valueArray[position].state = PAGE_ONLY;
             valueArray[position].page = left;
             valueArray[position].rid = dummyRID;
@@ -2573,7 +2569,7 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
                     }
                     valueArray[i+1] = valueArray[i];
                 }
-                strcpy(keyArray + position*attrLength, givenKeyChar);
+                strcpy(keyArray + position*attrLength, givenKey.c_str());
                 valueArray[position].state = PAGE_ONLY;
                 valueArray[position].page = left;
                 valueArray[position].rid = dummyRID;
@@ -2597,7 +2593,7 @@ RC IX_IndexHandle::pushKeyUp(void* pData, PageNum node, PageNum left, PageNum ri
                     }
                     newValueArray[i+1] = newValueArray[i];
                 }
-                strcpy(newKeyArray + position*attrLength, givenKeyChar);
+                strcpy(newKeyArray + position*attrLength, givenKey.c_str());
                 newValueArray[position].state = PAGE_ONLY;
                 newValueArray[position].page = left;
                 newValueArray[position].rid = dummyRID;
