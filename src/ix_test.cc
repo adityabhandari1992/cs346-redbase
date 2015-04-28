@@ -870,8 +870,8 @@ end:
    printf("Scan and Delete Test %s\n", ((count == 1250) ? "PASS" : "FAIL\n"));
    if (rc) PrintError(rc);
 
-   if ((rc = ixm.CloseIndex(ihOK5))) //||
-         // (rc = ixm.DestroyIndex(FILENAME, OK5))) {
+   if ((rc = ixm.CloseIndex(ihOK5)) ||
+         (rc = ixm.DestroyIndex(FILENAME, OK5))) {
       PrintError(rc);
-   // }
+   }
 }

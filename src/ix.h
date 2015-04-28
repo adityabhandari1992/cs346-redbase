@@ -27,6 +27,11 @@ struct IX_IndexHeader {
     int degree;
 };
 
+// IX_Entry: Struct for the index entry
+/* Stores the following:
+    1) keyValue - Value of the key - void*
+    2) rid - RID
+*/
 struct IX_Entry {
     void* keyValue;
     RID rid;
