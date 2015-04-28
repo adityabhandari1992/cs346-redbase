@@ -1,0 +1,291 @@
+CS 346 : Redbase Part 2 (IX)
+The Indexing Component
+
+--------------------------------------------
+
+** AUTHOR **
+Aditya Bhandari (adityasb@stanford.edu)
+
+Assistance taken:
+1) Jaeho Shin (TA) :
+    - Ideas to support parallel scan and delete operations
+    - Help to debug valgrind memory errors
+
+--------------------------------------------
+--------------------------------------------
+
+** DESIGN **
+
+* Data Structures *
+
+1) File Header - RM_FileHeader (in "rm.h")
+Stores the following:
+    - Record size - integer
+    - Number of records on a page - integer
+    - Number of pages on file - integer
+    - First free page - PageNum
+
+2) Page Header - RM_PageHeader (in "rm_internal.h")
+Stores the following:
+    - Page number of the next free page - PageNum
+
+-------------------
+
+* File and Page Headers *
+
+The file header is stored as the first page of every file. The data structure described above
+is used for storing the file header. It contains the record size, number of records that can
+fit on a page, the number of pages currently in the file and the first free page (page which has
+a free slot) in the file.
+
+The page header is stored at the start of each page. The data structure described above is
+used for storing the page header. It just contains the page number of the next free page in
+the file (set to RM_NO_FREE_PAGE if there is no next free page).
+
+-------------------
+
+* File and Page Layout *
+
+The file consists of a file header (as described above) stored as the first page of the file.
+(NOTE: The file header page does not have a page header)
+
+All the further pages (let us call them data pages) of the file are used to store the data
+records.
+The first thing on a data page is the page header (as described above). This is followed by
+a bitmap (size equal to the number of records that can be stored on a data page) for storing
+the free records slots on the data page. This is followed by the actual records on the page.
+
+-------------------
+
+* Free Space Management *
+
+The free space in a file is tracked using a free list of pages, each of which contains an
+internal bitmap to track the free record slots in it.
+The file header page contains the page number of the first free page in the file (set to
+RM_NO_FREE_PAGE in case there is no free page). Each data page has a next free page number
+in its page header (set to RM_NO_FREE_PAGE in case this is the last free page in the list).
+
+When a new record is to be inserted, the first free page number is obtained from the file
+header. If there is no free page, a new page is allocated and its page number is stored in
+the file header. Now, the first free slot in the page is obtained using the bitmap stored in
+the page header. Once we have the free slot number, the given record is inserted in that slot
+and the corresponding bit in the bitmap is updated.
+If the page is now full, the page is removed from the free list by replacing the first free
+page number in the file header to the next free page number from the page header of this page.
+
+When a record is deleted, the bit corresponding to the slot number of the record in the bitmap
+in the page header is updated. If the page becomes empty after the deletion, ideally we can
+dispose the page, but I have not implemented that since it will break the free list. So, the
+empty page still remains a part of the file.
+
+Getting a record and updating a record do not change the free space in any way.
+
+-------------------
+
+* File Scanning *
+
+The pinning hint is not used currently in the file scan. If NO_HINT is specified, the page
+that contains the record fetched is immediately unpinned in the buffer pool.
+
+
+--------------------------------------------
+--------------------------------------------
+
+** IMPLEMENTATION DETAILS **
+
+The algorithms used for implementing the important methods of the classes are described
+below:
+
+* RM_Manager class *
+
+* Method: RC CreateFile(const char *fileName, int recordSize)
+    1) Check for valid record size
+    2) Create file using the PF Manager
+    3) Allocate a header page by opening the file
+    4) Get the header page number and mark page as dirty
+    5) Create a file header object
+    6) Copy the file header to the file header page
+    7) Unpin page and flush to disk
+    8) Close the opened file
+
+* Method: RC DestroyFile(const char *fileName)
+    1) Destroy the file using the PF Manager
+
+* Method: RC OpenFile(const char *fileName, RM_FileHandle &fileHandle)
+    1) Check if the file handle is already open
+    2) Open the file using the PF Manager
+    3) Update the file handle members
+    4) Store the file header in memory
+        - Create a PF PageHandle to the header page
+        - Get the data from the header page
+        - Store the data in a RM FileHeaderPage object
+    5) Unpin the file header page
+
+* Method: RC CloseFile(RM_FileHandle &fileHandle)
+    1) Check if the file handle is open
+    2) Update the file header page if modified
+        - Get the PF PageHandle for the header page
+        - Copy the modified data to the header page
+        - Unpin the header page
+        - Flush/force the page on to the disk
+    3) Unpin all the file pages
+    4) Close the file using the PF Manager
+
+-------------------
+
+* RM_FileHandle class *
+
+* Method: RC GetRec(const RID &rid, RM_Record &rec) const
+    1) Check if the file is open
+    2) Get the page and slot numbers for the required record
+    3) Open the PF PageHandle for the page
+    4) Get the data from the page
+    5) Calculate the record offset using the slot number
+    6) Copy the record from the page to rec
+        - Create a new record
+        - Copy the data to the new record
+        - Set the RID of the new record
+        - Point rec to the new record
+    7) Unpin the page
+
+* Method: RC InsertRec(const char *pData, RID &rid)
+    1) Check if the file is open
+    2) Get the first free page from the file header
+    3) If no free page (first free page number is RM_NO_FREE_PAGE)
+        - Allocate a new page
+        - Initialize the page header and bitmap
+        - Increment the number of pages in the file header
+        - Update the first free page number in the header
+    4) Mark the page as dirty
+    5) Get the first free slot from the bitmap
+    6) Calculate the record offset
+    7) Insert the record in the free slot
+        - Copy the data to the free slot
+        - Update the bitmap on the page
+    8) If the page becomes full (check bitmap)
+        - Get the next free page number
+        - Update the first free page number in the file header
+        - Set the next free page on the page header to RM_NO_FREE_PAGE
+    9) Unpin the page
+    10) Set the rid to this record
+
+* Method: RC DeleteRec(const RID &rid)
+    1) Check if the file is open
+    2) Get the page number and slot number from the RID
+        - Check if the slot number is valid
+    3) Mark the page as dirty
+    4) Check if the page is full (check bitmap)
+    5) Change the bit in the bitmap to 0
+    6) If the page was previously full
+        - Set the next free page in the page header to the first free page in the file header
+        - Set the first free page in the file header to this page
+    7) Unpin the page
+    8) If the page becomes empty (check bitmap)
+        - Delete the bitmap
+        - Dispose the page using the PF FileHandle
+        - Decrement the number of pages in the file header
+
+* Method: RC UpdateRec(const RM_Record &rec)
+    1) Check if the file is open
+    2) Get the RID for the record
+    3) Get the page number and slot number for the record
+        - Check whether the slot number is valid
+    4) Mark the page as dirty
+    5) Open the PF PageHandle for the page
+    6) Calculate the record offset
+    7) Update the record on the page
+        - Copy the data from the record to the data on page
+    8) Unpin the page
+
+-------------------
+
+* RM_FileScan class *
+
+* Method: RC OpenScan(const RM_FileHandle &fileHandle, AttrType attrType, int attrLength,
+                      int attrOffset, CompOp compOp, void *value, ClientHint pinHint = NO_HINT)
+    1) Initialize the class variables
+        - Store attrType, attrLength, attrOffset, compOp, value and pinHint
+        - Store the page number and slot number of the first (non-header) page of the file
+    2) Unpin the header and data pages
+
+* Method: RC GetNextRec(RM_Record &rec)
+    1) Get the page using the page number
+    2) Check the slot number in the bitmap in the page
+    3) If filled, get the record data from the page
+    4) Get the required attribute at the given offset
+    5) Compare the attribute with the given value
+    6) If it satisfies the condition
+        - Create a new record and fill its data and RID
+        - Point rec to the new record
+    7) Increment the slot number
+        - If not the last slot, increment by 1
+        - Else, get the next page of the file
+            - If PF_EOF, return RM_EOF
+            - Set the new page number
+            - Set slot number to 1
+    8) Follow the pin hint
+    9) If next record was not found, go to (2)
+
+* Method: RC CloseScan()
+    1) Return error if the scan is not open
+    2) Update the scan open flag
+
+
+--------------------------------------------
+--------------------------------------------
+
+** TESTING **
+
+The test suite is included in the file "rm_test.cc".
+In addition to the 2 tests initially in the test suite, I added 3 more tests to check the
+different parts of the RM component.
+The tests are as follows:
+(FEW_RECS = 1200)
+
+* Test1 (Simple) *
+    1) Create a file
+    2) Open the file
+    3) Close the file
+    4) Destroy the file
+
+* Test2 (Insert Records) *
+    1) Create a file
+    2) Open the file
+    3) Insert FEW_RECS to the file
+    4) Close the file
+    5) Destroy the file
+
+* Test3 (Verify records) *
+    1) Create a file
+    2) Open the file
+    3) Insert FEW_RECS to the file
+    4) Close the file
+    5) Open the file again
+    6) Verify the records in the file
+    7) Close the file
+    8) Destroy the file
+
+* Test4 (Update records) *
+    1) Create a file
+    2) Open the file
+    3) Insert FEW_RECS to the file
+    4) Close the file
+    5) Open the file again
+    6) Update the first 10 records in the file
+    6) Verify the updated records in the file
+    7) Close the file
+    8) Destroy the file
+
+* Test5 (Delete records) *
+    1) Create a file
+    2) Open the file
+    3) Insert FEW_RECS to the file
+    4) Close the file
+    5) Open the file again
+    6) Delete the first 10 records in the file
+    6) Verify the records in the file
+    7) Close the file
+    8) Destroy the file
+
+
+--------------------------------------------xx EOF xx----------------------------------------

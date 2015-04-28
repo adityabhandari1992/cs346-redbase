@@ -51,6 +51,8 @@ struct IX_NodeValue {
     }
 };
 
+const IX_NodeValue dummyNodeValue;
+
 // IX_NodeHeader: Struct for the index node header
 /* Stores the following:
     1) numberKeys - Number of keys in the node - integer

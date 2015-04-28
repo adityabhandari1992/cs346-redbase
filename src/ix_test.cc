@@ -58,6 +58,7 @@ RC Test1(void);
 RC Test2(void);
 RC Test3(void);
 RC Test4(void);
+RC Test5(void);
 
 void PrintError(RC rc);
 void LsFiles(char *fileName);
@@ -75,13 +76,14 @@ RC PrintIndex(IX_IndexHandle &ih);
 //
 // Array of pointers to the test functions
 //
-#define NUM_TESTS       4               // number of tests
+#define NUM_TESTS       5               // number of tests
 int (*tests[])() =                      // RC doesn't work on some compilers
 {
    Test1,
    Test2,
    Test3,
-   Test4
+   Test4,
+   Test5
 };
 
 //
@@ -628,7 +630,7 @@ RC Test1(void)
 
    printf("Test 1: create, open, close, delete an index... \n");
 
-   if ((rc = ixm.CreateIndex(FILENAME, index, STRING, STRLEN)))
+   if ((rc = ixm.CreateIndex(FILENAME, index, INT, sizeof(int))))
       return (rc);
    if ((rc = ixm.OpenIndex(FILENAME, index, ih)))
       return rc;
@@ -690,16 +692,16 @@ RC Test3(void)
 
    printf("Test3: Delete a few integer entries from an index... \n");
 
-   if ((rc = ixm.CreateIndex(FILENAME, index, STRING, STRLEN)) ||
+   if ((rc = ixm.CreateIndex(FILENAME, index, INT, sizeof(int))) ||
          (rc = ixm.OpenIndex(FILENAME, index, ih)) ||
-         (rc = InsertStringEntries(ih, FEW_ENTRIES)) ||
-         (rc = DeleteStringEntries(ih, nDelete)) ||
+         (rc = InsertIntEntries(ih, FEW_ENTRIES)) ||
+         (rc = DeleteIntEntries(ih, nDelete)) ||
          (rc = ixm.CloseIndex(ih)) ||
          (rc = ixm.OpenIndex(FILENAME, index, ih)) ||
          // ensure deleted entries are gone
-         (rc = VerifyStringIndex(ih, 0, nDelete, FALSE)) ||
+         (rc = VerifyIntIndex(ih, 0, nDelete, FALSE)) ||
          // ensure non-deleted entries still exist
-         (rc = VerifyStringIndex(ih, nDelete, FEW_ENTRIES - nDelete, TRUE)) ||
+         (rc = VerifyIntIndex(ih, nDelete, FEW_ENTRIES - nDelete, TRUE)) ||
          (rc = ixm.CloseIndex(ih)))
       return (rc);
 
@@ -806,4 +808,70 @@ RC Test4(void)
 
    printf("Passed Test 4\n\n");
    return (0);
+}
+
+
+// Test 5
+RC Test5(void)
+{
+   // Scan and delete
+
+   int value, i, j;
+   RID rid;
+   IX_IndexScan indScn;
+   IX_IndexHandle ihOK5;
+   int OK5 = 0;
+   int rc;
+   int count = 0;
+
+   if ((rc = ixm.CreateIndex(FILENAME, OK5, INT, sizeof(int))) ||
+         (rc = ixm.OpenIndex(FILENAME, OK5, ihOK5))) {
+      PrintError(rc);
+      goto end;
+   }
+
+
+   cout << "\nStarting scan and delete by inserting 50 values of 50 ints\n";
+   for (i = 1; i < 51; i++) {
+      for (j = 1; j < 51; j++) {
+         value = j * 10;
+         RID rid(i, i*2);
+         if ((rc = ihOK5.InsertEntry((void *)&value, rid))) goto end;
+      }
+   }
+
+   cout << "Deleting all of the indices for half of the values\n";
+   for (i = 1; i < 26; i++) {
+      value = i * 10;
+      if ((rc = indScn.OpenScan(ihOK5, EQ_OP, &value)))
+         goto end;
+      while ((rc = indScn.GetNextEntry(rid)) == 0) {
+         if ((rc = ihOK5.DeleteEntry(&value, rid))) goto end;
+      }
+      if (rc !=  IX_EOF) goto end;
+      if ((rc = indScn.CloseScan()))
+         goto end;
+   }
+
+   cout << "Verifying count of remaining values\n";
+   for (i = 26; i < 51; i++) {
+      value = i * 10;
+      if ((rc = indScn.OpenScan(ihOK5, EQ_OP, &value)))
+         goto end;
+      while ((rc = indScn.GetNextEntry(rid)) == 0) {
+         count++;
+      }
+      if (rc !=  IX_EOF) goto end;
+      if ((rc = indScn.CloseScan()))
+         goto end;
+   }
+
+end:
+   printf("Scan and Delete Test %s\n", ((count == 1250) ? "PASS" : "FAIL\n"));
+   if (rc) PrintError(rc);
+
+   if ((rc = ixm.CloseIndex(ihOK5))) //||
+         // (rc = ixm.DestroyIndex(FILENAME, OK5))) {
+      PrintError(rc);
+   // }
 }

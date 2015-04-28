@@ -7,6 +7,7 @@
 #include "ix_internal.h"
 #include "ix.h"
 #include <iostream>
+#include <cstring>
 using namespace std;
 
 // Constructor
@@ -47,7 +48,7 @@ RC IX_IndexScan::OpenScan(const IX_IndexHandle &indexHandle, CompOp compOp,
     }
 
     // Store the class variables
-    this->indexHandle = indexHandle;
+    this->indexHandle = &indexHandle;
     this->attrType = (indexHandle.indexHeader).attrType;
     this->attrLength = (indexHandle.indexHeader).attrLength;
     this->compOp = compOp;
@@ -56,12 +57,14 @@ RC IX_IndexScan::OpenScan(const IX_IndexHandle &indexHandle, CompOp compOp,
     this->degree = (indexHandle.indexHeader).degree;
     this->inBucket = FALSE;
     this->bucketPosition = 0;
-
-    // Set the scan open flag
-    scanOpen = TRUE;
+    (this->lastScannedEntry).keyValue = NULL;
+    (this->lastScannedEntry).rid = dummyRID;
 
     // Declare an integer for return code
     int rc;
+
+    // Set the scan open flag
+    scanOpen = TRUE;
 
     // Get to the first leaf node satisfying the condition
     PageNum rootPage = (indexHandle.indexHeader).rootPage;
@@ -95,16 +98,20 @@ RC IX_IndexScan::OpenScan(const IX_IndexHandle &indexHandle, CompOp compOp,
 /* Steps:
     1) If current page is IX_NO_PAGE, return IX_EOF
     2) Get the data from the current page
-    3) If in bucket
+    3) If the last scanned entry is deleted
+        - If in bucket and position = 0, update page number to the parent node
+        - If in bucket and position != 0, update bucket position
+        - If not in bucket and position != 0, update key position
+    4) If in bucket
         - Go the bucket position and set rid to stored RID
         - If bucket position = capacity, go to parent node and increment key position (go to next page in case of last key)
-    4) Else if not in bucket
+    5) Else if not in bucket
         - Go to the key position and check if it satisfies the condition
-    5) If it satisfies the condition
+    6) If it satisfies the condition
         - Get the RID and assign it to rid
         - If bucket is IX_NO_PAGE, increment key position (go to next page in case of last key)
         - Else set inBucket to TRUE and bucket position to 0
-    6) Return OK
+    7) Return OK
 */
 RC IX_IndexScan::GetNextEntry(RID &rid) {
     // Return error if the scan is closed
@@ -121,7 +128,7 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
     int rc;
 
     // Get the data from the current page
-    PF_FileHandle pfFH = indexHandle.pfFH;
+    PF_FileHandle pfFH = indexHandle->pfFH;
     PF_PageHandle pfPH;
     char* pageData;
     if ((rc = pfFH.GetThisPage(pageNumber, pfPH))) {
@@ -131,55 +138,115 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
         return rc;
     }
 
+    // If the last scanned entry exists
+    if (!compareRIDs(lastScannedEntry.rid, dummyRID)) {
+        // Check if the last scanned entry was deleted
+        if (!compareRIDs((indexHandle->lastDeletedEntry).rid, dummyRID) && compareEntries(lastScannedEntry, indexHandle->lastDeletedEntry)) {
+            if ((rc = pfFH.UnpinPage(pageNumber))) {
+                return rc;
+            }
+        }
+
+        // Else if this is not the first entry scanned, update the variables
+        else {
+            if (inBucket) {
+                IX_BucketPageHeader* bucketHeader = (IX_BucketPageHeader*) pageData;
+                int numberRecords = bucketHeader->numberRecords;
+
+                bucketPosition++;
+
+                // Unpin the bucket page
+                if ((rc = pfFH.UnpinPage(pageNumber))) {
+                    return rc;
+                }
+
+                // If end of the bucket
+                if (bucketPosition == numberRecords) {
+                    inBucket = FALSE;
+                    bucketPosition = 0;
+
+                    // Set the new page number and key position
+                    pageNumber = bucketHeader->parentNode;
+                    keyPosition++;
+
+                    // Get the page data
+                    if ((rc = pfFH.GetThisPage(pageNumber, pfPH))) {
+                        return rc;
+                    }
+                    if ((rc = pfPH.GetData(pageData))) {
+                        return rc;
+                    }
+
+                    IX_NodeHeader* nodeHeader = (IX_NodeHeader*) pageData;
+                    int numberKeys = nodeHeader->numberKeys;
+                    char* valueData = pageData + sizeof(IX_NodeHeader) + attrLength*degree;
+                    IX_NodeValue* valueArray = (IX_NodeValue*) valueData;
+
+                    // Unpin the page
+                    if ((rc = pfFH.UnpinPage(pageNumber))) {
+                        return rc;
+                    }
+
+                    // If end of the node
+                    if (keyPosition == numberKeys) {
+                        pageNumber = valueArray[degree].page;
+                        keyPosition = 0;
+                    }
+                }
+            }
+            else {
+                IX_NodeHeader* nodeHeader = (IX_NodeHeader*) pageData;
+                int numberKeys = nodeHeader->numberKeys;
+                char* keyData = pageData + sizeof(IX_NodeHeader);
+                char* valueData = keyData + attrLength*degree;
+                IX_NodeValue* valueArray = (IX_NodeValue*) valueData;
+
+                // Unpin the page
+                if ((rc = pfFH.UnpinPage(pageNumber))) {
+                    return rc;
+                }
+
+                // Go to the next position
+                // If no bucket
+                if (valueArray[keyPosition].page == IX_NO_PAGE) {
+                    keyPosition++;
+
+                    // If end of a node
+                    if (keyPosition == numberKeys) {
+                        pageNumber = valueArray[degree].page;
+                        keyPosition = 0;
+                    }
+                }
+                else {
+                    pageNumber = valueArray[keyPosition].page;
+                    inBucket = TRUE;
+                    bucketPosition = 0;
+                }
+            }
+        }
+
+        // Check that we have not reached the end of file
+        if (pageNumber == IX_NO_PAGE) {
+            return IX_EOF;
+        }
+
+        if ((rc = pfFH.GetThisPage(pageNumber, pfPH))) {
+            return rc;
+        }
+        if ((rc = pfPH.GetData(pageData))) {
+            return rc;
+        }
+    }
+
     // If in bucket
     if (inBucket) {
-        IX_BucketPageHeader* bucketHeader = (IX_BucketPageHeader*) pageData;
-        int numberRecords = bucketHeader->numberRecords;
-
         // Go to the bucket position and get RID
         RID* ridList = (RID*) (pageData + sizeof(IX_BucketPageHeader));
         rid = ridList[bucketPosition];
 
-        // Set the next position
-        bucketPosition++;
-
         // Unpin the bucket page
         if ((rc = pfFH.UnpinPage(pageNumber))) {
             return rc;
-        }
-
-        // If end of the bucket
-        if (bucketPosition == numberRecords) {
-            inBucket = FALSE;
-            bucketPosition = 0;
-
-            // Set the new page number and key position
-            pageNumber = bucketHeader->parentNode;
-            keyPosition++;
-
-            // Get the page data
-            if ((rc = pfFH.GetThisPage(pageNumber, pfPH))) {
-                return rc;
-            }
-            if ((rc = pfPH.GetData(pageData))) {
-                return rc;
-            }
-
-            IX_NodeHeader* nodeHeader = (IX_NodeHeader*) pageData;
-            int numberKeys = nodeHeader->numberKeys;
-            char* valueData = pageData + sizeof(IX_NodeHeader) + attrLength*degree;
-            IX_NodeValue* valueArray = (IX_NodeValue*) valueData;
-
-            // Unpin the current page
-            if ((rc = pfFH.UnpinPage(pageNumber))) {
-                return rc;
-            }
-
-            // If end of the node
-            if (keyPosition == numberKeys) {
-                pageNumber = valueArray[degree].page;
-                keyPosition = 0;
-            }
         }
     }
 
@@ -260,24 +327,14 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
 
         // Get the RID and assign to rid
         rid = valueArray[keyPosition].rid;
-
-        // Go to the next position
-        // If no bucket
-        if (valueArray[keyPosition].page == IX_NO_PAGE) {
-            keyPosition++;
-
-            // If end of a node
-            if (keyPosition == numberKeys) {
-                pageNumber = valueArray[degree].page;
-                keyPosition = 0;
-            }
-        }
-        else {
-            pageNumber = valueArray[keyPosition].page;
-            inBucket = TRUE;
-            bucketPosition = 0;
-        }
     }
+
+    // Update the last scanned entry
+    if (lastScannedEntry.keyValue == NULL) {
+        lastScannedEntry.keyValue = new char[attrLength];
+    }
+    memcpy(lastScannedEntry.keyValue, value, attrLength);
+    lastScannedEntry.rid = rid;
 
     // Return OK
     return OK_RC;
@@ -297,6 +354,10 @@ RC IX_IndexScan::CloseScan() {
 
     // Set scan open flag to FALSE
     scanOpen = FALSE;
+
+    // Free the last scanned entry array
+    char* temp = static_cast<char*> (lastScannedEntry.keyValue);
+    delete[] temp;
 
     // Return OK
     return OK_RC;
@@ -327,7 +388,7 @@ RC IX_IndexScan::SearchEntry(PageNum node, PageNum &pageNumber, int &keyPosition
     }
 
     // Get the data in the node page
-    PF_FileHandle pfFH = indexHandle.pfFH;
+    PF_FileHandle pfFH = indexHandle->pfFH;
     PF_PageHandle pfPH;
     if ((rc = pfFH.GetThisPage(node, pfPH))) {
         return rc;
@@ -522,4 +583,45 @@ bool IX_IndexScan::satisfiesCondition(T key, T value) {
 template<typename T>
 bool IX_IndexScan::satisfiesInterval(T key1, T key2, T value) {
     return (value >= key1 && value < key2);
+}
+
+// Method: compareRIDs(RID &rid1, RID &rid2)
+// Boolean whether the two RIDs are the same
+bool IX_IndexScan::compareRIDs(const RID &rid1, const RID &rid2) {
+    PageNum pageNum1, pageNum2;
+    SlotNum slotNum1, slotNum2;
+
+    rid1.GetPageNum(pageNum1);
+    rid1.GetSlotNum(slotNum1);
+    rid2.GetPageNum(pageNum2);
+    rid2.GetSlotNum(slotNum2);
+
+    return (pageNum1 == pageNum2 && slotNum1 == slotNum2);
+}
+
+bool IX_IndexScan::compareEntries(const IX_Entry &e1, const IX_Entry &e2) {
+    bool keyMatch = false;
+    if (e1.keyValue == NULL || e1.keyValue == NULL) {
+        return false;
+    }
+
+    if (attrType == INT) {
+        int key1 = *static_cast<int*> (e1.keyValue);
+        int key2 = *static_cast<int*> (e2.keyValue);
+        if (key1 == key2) keyMatch = true;
+    }
+    else if (attrType == FLOAT) {
+        float key1 = *static_cast<float*> (e1.keyValue);
+        float key2 = *static_cast<float*> (e2.keyValue);
+        if (key1 == key2) keyMatch = true;
+
+    }
+    else {
+        char* key1Char = static_cast<char*> (e1.keyValue);
+        char* key2Char = static_cast<char*> (e2.keyValue);
+        string key1(key1Char);
+        string key2(key2Char);
+        if (key1 == key2) keyMatch = true;
+    }
+    return keyMatch && compareRIDs(e1.rid, e2.rid);
 }

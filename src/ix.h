@@ -27,6 +27,11 @@ struct IX_IndexHeader {
     int degree;
 };
 
+struct IX_Entry {
+    void* keyValue;
+    RID rid;
+};
+
 //
 // IX_IndexHandle: IX Index File interface
 //
@@ -47,10 +52,11 @@ public:
     RC ForcePages();
 
 private:
-    PF_FileHandle pfFH;             // PF file handle
-    IX_IndexHeader indexHeader;     // Index file header
-    int isOpen;                     // index handle open flag
-    int headerModified;             // Modified flag for the index header
+    PF_FileHandle pfFH;                 // PF file handle
+    IX_IndexHeader indexHeader;         // Index file header
+    int isOpen;                         // index handle open flag
+    int headerModified;                 // Modified flag for the index header
+    IX_Entry lastDeletedEntry;               // Last deleted entry
 
     RC InsertEntryRecursive(void *pData, const RID &rid, PageNum node);
     RC pushKeyUp(void* pData, PageNum node, PageNum left, PageNum right);
@@ -91,8 +97,8 @@ public:
 private:
     PageNum pageNumber;                     // Current page number
     int keyPosition;                        // Current key position
-    int bucketPosition;                        // Current bucket position
-    IX_IndexHandle indexHandle;             // Index handle for the index
+    int bucketPosition;                     // Current bucket position
+    const IX_IndexHandle* indexHandle;      // Index handle for the index
     AttrType attrType;                      // Attribute type
     int attrLength;                         // Attribute length
     CompOp compOp;                          // Comparison operator
@@ -101,6 +107,7 @@ private:
     int scanOpen;                           // Flag to track if scan open
     int degree;                             // Degree of the nodes
     int inBucket;                           // Flag whether currently in bucket
+    IX_Entry lastScannedEntry;                   // Last scanned entry
 
     RC SearchEntry(PageNum node, PageNum &pageNumber, int &keyPosition);
 
@@ -108,6 +115,8 @@ private:
     bool satisfiesCondition(T key, T value);
     template<typename T>
     bool satisfiesInterval(T key1, T key2, T value);
+    bool compareRIDs(const RID &rid1, const RID &rid2);
+    bool compareEntries(const IX_Entry &e1, const IX_Entry &e2);
 };
 
 //
