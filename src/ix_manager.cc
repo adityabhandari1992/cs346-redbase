@@ -220,7 +220,6 @@ RC IX_Manager::OpenIndex(const char *fileName, int indexNo, IX_IndexHandle &inde
 
     // Update the index handle members
     indexHandle.pfFH = pfFH;
-    indexHandle.isOpen = TRUE;
     indexHandle.headerModified = FALSE;
 
     // Initialize the last deleted entry
@@ -255,6 +254,7 @@ RC IX_Manager::OpenIndex(const char *fileName, int indexNo, IX_IndexHandle &inde
     if ((rc = pfFH.UnpinPage(headerPageNum))) {
         return rc;
     }
+    indexHandle.isOpen = TRUE;
 
     // Return OK
     return OK_RC;

@@ -273,6 +273,18 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
         bool unpinned = true;
 
         // Check if the current key satisfies the condition
+        if (keyPosition == numberKeys) {
+            pageNumber = valueArray[degree].page;
+            keyPosition = 0;
+
+            if (pageNumber == IX_NO_PAGE) {
+                // Free the last scanned entry array
+                char* temp = static_cast<char*> (lastScannedEntry.keyValue);
+                delete[] temp;
+
+                return IX_EOF;
+            }
+        }
         while (true) {
             if (attrType == INT) {
                 int* keyArray = (int*) keyData;
