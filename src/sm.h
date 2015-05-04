@@ -47,11 +47,25 @@ public:
                    const char *value);            //   value
 
 private:
+    RM_Manager* rmManager;           // RM_Manager object
+    IX_Manager* ixManager;           // IX_Manager object
 };
 
 //
 // Print-error function
 //
 void SM_PrintError(RC rc);
+
+
+// Warnings
+#define SM_INVALID_DATABASE                 (START_SM_WARN + 0) // Database does not exist
+#define SM_LASTWARN                         SM_INVALID_DATABASE
+
+// Errors
+#define SM_INVALID_DATABASE_NAME            (START_SM_ERR - 0) // Invalid database file name
+
+// Error in UNIX system call or library routine
+#define SM_UNIX                 (START_SM_ERR - 1) // Unix error
+#define SM_LASTERROR            SM_UNIX
 
 #endif
