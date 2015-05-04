@@ -4,6 +4,8 @@
 // Author: Jason McHugh (mchughj@cs.stanford.edu)
 //
 // This shell is provided for the student.
+//
+// Improved by: Aditya Bhandari (adityasb@stanford.edu)
 
 #include <iostream>
 #include <cstdio>
