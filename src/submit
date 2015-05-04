@@ -180,7 +180,7 @@ if $is_submitting; then
 
     # Sanity check of environment before proceeding
     case $(hostname) in
-        corn[0-9]*.stanford.edu|cardinal*.stanford.edu|myth[0-9]*.stanford.edu)
+        corn[0-9]*.stanford.edu|cardinal*.stanford.edu|myth[0-9]*)
             [ -d "$SUBMIT_PATH" ] ||
                 error "Submission destination ($SUBMIT_PATH) does not exist!"
             ;;

@@ -6,7 +6,7 @@
 //              Keith Gordon
 //
 // 1997:  Tester has been modified to reflect the change in the 1997
-// interface.
+// interface.  
 //
 
 #include <cstdio>
@@ -28,7 +28,7 @@ using namespace std;
 #define FILENAME       "testrel"        // test file name
 #define BADFILE        "/abc/def/xyz"   // bad file name
 #define STRLEN         39               // length of strings to index
-#define FEW_ENTRIES    20
+#define FEW_ENTRIES    20    
 #define MANY_ENTRIES   1000             // ~338 Causes page splits
 #define NENTRIES       5000             // Size of values array
 #define PROG_UNIT      200              // how frequently to give progress
@@ -80,9 +80,9 @@ RC AddRecs(RM_FileHandle &fh, int nRecs);
 RC DeleteIntEntries(IX_IndexHandle &ih, int nEntries);
 RC DeleteFloatEntries(IX_IndexHandle &ih, int nEntries);
 RC DeleteStringEntries(IX_IndexHandle &ih, int nEntries);
-RC VerifyIntIndex(IX_IndexHandle &ih, int nStart, int nEntries,
+RC VerifyIntIndex(IX_IndexHandle &ih, int nStart, int nEntries, 
       int bExists);
-RC VerifyStringIndex(IX_IndexHandle &ih, int nStart, int nEntries,
+RC VerifyStringIndex(IX_IndexHandle &ih, int nStart, int nEntries, 
       int bExists);
 RC PrintFile(RM_FileHandle &fh);
 RC GetNextRecScan(RM_FileScan &fs, RM_Record &rec);
@@ -91,7 +91,7 @@ void PrintRecord(TestRec &recBuf);
 
 RC PrintIndex(IX_IndexHandle &ih);
 
-//
+// 
 // Array of pointers to the test functions
 //
 #define NUM_TESTS       1               // number of tests
@@ -193,7 +193,7 @@ void PrintError(RC rc)
 // LsFiles
 //
 // Desc: list the filename's directory entry
-//
+// 
 void LsFiles(char *fileName)
 {
    char command[80];
@@ -211,7 +211,7 @@ void ran(int n)
 {
    int i, r, t, m;
 
-   // init values array
+   // init values array 
    for (i = 0; i < NENTRIES; i++)
       values[i] = i;
 
@@ -453,8 +453,8 @@ RC DeleteStringEntries(IX_IndexHandle &ih, int nEntries)
 //   - nStart is the starting point in the values array to check
 //   - nEntries is the number of entries in the values array to check
 //   - If bExists == 1, verify that an index has entries as added
-//     by InsertIntEntries.
-//     If bExists == 0, verify that entries do NOT exist (you can
+//     by InsertIntEntries.  
+//     If bExists == 0, verify that entries do NOT exist (you can 
 //     use this to test deleting entries).
 //
 RC VerifyIntIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
@@ -465,7 +465,7 @@ RC VerifyIntIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
    PageNum pageNum;
    SlotNum slotNum;
    IX_IndexScan scan;
-
+   
    // Assume values still contains the array of values inserted/deleted
 
    printf("Verifying index contents\n");
@@ -473,7 +473,7 @@ RC VerifyIntIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
    for (i = nStart; i < nStart + nEntries; i++) {
       int value = values[i] + 1;
 
-      if ((rc = scan.OpenScan(ih, EQ_OP, &value))) {
+      if ((rc = scan.OpenScan(ih, &value))) {
          printf("Verify error: opening scan\n");
          return (rc);
       }
@@ -498,7 +498,7 @@ RC VerifyIntIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
 
          if (pageNum != value || slotNum != (value*2)) {
             printf("Verify error: incorrect rid (%d,%d) found for entry %d\n",
-                  pageNum, slotNum, value);
+                  pageNum, slotNum, value);             
             printf("Verify error: correct rid is (%d,%d)\n", value, value*2);
             return (IX_EOF);  // What should be returned here?
          }
@@ -528,8 +528,8 @@ RC VerifyIntIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
 //   - nStart is the starting point in the values array to check
 //   - nEntries is the number of entries in the values array to check
 //   - If bExists == 1, verify that an index has entries as added
-//     by InsertIntEntries.
-//     If bExists == 0, verify that entries do NOT exist (you can
+//     by InsertIntEntries.  
+//     If bExists == 0, verify that entries do NOT exist (you can 
 //     use this to test deleting entries).
 //
 RC VerifyStringIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
@@ -549,9 +549,9 @@ RC VerifyStringIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
    for (i = nStart; i < nStart + nEntries; i++) {
       int value = values[i] + 1;
       memset(valStr, ' ', STRLEN);
-      sprintf(valStr, "number %d", value);
+      sprintf(valStr, "number %d", value); 
 
-      if ((rc = scan.OpenScan(ih, EQ_OP, valStr))) {
+      if ((rc = scan.OpenScan(ih, valStr))) {
          printf("Verify error: opening scan\n");
          return (rc);
       }
@@ -576,7 +576,7 @@ RC VerifyStringIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
 
          if (pageNum != value || slotNum != (value*2)) {
             printf("Verify error: incorrect rid (%d,%d) found for entry %s\n",
-                  pageNum, slotNum, valStr);
+                  pageNum, slotNum, valStr);             
             return (IX_EOF);  // What should be returned here?
          }
          // Is there another entry?
@@ -603,8 +603,8 @@ RC VerifyStringIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
 //   - nStart is the starting point in the values array to check
 //   - nEntries is the number of entries in the values array to check
 //   - If bExists == 1, verify that an index has entries as added
-//     by InsertIntEntries.
-//     If bExists == 0, verify that entries do NOT exist (you can
+//     by InsertIntEntries.  
+//     If bExists == 0, verify that entries do NOT exist (you can 
 //     use this to test deleting entries).
 //
 RC VerifyFloatIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
@@ -625,7 +625,7 @@ RC VerifyFloatIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
    for (i = nStart; i < nStart + nEntries; i++) {
       value = values[i] + 1;
 
-      if ((rc = scan.OpenScan(ih, EQ_OP, &value))) {
+      if ((rc = scan.OpenScan(ih, &value))) {
          printf("Verify error: opening scan\n");
          return (rc);
       }
@@ -650,7 +650,7 @@ RC VerifyFloatIndex(IX_IndexHandle &ih, int nStart, int nEntries, int bExists)
 
          if (pageNum != value || slotNum != (value*2)) {
             printf("Verify error: incorrect rid (%d,%d) found for entry %f\n",
-                  pageNum, slotNum, value);
+                  pageNum, slotNum, value);             
             return (IX_EOF);  // What should be returned here?
          }
          // Is there another entry?
@@ -689,13 +689,13 @@ RC PrintFile(RM_FileHandle &fh)
    // Define a scan to go through all of the elements
 
    RM_FileScan fs;
-   if ((rc=fs.OpenScan(fh,INT,sizeof(int),offsetof(TestRec, num),
+   if ((rc=fs.OpenScan(fh,INT,sizeof(int),offsetof(TestRec, num), 
          NO_OP, NULL)))
       return (rc);
 
    // for each record in the file
-   for (rc = GetNextRecScan(fs, rec), n = 0;
-         rc == 0;
+   for (rc = GetNextRecScan(fs, rec), n = 0; 
+         rc == 0; 
          rc = GetNextRecScan(fs, rec), n++) {
 
       // Get the record data and record id
@@ -739,7 +739,7 @@ RC OpenFile(char *fileName, RM_FileHandle &fh)
 }
 
 
-//
+// 
 // PrintRecord
 //
 // Desc: Print the TestRec record components
@@ -756,7 +756,7 @@ void PrintRecord(TestRec &recBuf)
 // Desc: Insert count ints in the range lo to hi excluding the range
 //       exLo to exHi
 //
-RC InsertInts(IX_IndexHandle &ih, int count, int lo, int hi, int exLo,
+RC InsertInts(IX_IndexHandle &ih, int count, int lo, int hi, int exLo, 
       int exHi)
 {
    RC rc;
@@ -783,8 +783,8 @@ RC InsertInts(IX_IndexHandle &ih, int count, int lo, int hi, int exLo,
 }
 
 
-//
-// DeleteInts
+// 
+// DeleteInts 
 //
 // Desc: Delete all entries between lo and hi except those between
 //       exLo and exHi inclusively
@@ -800,7 +800,7 @@ RC DeleteInts(IX_IndexHandle &ih, int lo, int hi, int exLo, int exHi)
    for (i = lo; i <= hi; i++) {
       if ((i < exLo) || (i > exHi)) {
          value = i * 10;
-         if ((rc = indScn.OpenScan(ih, EQ_OP, &value)))
+         if ((rc = indScn.OpenScan(ih, &value)))
             return (rc);
          while ((rc = indScn.GetNextEntry(rid)) != IX_EOF) {
             if ((rc = ih.DeleteEntry(&value, rid))) {
@@ -823,10 +823,10 @@ RC DeleteInts(IX_IndexHandle &ih, int lo, int hi, int exLo, int exHi)
 // Full blown test
 //
 RC Test1(void)
-{
+{                  
    RC rc;
    IX_IndexHandle ihOK1, ihOK2, ihOK3, ihOK4, ihOK5, ihBAD1;
-   int OK1 = 5,
+   int OK1 = 5, 
    OK2 = 10,
    OK3 = 15,
    OK4 = 20,
@@ -838,8 +838,8 @@ RC Test1(void)
    cout << "** Beginning Test";
 
    // Destroy the test indexes (not part of test)
-   ixm.DestroyIndex(FILENAME, OK1);
-   ixm.DestroyIndex(FILENAME, OK2);
+   ixm.DestroyIndex(FILENAME, OK1); 
+   ixm.DestroyIndex(FILENAME, OK2); 
    ixm.DestroyIndex(FILENAME, OK3);
    ixm.DestroyIndex(FILENAME, OK4);
    ixm.DestroyIndex(FILENAME, OK5);
@@ -851,7 +851,7 @@ RC Test1(void)
    //  although the sheet says that the client should guarantee the
    //  index number is nonnegative
    printf("\n *** Illegal Index Create Test (Negative indexNo): %s\n",
-         (rc = ixm.CreateIndex(FILENAME, -1, INT, sizeof(int)))
+         (rc = ixm.CreateIndex(FILENAME, -1, INT, sizeof(int))) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -863,7 +863,7 @@ RC Test1(void)
 
    // Test for handling of NULL filename
    printf("\n *** Illegal Index Create Test (NULL Filename): %s\n",
-         (rc = ixm.CreateIndex(NULL, 1, INT, sizeof(int)))
+         (rc = ixm.CreateIndex(NULL, 1, INT, sizeof(int))) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -873,7 +873,7 @@ RC Test1(void)
 
    // Nonexistent fileName
    printf("\n *** Illegal Index Create Test (Nonexisting Filename): %s\n",
-         (rc = ixm.CreateIndex("DON/TEXIST", 1, INT, sizeof(int)))
+         (rc = ixm.CreateIndex("DON/TEXIST", 1, INT, sizeof(int))) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -885,7 +885,7 @@ RC Test1(void)
    // Attribute length doesn't match attribute type
    // Bad INT size
    printf("\n *** Illegal Index Create Test (Bad INT length): %s\n",
-         (rc = ixm.CreateIndex(FILENAME, 1, INT, 123))
+         (rc = ixm.CreateIndex(FILENAME, 1, INT, 123)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -896,7 +896,7 @@ RC Test1(void)
 
    // Bad FLOAT size
    printf("\n *** Illegal Index Create Test (Bad FLOAT length): %s\n",
-         (rc = ixm.CreateIndex(FILENAME, 1, FLOAT, 123))
+         (rc = ixm.CreateIndex(FILENAME, 1, FLOAT, 123)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -906,7 +906,7 @@ RC Test1(void)
 
    // Bad STRING sizes
    printf("\n *** Illegal Index Create Test (Bad STRING length): %s\n",
-         (rc = ixm.CreateIndex(FILENAME, 1, STRING, 0))
+         (rc = ixm.CreateIndex(FILENAME, 1, STRING, 0)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -915,7 +915,7 @@ RC Test1(void)
    }
 
    printf("\n *** Illegal Index Create Test (Bad STRING length): %s\n",
-         (rc = ixm.CreateIndex(FILENAME, 1, STRING, 300))
+         (rc = ixm.CreateIndex(FILENAME, 1, STRING, 300)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -926,7 +926,7 @@ RC Test1(void)
 
    // Bad attribute type
    printf("\n *** Illegal Index Create Test (Bad Type): %s\n",
-         (rc = ixm.CreateIndex(FILENAME, 1, (AttrType) 55, 4))
+         (rc = ixm.CreateIndex(FILENAME, 1, (AttrType) 55, 4)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -936,13 +936,13 @@ RC Test1(void)
 
    // Create two legal ones
    printf("\n *** Legal Index Create Test: %s\n",
-         (rc = ixm.CreateIndex(FILENAME, OK1, INT, 4))
+         (rc = ixm.CreateIndex(FILENAME, OK1, INT, 4)) 
          ? "FAIL\a" :"PASS");
    if (rc) PrintError(rc);
 
 
    printf("\n *** Legal Index Create Test: %s\n",
-         (rc = ixm.CreateIndex(FILENAME, OK2, INT, 4))
+         (rc = ixm.CreateIndex(FILENAME, OK2, INT, 4)) 
          ? "FAIL\a" :"PASS");
    if (rc) PrintError(rc);
 
@@ -951,7 +951,7 @@ RC Test1(void)
    // Destruction tests
    // NULL fileName
    printf("\n *** Illegal Index Destroy Test (NULL fileName): %s\n",
-         (rc = ixm.DestroyIndex(NULL, 1))
+         (rc = ixm.DestroyIndex(NULL, 1)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -962,7 +962,7 @@ RC Test1(void)
 
    // Non existing fileName
    printf("\n *** Illegal Index Destroy Test (Nonexisting fileName): %s\n",
-         (rc = ixm.DestroyIndex("NOFILE", 1))
+         (rc = ixm.DestroyIndex("NOFILE", 1)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -973,7 +973,7 @@ RC Test1(void)
 
    // Negative index number
    printf("\n *** Illegal Index Destroy Test (Negative indexNo): %s\n",
-         (rc = ixm.DestroyIndex(FILENAME, -1))
+         (rc = ixm.DestroyIndex(FILENAME, -1)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -986,7 +986,7 @@ RC Test1(void)
 
    // Unopen Index
    printf("\n *** Illegal Index Destroy Test (Uncreated Index): %s\n",
-         (rc = ixm.DestroyIndex(FILENAME, 1))
+         (rc = ixm.DestroyIndex(FILENAME, 1)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -998,13 +998,13 @@ RC Test1(void)
 
    // Legal destruction
    printf("\n *** Legal Index Destroy Test: %s\n",
-         (rc = ixm.DestroyIndex(FILENAME, OK1))
+         (rc = ixm.DestroyIndex(FILENAME, OK1)) 
          ? "FAIL\a" : "PASS");
    if (rc) PrintError(rc);
 
 
    printf("\n *** Legal Index Destroy Test: %s\n",
-         (rc = ixm.DestroyIndex(FILENAME, OK2))
+         (rc = ixm.DestroyIndex(FILENAME, OK2)) 
          ? "FAIL\a" : "PASS");
    if (rc) PrintError(rc);
 
@@ -1012,13 +1012,13 @@ RC Test1(void)
 
    // Recreate the indexes
    printf("\n *** Legal Index Create Test: %s\n",
-         (rc = ixm.CreateIndex(FILENAME, OK1, INT, 4))
+         (rc = ixm.CreateIndex(FILENAME, OK1, INT, 4)) 
          ? "FAIL\a" :"PASS");
    if (rc) PrintError(rc);
 
 
    printf("\n *** Legal Index Create Test: %s\n",
-         (rc = ixm.CreateIndex(FILENAME, OK2, INT, 4))
+         (rc = ixm.CreateIndex(FILENAME, OK2, INT, 4)) 
          ? "FAIL\a" :"PASS");
    if (rc) PrintError(rc);
 
@@ -1026,7 +1026,7 @@ RC Test1(void)
    // Index Open tests
    // Nonexisting indexes
    printf("\n *** Illegal Index Open Test (Nonexisting fileName): %s\n",
-         (rc = ixm.OpenIndex("NOFILE", 1, ihBAD1))
+         (rc = ixm.OpenIndex("NOFILE", 1, ihBAD1)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -1036,7 +1036,7 @@ RC Test1(void)
 
    // NULL fileName
    printf("\n *** Illegal Index Open Test (NULL fileName): %s\n",
-         (rc = ixm.OpenIndex(NULL, 1, ihOK1))
+         (rc = ixm.OpenIndex(NULL, 1, ihOK1)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -1047,7 +1047,7 @@ RC Test1(void)
 
    // Non existing index name
    printf("\n *** Illegal Index Open Test (Nonexisting index name): %s\n",
-         (rc = ixm.OpenIndex(FILENAME, 1, ihOK1))
+         (rc = ixm.OpenIndex(FILENAME, 1, ihOK1)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -1058,7 +1058,7 @@ RC Test1(void)
 
    // Legal index open
    printf("\n *** Legal Index Open Test: %s\n",
-         (rc = ixm.OpenIndex(FILENAME, OK1, ihOK1))
+         (rc = ixm.OpenIndex(FILENAME, OK1, ihOK1)) 
          ? "FAIL\a" : "PASS");
    if (rc) {
       PrintError(rc);
@@ -1071,7 +1071,7 @@ RC Test1(void)
    // Legal index open (twice by different index handles)
    // Legal index open
    printf("\n *** Legal Index Open Test: %s\n",
-         (rc = ixm.OpenIndex(FILENAME, OK1, ihOK2))
+         (rc = ixm.OpenIndex(FILENAME, OK1, ihOK2)) 
          ? "FAIL\a" : "PASS");
    if (rc) {
       PrintError(rc);
@@ -1081,7 +1081,7 @@ RC Test1(void)
 
    // Illegal to have the same index handle open two indexes
    printf("\n *** Illegal Index Open Test (One handle - two indexes): %s\n",
-         (rc = ixm.OpenIndex(FILENAME, OK2, ihOK1))
+         (rc = ixm.OpenIndex(FILENAME, OK2, ihOK1)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -1092,7 +1092,7 @@ RC Test1(void)
 
    // Illegal Index close tests
    printf("\n *** Illegal Index Close Test (handle w/out index): %s\n",
-         (rc = ixm.CloseIndex(ihBAD1))
+         (rc = ixm.CloseIndex(ihBAD1)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -1104,7 +1104,7 @@ RC Test1(void)
 
    // Legal index Close
    printf("\n *** Legal Index Close Test: %s\n",
-         (rc = ixm.CloseIndex(ihOK2))
+         (rc = ixm.CloseIndex(ihOK2)) 
          ? "FAIL\a" : "PASS");
    if (rc) {
       PrintError(rc);
@@ -1112,7 +1112,7 @@ RC Test1(void)
 
    // Attempt to close the index twice
    printf("\n *** Illegal Index Close Test (second close): %s\n",
-         (rc = ixm.CloseIndex(ihOK2))
+         (rc = ixm.CloseIndex(ihOK2)) 
          ? "PASS" : "FAIL\a");
    if (rc) PrintError(rc);
    else {
@@ -1129,9 +1129,9 @@ RC Test1(void)
    RID isRid(5,3);
    IX_IndexScan is1;
    printf("\n *** Illegal Index Scan (file not open): %s\n",
-         ((rc = is1.OpenScan(ihBAD1, EQ_OP, &isVal))
+         ((rc = is1.OpenScan(ihBAD1, &isVal))
           ? "PASS" : "FAIL\a"));
-   if (rc) {
+   if (rc) { 
       PrintError(rc);
    } else {
       cout << "Suggestion: Make sure that IndexHandle that supports the\n";
@@ -1143,9 +1143,9 @@ RC Test1(void)
    // Index scan called on a NULL value
    IX_IndexScan is2;
    printf("\n *** Illegal Index Scan (NULL value): %s\n",
-         ((rc = is2.OpenScan(ihOK1, EQ_OP, NULL))
+         ((rc = is2.OpenScan(ihOK1, NULL))
           ? "PASS" : "FAIL\a"));
-   if (rc) {
+   if (rc) { 
       PrintError(rc);
    } else {
       cout << "Suggestion: Make sure you check for NULL value.\n";
@@ -1173,7 +1173,7 @@ RC Test1(void)
 
 
    printf("\n *** Destroying Index Test (INT): %s\n",
-         (rc = ixm.DestroyIndex(FILENAME, OK5))
+         (rc = ixm.DestroyIndex(FILENAME, OK5)) 
          ? "FAIL\a" : "PASS");
    if (rc) {
       PrintError(rc);
@@ -1200,7 +1200,7 @@ RC Test1(void)
    }
 
    printf("\n *** Destroying Index Test (STRING): %s\n",
-         (rc = ixm.DestroyIndex(FILENAME, OK5))
+         (rc = ixm.DestroyIndex(FILENAME, OK5)) 
          ? "FAIL\a" : "PASS");
    if (rc) {
       PrintError(rc);
@@ -1227,7 +1227,7 @@ RC Test1(void)
       PrintError(rc);
    }
    printf("\n *** Destroying Index Test (FLOAT): %s\n",
-         (rc = ixm.DestroyIndex(FILENAME, OK5))
+         (rc = ixm.DestroyIndex(FILENAME, OK5)) 
          ? "FAIL\a" : "PASS");
    if (rc) {
       PrintError(rc);
@@ -1253,7 +1253,7 @@ RC Test1(void)
       PrintError(rc);
    }
    printf("\n *** Destroying Index Test (INT): %s\n",
-         (rc = ixm.DestroyIndex(FILENAME, OK5))
+         (rc = ixm.DestroyIndex(FILENAME, OK5)) 
          ? "FAIL\a" : "PASS");
    if (rc) {
       PrintError(rc);
@@ -1278,7 +1278,7 @@ RC Test1(void)
       PrintError(rc);
    }
    printf("\n *** Destroying Index Test (FLOAT): %s\n",
-         (rc = ixm.DestroyIndex(FILENAME, OK5))
+         (rc = ixm.DestroyIndex(FILENAME, OK5)) 
          ? "FAIL\a" : "PASS");
    if (rc) {
       PrintError(rc);
@@ -1303,7 +1303,7 @@ RC Test1(void)
       PrintError(rc);
    }
    printf("\n *** Destroying Index Test (STRING): %s\n",
-         (rc = ixm.DestroyIndex(FILENAME, OK5))
+         (rc = ixm.DestroyIndex(FILENAME, OK5)) 
          ? "FAIL\a" : "PASS");
    if (rc) {
       PrintError(rc);
@@ -1324,7 +1324,7 @@ RC Test1(void)
    }
 
 
-   cout << "\nStarting scan and delete by inserting 50 values of 50 ints\n";
+   cout << "\nStarting scan and delete by inserting 50 values of 50 ints\n"; 
    for (i = 1; i < 51; i++) {
       for (j = 1; j < 51; j++) {
          value = j * 10;
@@ -1336,7 +1336,7 @@ RC Test1(void)
    cout << "Deleting all of the indices for half of the values\n";
    for (i = 1; i < 26; i++) {
       value = i * 10;
-      if ((rc = indScn.OpenScan(ihOK5, EQ_OP, &value)))
+      if ((rc = indScn.OpenScan(ihOK5, &value)))
          goto end;
       while ((rc = indScn.GetNextEntry(rid)) == 0) {
          if ((rc = ihOK5.DeleteEntry(&value, rid))) goto end;
@@ -1349,7 +1349,7 @@ RC Test1(void)
    cout << "Verifying count of remaining values\n";
    for (i = 26; i < 51; i++) {
       value = i * 10;
-      if ((rc = indScn.OpenScan(ihOK5, EQ_OP, &value)))
+      if ((rc = indScn.OpenScan(ihOK5, &value)))
          goto end;
       while ((rc = indScn.GetNextEntry(rid)) == 0) {
          count++;
@@ -1391,7 +1391,7 @@ end:
    count = 0;
    for (i = 1; i <= 50; i++) {
       value = i * 10;
-      if ((rc = indScn.OpenScan(ihOK5, EQ_OP, &value)))
+      if ((rc = indScn.OpenScan(ihOK5, &value)))
          goto oops;
       while ((rc = indScn.GetNextEntry(rid)) != IX_EOF) {
          if ((value < 10) || (value > 500)) {
@@ -1403,8 +1403,8 @@ end:
       if ((rc = indScn.CloseScan()))
          goto oops;
    }
-   printf("\n\nAdd 50 of vals 1-50 : %s\n",
-         ((count == 2500) ? "PASS" : "FAIL\n"));
+   printf("\n\nAdd 50 of vals 1-50 : %s\n", 
+         ((count == 2500) ? "PASS" : "FAIL\n"));  
 
 
    // Subtest 2: delete all values except val = 5
@@ -1413,7 +1413,7 @@ end:
    count = 0;
    for (i = 1; i <= 50; i++) {
       value = i * 10;
-      if ((rc = indScn.OpenScan(ihOK5, EQ_OP, &value)))
+      if ((rc = indScn.OpenScan(ihOK5, &value)))
          goto oops;
       while ((rc = indScn.GetNextEntry(rid)) != IX_EOF) {
          if ((value < 50) || (value > 50)) {
@@ -1425,8 +1425,8 @@ end:
       if ((rc = indScn.CloseScan()))
          goto oops;
    }
-   printf("\n\nDel 50 all vals except 5 : %s\n",
-         ((count == 50) ? "PASS" : "FAIL\n"));
+   printf("\n\nDel 50 all vals except 5 : %s\n", 
+         ((count == 50) ? "PASS" : "FAIL\n"));  
 
 
    // Subtest 3: Add 50 values 1-50 (except val = 5)
@@ -1434,7 +1434,7 @@ end:
    count = 0;
    for (i = 1; i <= 50; i++) {
       value = i * 10;
-      if ((rc = indScn.OpenScan(ihOK5, EQ_OP, &value)))
+      if ((rc = indScn.OpenScan(ihOK5, &value)))
          goto oops;
       while ((rc = indScn.GetNextEntry(rid)) != IX_EOF) {
          if ((value < 10) || (value > 500)) {
@@ -1446,8 +1446,8 @@ end:
       if ((rc = indScn.CloseScan()))
          goto oops;
    }
-   printf("\n\nAdd 50 of vals 1-50 (exc val = 5): %s\n",
-         ((count == 2500) ? "PASS" : "FAIL\n"));
+   printf("\n\nAdd 50 of vals 1-50 (exc val = 5): %s\n", 
+         ((count == 2500) ? "PASS" : "FAIL\n"));  
 
 
    // Subtest 4: Del all (except val = 5-6)
@@ -1455,7 +1455,7 @@ end:
    count = 0;
    for (i = 1; i <= 50; i++) {
       value = i * 10;
-      if ((rc = indScn.OpenScan(ihOK5, EQ_OP, &value)))
+      if ((rc = indScn.OpenScan(ihOK5, &value)))
          goto oops;
       while ((rc = indScn.GetNextEntry(rid)) != IX_EOF) {
          if ((value < 50) || (value > 60)) {
@@ -1467,17 +1467,17 @@ end:
       if ((rc = indScn.CloseScan()))
          goto oops;
    }
-   printf("\n\nDel 50 all vals except 5-6 : %s\n",
-         ((count == 100) ? "PASS" : "FAIL\n"));
+   printf("\n\nDel 50 all vals except 5-6 : %s\n", 
+         ((count == 100) ? "PASS" : "FAIL\n"));  
 
 
 
-   // Subtest 5: Add 50 values (except val = 5-6)
+   // Subtest 5: Add 50 values (except val = 5-6) 
    if ((rc = InsertInts(ihOK5, 50, 1, 50, 5, 6))) goto oops;
    count = 0;
    for (i = 1; i <= 50; i++) {
       value = i * 10;
-      if ((rc = indScn.OpenScan(ihOK5, EQ_OP, &value)))
+      if ((rc = indScn.OpenScan(ihOK5, &value)))
          goto oops;
       while ((rc = indScn.GetNextEntry(rid)) != IX_EOF) {
          if ((value < 10) || (value > 500)) {
@@ -1489,8 +1489,8 @@ end:
       if ((rc = indScn.CloseScan()))
          goto oops;
    }
-   printf("\n\nAdd 50 of vals 1-50 (exc val = 5-6): %s\n",
-         ((count == 2500) ? "PASS" : "FAIL\n"));
+   printf("\n\nAdd 50 of vals 1-50 (exc val = 5-6): %s\n", 
+         ((count == 2500) ? "PASS" : "FAIL\n"));  
 
 
    // Subtest 5: Del all (except val = 5-7)
@@ -1498,7 +1498,7 @@ end:
    count = 0;
    for (i = 1; i <= 50; i++) {
       value = i * 10;
-      if ((rc = indScn.OpenScan(ihOK5, EQ_OP, &value)))
+      if ((rc = indScn.OpenScan(ihOK5, &value)))
          goto oops;
       while ((rc = indScn.GetNextEntry(rid)) != IX_EOF) {
          if ((value < 50) || (value > 70)) {
@@ -1510,8 +1510,8 @@ end:
       if ((rc = indScn.CloseScan()))
          goto oops;
    }
-   printf("\n\nDel 50 all vals except 5-7 : %s\n",
-         ((count == 150) ? "PASS" : "FAIL\n"));
+   printf("\n\nDel 50 all vals except 5-7 : %s\n", 
+         ((count == 150) ? "PASS" : "FAIL\n"));  
 
 
    // Subtest add 50 values (exc val = 5-7)
@@ -1519,7 +1519,7 @@ end:
    count = 0;
    for (i = 1; i <= 50; i++) {
       value = i * 10;
-      if ((rc = indScn.OpenScan(ihOK5, EQ_OP, &value)))
+      if ((rc = indScn.OpenScan(ihOK5, &value)))
          goto oops;
       while ((rc = indScn.GetNextEntry(rid)) != IX_EOF) {
          if ((value < 10) || (value > 500)) {
@@ -1531,8 +1531,8 @@ end:
       if ((rc = indScn.CloseScan()))
          goto oops;
    }
-   printf("\n\nAdd 50 of vals 1-50 (exc val = 5 - 7): %s\n",
-         ((count == 2500) ? "PASS" : "FAIL\n"));
+   printf("\n\nAdd 50 of vals 1-50 (exc val = 5 - 7): %s\n", 
+         ((count == 2500) ? "PASS" : "FAIL\n"));  
 
 
    // Subtest 5: Del all (except val = 5-8)
@@ -1541,7 +1541,7 @@ end:
    count = 0;
    for (i = 1; i <= 50; i++) {
       value = i * 10;
-      if ((rc = indScn.OpenScan(ihOK5, EQ_OP, &value)))
+      if ((rc = indScn.OpenScan(ihOK5, &value)))
          goto oops;
       while ((rc = indScn.GetNextEntry(rid)) != IX_EOF) {
          if ((value < 50) || (value > 80)) {
@@ -1555,7 +1555,7 @@ end:
    }
 
 oops:
-   printf("\n\nTHE ACCORDIAN : %s\n", ((count == 200) ? "PASS" : "FAIL\n"));
+   printf("\n\nTHE ACCORDIAN : %s\n", ((count == 200) ? "PASS" : "FAIL\n"));  
    if (rc) PrintError(rc);
 
    if ((rc = ixm.CloseIndex(ihOK5))) {
