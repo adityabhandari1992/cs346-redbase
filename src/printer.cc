@@ -273,4 +273,3 @@ void Printer::Print(ostream &c, const char * const data)
     }
     c << "\n";
 }
-

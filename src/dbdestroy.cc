@@ -1,17 +1,13 @@
 //
-// dbcreate.cc
+// dbdestroy.cc
 //
-// Author: Jason McHugh (mchughj@cs.stanford.edu)
+// Author: Aditya Bhandari (adityasb@stanford.edu)
 //
-// This shell is provided for the student.
-//
-// Improved by: Aditya Bhandari (adityasb@stanford.edu)
 
 #include <iostream>
 #include <cstdio>
 #include <cstring>
 #include <unistd.h>
-#include "rm.h"
 #include "sm.h"
 #include "redbase.h"
 
@@ -20,11 +16,13 @@ using namespace std;
 //
 // main
 //
+/* Steps:
+    1) Remove the directory for the database
+*/
 int main(int argc, char *argv[])
 {
     char *dbname;
     char command[255] = "rm -r ";
-    RC rc;
 
     // Look for 2 arguments. The first is always the name of the program
     // that was executed, and the second should be the name of the
@@ -37,20 +35,11 @@ int main(int argc, char *argv[])
     // The database name is the second argument
     dbname = argv[1];
 
-    // Create a subdirectory for the database
+    // Remove the subdirectory for the database
     if (system (strcat(command,dbname)) != 0) {
-        cerr << argv[0] << " cannot create directory: " << dbname << "\n";
+        cerr << argv[0] << " cannot remove directory: " << dbname << "\n";
         exit(1);
     }
-
-    if (chdir(dbname) < 0) {
-        cerr << argv[0] << " chdir error to " << dbname << "\n";
-        exit(1);
-    }
-
-    // Create the system catalogs...
-
-    // Fair amount to be filled in here!!
 
     return(0);
 }

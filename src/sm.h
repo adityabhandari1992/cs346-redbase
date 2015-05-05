@@ -15,6 +15,40 @@
 #include "rm.h"
 #include "ix.h"
 
+// Data structures
+
+// SM_RelcatRecord - Records stored in the relcat relation
+/* Stores the follwing:
+    1) relName - name of the relation - char*
+    2) tupleLength - length of the tuples - integer
+    3) attrCount - number of attributes - integer
+    4) indexCount - number of indexes - integer
+*/
+struct SM_RelcatRecord {
+    char relName[MAXNAME];
+    int tupleLength;
+    int attrCount;
+    int indexCount;
+};
+
+// SM_AttrcatRecord - Records stored in the attrcat relation
+/* Stores the follwing:
+    1) relName - name of the relation - char*
+    2) attrName - name of the attribute - char*
+    3) offset - offset of the attrbiute - integer
+    4) attrType - type of the attribute - AttrType
+    5) attrLength - length of the attribute - integer
+    6) indexNo - number of the index - integer
+*/
+struct SM_AttrcatRecord {
+    char relName[MAXNAME];
+    char attrName[MAXNAME];
+    int offset;
+    AttrType attrType;
+    int attrLength;
+    int indexNo;
+};
+
 //
 // SM_Manager: provides data management
 //
