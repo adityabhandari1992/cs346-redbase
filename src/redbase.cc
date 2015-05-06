@@ -54,6 +54,7 @@ int main(int argc, char *argv[])
     // Open the database
     if ((rc = smm.OpenDb(dbname))) {
         SM_PrintError(rc);
+        return rc;
     }
 
     // Call the parser
@@ -62,7 +63,9 @@ int main(int argc, char *argv[])
     // Close the database
     if ((rc = smm.CloseDb())) {
         SM_PrintError(rc);
+        return rc;
     }
 
     cout << "Bye.\n";
+    return 0;
 }

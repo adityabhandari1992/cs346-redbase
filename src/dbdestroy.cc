@@ -37,9 +37,9 @@ int main(int argc, char *argv[])
 
     // Remove the subdirectory for the database
     if (system (strcat(command,dbname)) != 0) {
-        cerr << argv[0] << " cannot remove directory: " << dbname << "\n";
+        cerr << argv[0] << " cannot destroy the database: " << dbname << "\n";
         exit(1);
     }
 
-    return(0);
+    return 0;
 }

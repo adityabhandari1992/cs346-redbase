@@ -67,9 +67,11 @@ int main(int argc, char *argv[])
     const char* attrcatFileName = "attrcat";
     if ((rc = rmManager.CreateFile(relcatFileName, sizeof(SM_RelcatRecord)))) {
         RM_PrintError(rc);
+        return rc;
     }
     if ((rc = rmManager.CreateFile(attrcatFileName, sizeof(SM_AttrcatRecord)))) {
         RM_PrintError(rc);
+        return rc;
     }
 
     // Open the files
@@ -77,9 +79,11 @@ int main(int argc, char *argv[])
     RM_FileHandle attrcatFH;
     if ((rc = rmManager.OpenFile(relcatFileName, relcatFH))) {
         RM_PrintError(rc);
+        return rc;
     }
     if ((rc = rmManager.OpenFile(attrcatFileName, attrcatFH))) {
         RM_PrintError(rc);
+        return rc;
     }
 
     // Insert relcat record in relcat
@@ -91,6 +95,7 @@ int main(int argc, char *argv[])
     rcRecord->indexCount = 0;
     if ((rc = relcatFH.InsertRec((char*) rcRecord, rid))) {
         RM_PrintError(rc);
+        return rc;
     }
 
     // Insert attrcat record in relcat
@@ -100,6 +105,7 @@ int main(int argc, char *argv[])
     rcRecord->indexCount = 0;
     if ((rc = relcatFH.InsertRec((char*) rcRecord, rid))) {
         RM_PrintError(rc);
+        return rc;
     }
     delete rcRecord;
 
@@ -115,6 +121,7 @@ int main(int argc, char *argv[])
     acRecord->indexNo = -1;
     if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
         RM_PrintError(rc);
+        return rc;
     }
 
     currentOffset += MAXNAME+1;
@@ -127,6 +134,7 @@ int main(int argc, char *argv[])
     acRecord->indexNo = -1;
     if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
         RM_PrintError(rc);
+        return rc;
     }
 
     currentOffset += 4;
@@ -138,6 +146,7 @@ int main(int argc, char *argv[])
     acRecord->indexNo = -1;
     if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
         RM_PrintError(rc);
+        return rc;
     }
 
     currentOffset += 4;
@@ -149,6 +158,7 @@ int main(int argc, char *argv[])
     acRecord->indexNo = -1;
     if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
         RM_PrintError(rc);
+        return rc;
     }
 
     // Insert relcat attributes in attrcat
@@ -162,6 +172,7 @@ int main(int argc, char *argv[])
     acRecord->indexNo = -1;
     if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
         RM_PrintError(rc);
+        return rc;
     }
 
     currentOffset += MAXNAME+1;
@@ -173,6 +184,7 @@ int main(int argc, char *argv[])
     acRecord->indexNo = -1;
     if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
         RM_PrintError(rc);
+        return rc;
     }
 
     currentOffset += MAXNAME+1;
@@ -185,6 +197,7 @@ int main(int argc, char *argv[])
     acRecord->indexNo = -1;
     if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
         RM_PrintError(rc);
+        return rc;
     }
 
     currentOffset += 4;
@@ -196,6 +209,7 @@ int main(int argc, char *argv[])
     acRecord->indexNo = -1;
     if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
         RM_PrintError(rc);
+        return rc;
     }
 
     currentOffset += 4;
@@ -207,6 +221,7 @@ int main(int argc, char *argv[])
     acRecord->indexNo = -1;
     if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
         RM_PrintError(rc);
+        return rc;
     }
 
     currentOffset += 4;
@@ -218,16 +233,19 @@ int main(int argc, char *argv[])
     acRecord->indexNo = -1;
     if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
         RM_PrintError(rc);
+        return rc;
     }
     delete acRecord;
 
     // Close the files
     if ((rc = rmManager.CloseFile(relcatFH))) {
         RM_PrintError(rc);
+        return rc;
     }
     if ((rc = rmManager.CloseFile(attrcatFH))) {
         RM_PrintError(rc);
+        return rc;
     }
 
-    return(0);
+    return 0;
 }
