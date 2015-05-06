@@ -218,12 +218,9 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
             }
             // If the attribute is string
             else if (attrType == STRING) {
-                string recordValue = getStringValue(recordData);
+                string recordValue(recordData);
                 char* givenValueChar = static_cast<char*>(value);
-                string givenValue = "";
-                for (int i=0; i<attrLength; i++) {
-                    givenValue += givenValueChar[i];
-                }
+                string givenValue(givenValueChar);
                 recordMatch = matchRecord(recordValue, givenValue);
             }
 
