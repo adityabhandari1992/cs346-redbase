@@ -49,6 +49,10 @@ struct SM_AttrcatRecord {
     int indexNo;
 };
 
+// Constants
+#define SM_RELCAT_ATTR_COUNT    4
+#define SM_ATTRCAT_ATTR_COUNT   6
+
 //
 // SM_Manager: provides data management
 //
@@ -80,7 +84,9 @@ public:
     RC Set        (const char *paramName,         // set parameter to
                    const char *value);            //   value
 
+    // Methods to get the tuples from the system catalogs
     RC GetAttrInfo(const char* relName, int attrCount, char* attributeData);
+    RC GetAttrInfo(const char* relName, const char* attrName, SM_AttrcatRecord* attributeData);
     RC GetRelInfo(const char* relName, SM_RelcatRecord* relationData);
 
 private:
@@ -107,7 +113,8 @@ void SM_PrintError(RC rc);
 #define SM_NULL_ATTRIBUTES                  (START_SM_WARN + 5) // Null attribute pointer
 #define SM_INVALID_NAME                     (START_SM_WARN + 6) // Invalid name
 #define SM_TABLE_DOES_NOT_EXIST             (START_SM_WARN + 7) // Table does not exist
-#define SM_LASTWARN                         SM_TABLE_DOES_NOT_EXIST
+#define SM_TABLE_ALREADY_EXISTS             (START_SM_WARN + 8) // Table already exists
+#define SM_LASTWARN                         SM_TABLE_ALREADY_EXISTS
 
 // Errors
 #define SM_INVALID_DATABASE_NAME            (START_SM_ERR - 0) // Invalid database file name

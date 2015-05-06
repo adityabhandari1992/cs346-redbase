@@ -20,7 +20,8 @@ static char *SM_WarnMsg[] = {
   (char*)"attribute count is wrong",
   (char*)"null attribute pointer",
   (char*)"invalid user-specified name",
-  (char*)"relation does not exist"
+  (char*)"relation does not exist",
+  (char*)"relation exists"
 };
 
 static char *SM_ErrorMsg[] = {

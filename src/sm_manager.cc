@@ -30,6 +30,7 @@ SM_Manager::~SM_Manager() {
     // Nothing to free
 }
 
+
 // Method: OpenDb(const char *dbName)
 // Open the database
 /* Steps:
@@ -51,7 +52,7 @@ RC SM_Manager::OpenDb(const char *dbName) {
 
     // Change to the database directory
     if (chdir(dbName) == -1) {
-        return SM_DATABASE_DOES_NOT_EXIST;
+        return SM_INVALID_DATABASE_NAME;
     }
 
     // Open the system catalogs
@@ -69,6 +70,7 @@ RC SM_Manager::OpenDb(const char *dbName) {
     // Return OK
     return OK_RC;
 }
+
 
 // Method: CloseDb()
 // Close the database
@@ -105,6 +107,7 @@ RC SM_Manager::CloseDb() {
     return OK_RC;
 }
 
+
 // Method: CreateTable(const char *relName, int attrCount, AttrInfo *attributes)
 // Create relation relName, given number of attributes and attribute data
 /* Steps:
@@ -132,6 +135,26 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
         return SM_NULL_ATTRIBUTES;
     }
 
+    // Check whether the table already exists
+    int rc;
+    RM_FileScan relcatFS;
+    RM_Record rec;
+    bool duplicate = false;
+    char relationName[MAXNAME+1];
+    strcpy(relationName, relName);
+    if ((rc = relcatFS.OpenScan(relcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
+        return rc;
+    }
+    if ((rc = relcatFS.GetNextRec(rec)) != RM_EOF) {
+        duplicate = true;
+    }
+    if ((rc = relcatFS.CloseScan())) {
+        return rc;
+    }
+    if (duplicate) {
+        return SM_TABLE_ALREADY_EXISTS;
+    }
+
     // Print the create table command
     cout << "CreateTable\n"
          << "   relName     =" << relName << "\n"
@@ -153,7 +176,6 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
     }
 
     // Update relcat
-    int rc;
     RID rid;
     SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
     strcpy(rcRecord->relName, relName);
@@ -169,7 +191,6 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
     SM_AttrcatRecord* acRecord = new SM_AttrcatRecord;
     strcpy(acRecord->relName, relName);
     for (int i=0; i<attrCount; i++) {
-        memset(acRecord->attrName, 0, MAXNAME+1);
         strcpy(acRecord->attrName, attributes[i].attrName);
         acRecord->offset = offset[i];
         acRecord->attrType = attributes[i].attrType;
@@ -197,6 +218,7 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
     // Return OK
     return OK_RC;
 }
+
 
 // Method: DropTable(const char *relName)
 // Destroy a relation
@@ -302,6 +324,7 @@ RC SM_Manager::DropTable(const char *relName) {
     return OK_RC;
 }
 
+
 // Create an index for relName.attrName
 RC SM_Manager::CreateIndex(const char *relName, const char *attrName) {
     cout << "CreateIndex\n"
@@ -309,6 +332,7 @@ RC SM_Manager::CreateIndex(const char *relName, const char *attrName) {
          << "   attrName=" << attrName << "\n";
     return (0);
 }
+
 
 // Destroy index on relName.attrName
 RC SM_Manager::DropIndex(const char *relName, const char *attrName) {
@@ -318,6 +342,7 @@ RC SM_Manager::DropIndex(const char *relName, const char *attrName) {
     return (0);
 }
 
+
 // Load relName from fileName
 RC SM_Manager::Load(const char *relName, const char *fileName) {
     cout << "Load\n"
@@ -326,13 +351,14 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
     return (0);
 }
 
+
 // Method: Help()
 // Print relations in db
 /* Steps:
     1) Create the attributes structure
     2) Create a Printer object
     3) Print the header
-    4) Start a RM file scan and print each tuple
+    4) Start relcat file scan and print each tuple
     5) Print the footer
     6) Close the scan and clean up
 */
@@ -341,13 +367,13 @@ RC SM_Manager::Help() {
     cout << "Help\n";
 
     // Fill the attributes structure
-    int attrCount = 4;
+    int attrCount = SM_RELCAT_ATTR_COUNT;
     RM_Record rec;
     int rc;
     char* recordData;
 
     DataAttrInfo* attributes = new DataAttrInfo[attrCount];
-    if ((rc = GetAttrInfo("relcat", 4, (char*) attributes))) {
+    if ((rc = GetAttrInfo("relcat", attrCount, (char*) attributes))) {
         return rc;
     }
 
@@ -390,13 +416,14 @@ RC SM_Manager::Help() {
     return OK_RC;
 }
 
+
 // Method: Help(const char* relName)
 // Print schema of relName
 /* Steps:
     1) Create the attributes structure
     2) Create a Printer object
     3) Print the header
-    4) Start a RM file scan and print each tuple
+    4) Start attrcat scan and print each tuple
     5) Print the footer
     6) Close the scan and clean up
 */
@@ -405,20 +432,21 @@ RC SM_Manager::Help(const char *relName) {
     cout << "Help\n"
          << "   relName=" << relName << "\n";
 
-    //TODO
-    // Fill the attributes structure
-    RM_Record rec;
+    // Check if the relation exists
     int rc;
-    char* recordData;
-
     SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
     if ((rc = GetRelInfo(relName, rcRecord))) {
         return rc;
     }
+    delete rcRecord;
 
-    int attrCount = rcRecord->attrCount;
+    // Fill the attributes structure
+    int attrCount = SM_ATTRCAT_ATTR_COUNT;
+    RM_Record rec;
+    char* recordData;
+
     DataAttrInfo* attributes = new DataAttrInfo[attrCount];
-    if ((rc = GetAttrInfo(relName, attrCount, (char*) attributes))) {
+    if ((rc = GetAttrInfo("attrcat", attrCount, (char*) attributes))) {
         return rc;
     }
 
@@ -428,21 +456,17 @@ RC SM_Manager::Help(const char *relName) {
     // Print the header
     p.PrintHeader(cout);
 
-    // Open the relation RM file
-    RM_FileHandle rmFH;
-    if ((rc = rmManager->OpenFile(relName, rmFH))) {
-        return rc;
-    }
-
-    // Start the relcat file scan
-    RM_FileScan rmFS;
-    if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, NO_OP, NULL))) {
+    // Start the attrcat file scan
+    RM_FileScan attrcatFS;
+    char relationName[MAXNAME+1];
+    strcpy(relationName, relName);
+    if ((rc = attrcatFS.OpenScan(attrcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
         return rc;
     }
 
     // Print each tuple
     while (rc != RM_EOF) {
-        rc = rmFS.GetNextRec(rec);
+        rc = attrcatFS.GetNextRec(rec);
 
         if (rc != 0 && rc != RM_EOF) {
             return rc;
@@ -457,19 +481,16 @@ RC SM_Manager::Help(const char *relName) {
     // Print the footer
     p.PrintFooter(cout);
 
-    // Close the scan and file and clean up
-    if ((rc = rmFS.CloseScan())) {
+    // Close the scan and clean up
+    if ((rc = attrcatFS.CloseScan())) {
         return rc;
     }
-    if ((rc = rmManager->CloseFile(rmFH))) {
-        return rc;
-    }
-    delete rcRecord;
     delete[] attributes;
 
     // Return OK
     return OK_RC;
 }
+
 
 // Method: Print(const char *relName)
 // Print relName contents
@@ -477,14 +498,15 @@ RC SM_Manager::Help(const char *relName) {
     1) Create the attributes structure
     2) Create a Printer object
     3) Print the header
-    4) Start a RM file scan and print each tuple
-    5) Print the footer
-    6) Close the scan and file and clean up
+    4) Open the RM file
+    5) Start a RM file scan and print each tuple
+    6) Print the footer
+    7) Close the scan and file and clean up
 */
 RC SM_Manager::Print(const char *relName) {
+    // Print the command
     cout << "Print\n"
          << "   relName=" << relName << "\n";
-    return (0);
 
     // Fill the attributes structure
     RM_Record rec;
@@ -550,6 +572,7 @@ RC SM_Manager::Print(const char *relName) {
     // Return OK
     return OK_RC;
 }
+
 
 // Set parameter to value
 RC SM_Manager::Set(const char *paramName, const char *value) {
@@ -558,6 +581,7 @@ RC SM_Manager::Set(const char *paramName, const char *value) {
          << "   value    =" << value << "\n";
     return (0);
 }
+
 
 // Method: GetAttrInfo(const char* relName, int attrCount, DataAttrInfo* attributes)
 // Get the attribute info about a relation from attrcat
@@ -617,6 +641,63 @@ RC SM_Manager::GetAttrInfo(const char* relName, int attrCount, char* attributeDa
     // Return OK
     return OK_RC;
 }
+
+
+// Method: GetAttrInfo(const char* relName, const char* attrName, SM_AttrcatRecord* attributeData)
+// Get an attribute info about an attribute of a relation from attrcat
+/* Steps:
+    1) Start file scan of attrcat for relName
+    2) For each record, check whether the required attribute
+    3) Fill the attribute structure
+*/
+RC SM_Manager::GetAttrInfo(const char* relName, const char* attrName, SM_AttrcatRecord* attributeData) {
+    int rc;
+    RM_FileScan attrcatFS;
+    RM_Record rec;
+    char* recordData;
+    SM_AttrcatRecord* acRecord;
+
+    // Start file scan
+    char relationName[MAXNAME+1];
+    strcpy(relationName, relName);
+    if ((rc = attrcatFS.OpenScan(attrcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
+        return rc;
+    }
+
+    // Get all the attribute tuples
+    while (rc != RM_EOF) {
+        rc = attrcatFS.GetNextRec(rec);
+        if (rc != 0 && rc != RM_EOF) {
+            return rc;
+        }
+
+        if (rc != RM_EOF) {
+            if ((rc = rec.GetData(recordData))) {
+                return rc;
+            }
+            acRecord = (SM_AttrcatRecord*) recordData;
+
+            // Check for the required attribute
+            if (strcmp(acRecord->attrName, attrName) == 0) {
+                strcpy(attributeData->relName, acRecord->relName);
+                strcpy(attributeData->attrName, acRecord->attrName);
+                attributeData->offset = acRecord->offset;
+                attributeData->attrType = acRecord->attrType;
+                attributeData->attrLength = acRecord->attrLength;
+                attributeData->indexNo = acRecord->indexNo;
+            }
+        }
+    }
+
+    // Close the scan
+    if ((rc = attrcatFS.CloseScan())) {
+        return rc;
+    }
+
+    // Return OK
+    return OK_RC;
+}
+
 
 // Method: GetRelInfo(const char* relName, SM_RelcatRecord* relationData)
 // Get the relation info from relcat
