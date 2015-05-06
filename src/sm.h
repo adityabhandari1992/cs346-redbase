@@ -25,7 +25,7 @@
     4) indexCount - number of indexes - integer
 */
 struct SM_RelcatRecord {
-    char relName[MAXNAME];
+    char relName[MAXNAME+1];
     int tupleLength;
     int attrCount;
     int indexCount;
@@ -41,8 +41,8 @@ struct SM_RelcatRecord {
     6) indexNo - number of the index - integer
 */
 struct SM_AttrcatRecord {
-    char relName[MAXNAME];
-    char attrName[MAXNAME];
+    char relName[MAXNAME+1];
+    char attrName[MAXNAME+1];
     int offset;
     AttrType attrType;
     int attrLength;
@@ -80,9 +80,16 @@ public:
     RC Set        (const char *paramName,         // set parameter to
                    const char *value);            //   value
 
+    RC GetAttrInfo(const char* relName, int attrCount, char* attributeData);
+    RC GetRelInfo(const char* relName, SM_RelcatRecord* relationData);
+
 private:
-    RM_Manager* rmManager;           // RM_Manager object
-    IX_Manager* ixManager;           // IX_Manager object
+    RM_Manager* rmManager;          // RM_Manager object
+    IX_Manager* ixManager;          // IX_Manager object
+
+    RM_FileHandle relcatFH;         // RM file handle for relcat
+    RM_FileHandle attrcatFH;        // RM file handle for attrcat
+    int isOpen;                     // Flag whether the database is open
 };
 
 //
@@ -92,8 +99,15 @@ void SM_PrintError(RC rc);
 
 
 // Warnings
-#define SM_INVALID_DATABASE                 (START_SM_WARN + 0) // Database does not exist
-#define SM_LASTWARN                         SM_INVALID_DATABASE
+#define SM_DATABASE_DOES_NOT_EXIST          (START_SM_WARN + 0) // Database does not exist
+#define SM_INVALID_DATABASE_CLOSE           (START_SM_WARN + 1) // Database cannot be closed
+#define SM_DATABASE_OPEN                    (START_SM_WARN + 2) // Database is open
+#define SM_DATABASE_CLOSED                  (START_SM_WARN + 3) // Database is closed
+#define SM_INCORRECT_ATTRIBUTE_COUNT        (START_SM_WARN + 4) // Attribute count is wrong
+#define SM_NULL_ATTRIBUTES                  (START_SM_WARN + 5) // Null attribute pointer
+#define SM_INVALID_NAME                     (START_SM_WARN + 6) // Invalid name
+#define SM_TABLE_DOES_NOT_EXIST             (START_SM_WARN + 7) // Table does not exist
+#define SM_LASTWARN                         SM_TABLE_DOES_NOT_EXIST
 
 // Errors
 #define SM_INVALID_DATABASE_NAME            (START_SM_ERR - 0) // Invalid database file name

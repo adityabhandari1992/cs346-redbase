@@ -64,10 +64,10 @@ int main(int argc, char *argv[])
     // Create RM files for relcat and attrcat
     const char* relcatFileName = "relcat";
     const char* attrcatFileName = "attrcat";
-    if ((rc = rmManager.CreateFile(relcatFileName, sizeof(SM_RelcatRecord)))) {
+    if ((rc = rmManager.CreateFile(relcatFileName, MAXNAME + 1 + 12))) {
         RM_PrintError(rc);
     }
-    if ((rc = rmManager.CreateFile(attrcatFileName, sizeof(SM_AttrcatRecord)))) {
+    if ((rc = rmManager.CreateFile(attrcatFileName, 2*(MAXNAME+1) + 16))) {
         RM_PrintError(rc);
     }
 
@@ -84,9 +84,8 @@ int main(int argc, char *argv[])
     // Insert relcat record in relcat
     RID rid;
     SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
-    memset(rcRecord->relName, ' ', MAXNAME);
-    sprintf(rcRecord->relName, "relcat");
-    rcRecord->tupleLength = sizeof(SM_RelcatRecord);
+    strcpy(rcRecord->relName, "relcat");
+    rcRecord->tupleLength = MAXNAME + 1 + 12;
     rcRecord->attrCount = 4;
     rcRecord->indexCount = 0;
     if ((rc = relcatFH.InsertRec((char*) rcRecord, rid))) {
@@ -94,9 +93,8 @@ int main(int argc, char *argv[])
     }
 
     // Insert attrcat record in relcat
-    memset(rcRecord->relName, ' ', MAXNAME);
-    sprintf(rcRecord->relName, "attrcat");
-    rcRecord->tupleLength = sizeof(SM_AttrcatRecord);
+    strcpy(rcRecord->relName, "attrcat");
+    rcRecord->tupleLength = 2*(MAXNAME+1) + 16;
     rcRecord->attrCount = 6;
     rcRecord->indexCount = 0;
     if ((rc = relcatFH.InsertRec((char*) rcRecord, rid))) {
@@ -106,22 +104,19 @@ int main(int argc, char *argv[])
 
     // Insert relcat attributes in attrcat
     SM_AttrcatRecord* acRecord = new SM_AttrcatRecord;
-    memset(acRecord->relName, ' ', MAXNAME);
-    sprintf(acRecord->relName, "relcat");
+    strcpy(acRecord->relName, "relcat");
 
-    memset(acRecord->attrName, ' ', MAXNAME);
-    sprintf(acRecord->attrName, "relName");
+    strcpy(acRecord->attrName, "relName");
     acRecord->offset = 0;
     acRecord->attrType = STRING;
-    acRecord->attrLength = MAXNAME;
+    acRecord->attrLength = MAXNAME+1;
     acRecord->indexNo = -1;
     if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
         RM_PrintError(rc);
     }
 
-    memset(acRecord->attrName, ' ', MAXNAME);
-    sprintf(acRecord->attrName, "tupleLength");
-    acRecord->offset = MAXNAME;
+    strcpy(acRecord->attrName, "tupleLength");
+    acRecord->offset = 28;
     acRecord->attrType = INT;
     acRecord->attrLength = 4;
     acRecord->indexNo = -1;
@@ -129,9 +124,8 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
     }
 
-    memset(acRecord->attrName, ' ', MAXNAME);
-    sprintf(acRecord->attrName, "attrCount");
-    acRecord->offset = MAXNAME + 4;
+    strcpy(acRecord->attrName, "attrCount");
+    acRecord->offset = 32;
     acRecord->attrType = INT;
     acRecord->attrLength = 4;
     acRecord->indexNo = -1;
@@ -139,9 +133,8 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
     }
 
-    memset(acRecord->attrName, ' ', MAXNAME);
-    sprintf(acRecord->attrName, "indexCount");
-    acRecord->offset = MAXNAME + 8;
+    strcpy(acRecord->attrName, "indexCount");
+    acRecord->offset = 36;
     acRecord->attrType = INT;
     acRecord->attrLength = 4;
     acRecord->indexNo = -1;
@@ -150,32 +143,28 @@ int main(int argc, char *argv[])
     }
 
     // Insert relcat attributes in attrcat
-    memset(acRecord->relName, ' ', MAXNAME);
-    sprintf(acRecord->relName, "attrcat");
+    strcpy(acRecord->relName, "attrcat");
 
-    memset(acRecord->attrName, ' ', MAXNAME);
-    sprintf(acRecord->attrName, "relName");
+    strcpy(acRecord->attrName, "relName");
     acRecord->offset = 0;
     acRecord->attrType = STRING;
-    acRecord->attrLength = MAXNAME;
+    acRecord->attrLength = MAXNAME + 1;
     acRecord->indexNo = -1;
     if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
         RM_PrintError(rc);
     }
 
-    memset(acRecord->attrName, ' ', MAXNAME);
-    sprintf(acRecord->attrName, "attrName");
-    acRecord->offset = MAXNAME;
+    strcpy(acRecord->attrName, "attrName");
+    acRecord->offset = 25;
     acRecord->attrType = STRING;
-    acRecord->attrLength = MAXNAME;
+    acRecord->attrLength = MAXNAME + 1;
     acRecord->indexNo = -1;
     if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
         RM_PrintError(rc);
     }
 
-    memset(acRecord->attrName, ' ', MAXNAME);
-    sprintf(acRecord->attrName, "offset");
-    acRecord->offset = 2*MAXNAME;
+    strcpy(acRecord->attrName, "offset");
+    acRecord->offset = 52;
     acRecord->attrType = INT;
     acRecord->attrLength = 4;
     acRecord->indexNo = -1;
@@ -183,9 +172,8 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
     }
 
-    memset(acRecord->attrName, ' ', MAXNAME);
-    sprintf(acRecord->attrName, "attrType");
-    acRecord->offset = 2*MAXNAME + 4;
+    strcpy(acRecord->attrName, "attrType");
+    acRecord->offset = 56;
     acRecord->attrType = INT;
     acRecord->attrLength = 4;
     acRecord->indexNo = -1;
@@ -193,9 +181,8 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
     }
 
-    memset(acRecord->attrName, ' ', MAXNAME);
-    sprintf(acRecord->attrName, "attrLength");
-    acRecord->offset = 2*MAXNAME + 8;
+    strcpy(acRecord->attrName, "attrLength");
+    acRecord->offset = 60;
     acRecord->attrType = INT;
     acRecord->attrLength = 4;
     acRecord->indexNo = -1;
@@ -203,9 +190,8 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
     }
 
-    memset(acRecord->attrName, ' ', MAXNAME);
-    sprintf(acRecord->attrName, "indexNo");
-    acRecord->offset = 2*MAXNAME + 12;
+    strcpy(acRecord->attrName, "indexNo");
+    acRecord->offset = 64;
     acRecord->attrType = INT;
     acRecord->attrLength = 4;
     acRecord->indexNo = -1;

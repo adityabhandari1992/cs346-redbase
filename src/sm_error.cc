@@ -13,7 +13,14 @@
 using namespace std;
 
 static char *SM_WarnMsg[] = {
-  (char*)"database does not exist"
+  (char*)"database does not exist",
+  (char*)"database cannot be closed",
+  (char*)"database is already open",
+  (char*)"database is closed",
+  (char*)"attribute count is wrong",
+  (char*)"null attribute pointer",
+  (char*)"invalid user-specified name",
+  (char*)"relation does not exist"
 };
 
 static char *SM_ErrorMsg[] = {
