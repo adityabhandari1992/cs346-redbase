@@ -1,0 +1,17 @@
+create table t(id i, name c20, gpa f);
+
+create index t(id);
+
+load t("../data/t.data");
+
+help;
+help t;
+print t;
+
+drop index t(id);
+
+drop table t;
+
+help;
+
+exit;

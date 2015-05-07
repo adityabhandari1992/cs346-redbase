@@ -1,0 +1,17 @@
+create table emp(id i, f_name s80, l_name s80, dept i, ssn i, age i);
+
+create index emp(id);
+
+help;
+
+load emp("../data/company/emp.data");
+
+print emp;
+
+drop index emp(id);
+
+drop table emp;
+
+help;
+
+exit;
