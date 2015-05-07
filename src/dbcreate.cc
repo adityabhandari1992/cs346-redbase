@@ -89,6 +89,7 @@ int main(int argc, char *argv[])
     // Insert relcat record in relcat
     RID rid;
     SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
+    memset(rcRecord, 0, sizeof(SM_RelcatRecord));
     strcpy(rcRecord->relName, "relcat");
     rcRecord->tupleLength = sizeof(SM_RelcatRecord);
     rcRecord->attrCount = SM_RELCAT_ATTR_COUNT;
@@ -111,6 +112,7 @@ int main(int argc, char *argv[])
 
     // Insert relcat attributes in attrcat
     SM_AttrcatRecord* acRecord = new SM_AttrcatRecord;
+    memset(acRecord, 0, sizeof(SM_AttrcatRecord));
     int currentOffset = 0;
     strcpy(acRecord->relName, "relcat");
 

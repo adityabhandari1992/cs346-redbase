@@ -186,6 +186,7 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
     // Update relcat
     RID rid;
     SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
+    memset(rcRecord, 0, sizeof(SM_RelcatRecord));
     strcpy(rcRecord->relName, relName);
     rcRecord->tupleLength = tupleLength;
     rcRecord->attrCount = attrCount;
@@ -197,6 +198,7 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
 
     // Update attrcat
     SM_AttrcatRecord* acRecord = new SM_AttrcatRecord;
+    memset(acRecord, 0, sizeof(SM_AttrcatRecord));
     strcpy(acRecord->relName, relName);
     for (int i=0; i<attrCount; i++) {
         strcpy(acRecord->attrName, attributes[i].attrName);
@@ -369,10 +371,12 @@ RC SM_Manager::CreateIndex(const char *relName, const char *attrName) {
     // Check whether the index exists
     int rc;
     SM_AttrcatRecord* attrRecord = new SM_AttrcatRecord;
+    memset(attrRecord, 0, sizeof(SM_AttrcatRecord));
     if ((rc = GetAttrInfo(relName, attrName, attrRecord))) {
         return rc;
     }
     if (attrRecord->indexNo != -1) {
+        delete attrRecord;
         return SM_INDEX_EXISTS;
     }
     int offset = attrRecord->offset;
@@ -550,10 +554,12 @@ RC SM_Manager::DropIndex(const char *relName, const char *attrName) {
     // Check whether the index exists
     int rc;
     SM_AttrcatRecord* attrRecord = new SM_AttrcatRecord;
+    memset(attrRecord, 0, sizeof(SM_AttrcatRecord));
     if ((rc = GetAttrInfo(relName, attrName, attrRecord))) {
         return rc;
     }
     if (attrRecord->indexNo == -1) {
+        delete attrRecord;
         return SM_INDEX_DOES_NOT_EXIST;
     }
     delete attrRecord;
@@ -673,7 +679,9 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
     // Get the relation and attributes information
     int rc;
     SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
+    memset(rcRecord, 0, sizeof(SM_RelcatRecord));
     if ((rc = GetRelInfo(relName, rcRecord))) {
+        delete rcRecord;
         return rc;
     }
     int tupleLength = rcRecord->tupleLength;
@@ -681,9 +689,11 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
     int indexCount = rcRecord->indexCount;
     DataAttrInfo* attributes = new DataAttrInfo[attrCount];
     if ((rc = GetAttrInfo(relName, attrCount, (char*) attributes))) {
+        delete attributes;
         return rc;
     }
     char* tupleData = new char[tupleLength];
+    memset(tupleData, 0, tupleLength);
 
     // Open the RM file
     RM_FileHandle rmFH;
@@ -693,9 +703,8 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
     }
 
     // Open the indexes
-    IX_IndexHandle* ixIH;
+    IX_IndexHandle* ixIH = new IX_IndexHandle[attrCount];
     if (indexCount > 0) {
-        ixIH = new IX_IndexHandle[indexCount];
         int currentIndex = 0;
         for (int i=0; i<attrCount; i++) {
             int indexNo = attributes[i].indexNo;
@@ -714,6 +723,8 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
     // Open the data file
     ifstream dataFile(fileName);
     if (!dataFile.is_open()) {
+        delete[] tupleData;
+        delete[] ixIH;
         return SM_INVALID_DATA_FILE;
     }
     else {
@@ -723,7 +734,7 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
             // Parse the line
             stringstream ss(line);
             vector<string> dataValues;
-            string dataValue;
+            string dataValue = "";
             while (getline(ss, dataValue, ',')) {
                 dataValues.push_back(dataValue);
             }
@@ -739,7 +750,10 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
                     memcpy(tupleData+attributes[i].offset, &value, attributes[i].attrLength);
                 }
                 else {
-                    memcpy(tupleData+attributes[i].offset, dataValues[i].c_str(), attributes[i].attrLength);
+                    char value[attributes[i].attrLength];
+                    memset(value, 0, attributes[i].attrLength);
+                    strcpy(value, dataValues[i].c_str());
+                    memcpy(tupleData+attributes[i].offset, value, attributes[i].attrLength);
                 }
             }
             if ((rc = rmFH.InsertRec(tupleData, rid))) {
@@ -787,13 +801,13 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
                 return rc;
             }
         }
-        delete[] ixIH;
     }
 
     // Clean up
     delete rcRecord;
     delete[] attributes;
     delete[] tupleData;
+    delete[] ixIH;
 
     // Return OK
     return OK_RC;
@@ -902,7 +916,9 @@ RC SM_Manager::Help(const char *relName) {
     // Check if the relation exists
     int rc;
     SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
+    memset(rcRecord, 0, sizeof(SM_RelcatRecord));
     if ((rc = GetRelInfo(relName, rcRecord))) {
+        delete rcRecord;
         return rc;
     }
     delete rcRecord;
@@ -993,7 +1009,9 @@ RC SM_Manager::Print(const char *relName) {
     char* recordData;
 
     SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
+    memset(rcRecord, 0, sizeof(SM_RelcatRecord));
     if ((rc = GetRelInfo(relName, rcRecord))) {
+        delete rcRecord;
         return rc;
     }
 
