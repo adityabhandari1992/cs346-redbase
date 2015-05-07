@@ -1,0 +1,63 @@
+CS 346 : Redbase Part 3 (SM)
+The System Management Component
+
+--------------------------------------------
+
+** AUTHOR **
+Aditya Bhandari (adityasb@stanford.edu)
+
+Assistance taken:
+1) Jaeho Shin (TA) :
+    - Help with memory alignment in relcat and attrcat record structs
+    - Clarification about user-specified names and SM_Manager::Set method
+
+--------------------------------------------
+--------------------------------------------
+
+** DESIGN **
+
+* Data Structures *
+
+1) Relation Catalog Record - SM_RelcatRecord (in "sm.h")
+Stores the following:
+    - Relation name - char[MAXNAME+1]
+    - Tuple length - integer
+    - Attribute count - integer
+    - Index count - integer
+
+2) Attribute Catalog Record - SM_AttrcatRecord (in "sm.h")
+Stores the following:
+    - Relation name - char[MAXNAME+1]
+    - Attribute name - char[MAXNAME+1]
+    - Attribute offset - integer
+    - Attribute type - AttrType
+    - Attribute length - integer
+    - Index number - integer
+
+-------------------
+
+* System Parameters *
+
+--------------------------------------------
+--------------------------------------------
+
+** IMPLEMENTATION DETAILS **
+
+The algorithms used for implementing the important methods of the classes are described
+as comment headers in the code files itself.
+
+The code files are:
+    - dbcreate.cc
+    - dbdestroy.cc
+    - redbase.cc
+    - sm.h
+    - sm_manager.cc
+    - sm_error.cc
+
+--------------------------------------------
+--------------------------------------------
+
+** TESTING **
+
+
+--------------------------------------------xx EOF xx----------------------------------------
