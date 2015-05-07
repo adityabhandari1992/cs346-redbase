@@ -35,7 +35,7 @@ struct SM_RelcatRecord {
 /* Stores the follwing:
     1) relName - name of the relation - char*
     2) attrName - name of the attribute - char*
-    3) offset - offset of the attrbiute - integer
+    3) offset - offset of the attribute - integer
     4) attrType - type of the attribute - AttrType
     5) attrLength - length of the attribute - integer
     6) indexNo - number of the index - integer
@@ -124,7 +124,8 @@ void SM_PrintError(RC rc);
 #define SM_INVALID_SYSTEM_PARAMETER         (START_SM_WARN + 14) // Invalid system parameter
 #define SM_INVALID_VALUE                    (START_SM_WARN + 15) // Invalid value
 #define SM_INDEX_EXISTS                     (START_SM_WARN + 16) // Index already exists
-#define SM_LASTWARN                         SM_INDEX_EXISTS
+#define SM_INDEX_DOES_NOT_EXIST             (START_SM_WARN + 17) // Index does not exist
+#define SM_LASTWARN                         SM_INDEX_DOES_NOT_EXIST
 
 // Errors
 #define SM_INVALID_DATABASE_NAME            (START_SM_ERR - 0) // Invalid database file name

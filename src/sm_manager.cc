@@ -120,10 +120,9 @@ RC SM_Manager::CloseDb() {
 /* Steps:
     1) Check that the database is open
     2) Check whether the table already exists
-    3) Update relcat
-    4) Update attrcat
-    5) Create a RM file for the relation
-    6) Flush the system catalogs
+    3) Update the system catalogs
+    4) Create a RM file for the relation
+    5) Flush the system catalogs
 */
 RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attributes) {
     // Check that the database is open
@@ -311,11 +310,7 @@ RC SM_Manager::DropTable(const char *relName) {
         SM_AttrcatRecord* acRecord = (SM_AttrcatRecord*) recordData;
         if (acRecord->indexNo != -1) {
             // Destroy the index
-            char indexName[2*MAXNAME];
-            strcpy(indexName, relName);
-            strcat(indexName, ".");
-            strcat(indexName, acRecord->attrName);
-            if ((rc = ixManager->DestroyIndex(indexName, acRecord->indexNo))) {
+            if ((rc = ixManager->DestroyIndex(relName, acRecord->indexNo))) {
                 return rc;
             }
         }
@@ -324,6 +319,14 @@ RC SM_Manager::DropTable(const char *relName) {
         if ((rc = attrcatFH.DeleteRec(rid))) {
             return rc;
         }
+    }
+
+    // Flush the system catalogs
+    if ((rc = relcatFH.ForcePages())) {
+        return rc;
+    }
+    if ((rc = attrcatFH.ForcePages())) {
+        return rc;
     }
 
     // Destroy the RM file for the relation
@@ -336,21 +339,300 @@ RC SM_Manager::DropTable(const char *relName) {
 }
 
 
+// Method: CreateIndex(const char *relName, const char *attrName)
 // Create an index for relName.attrName
+/* Steps:
+    1) Check the parameters
+    2) Check that the database is open
+    3) Check whether the index exists
+    4) Update and flush the system catalogs
+    5) Create and open the index file
+    6) Scan all the tuples and insert in the index
+    7) Close the index file
+*/
 RC SM_Manager::CreateIndex(const char *relName, const char *attrName) {
-    cout << "CreateIndex\n"
-         << "   relName =" << relName << "\n"
-         << "   attrName=" << attrName << "\n";
-    return (0);
+    // Check the parameters
+    if (relName == NULL) {
+        return SM_NULL_RELATION;
+    }
+    if (attrName == NULL) {
+        return SM_NULL_ATTRIBUTES;
+    }
+
+    // Print the create index command
+    if (printCommands) {
+        cout << "CreateIndex\n"
+             << "   relName =" << relName << "\n"
+             << "   attrName=" << attrName << "\n";
+    }
+
+    // Check whether the index exists
+    int rc;
+    SM_AttrcatRecord* attrRecord = new SM_AttrcatRecord;
+    if ((rc = GetAttrInfo(relName, attrName, attrRecord))) {
+        return rc;
+    }
+    if (attrRecord->indexNo != -1) {
+        return SM_INDEX_EXISTS;
+    }
+    int offset = attrRecord->offset;
+    AttrType attrType = attrRecord->attrType;
+    int attrLength = attrRecord->attrLength;
+    delete attrRecord;
+
+    // Update relcat
+    RM_FileScan relcatFS;
+    RM_Record rec;
+    char relationName[MAXNAME+1];
+    strcpy(relationName, relName);
+    if ((rc = relcatFS.OpenScan(relcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
+        return rc;
+    }
+    if ((rc = relcatFS.GetNextRec(rec))) {
+        if (rc == RM_EOF) {
+            return SM_TABLE_DOES_NOT_EXIST;
+        }
+        else return rc;
+    }
+    char* recordData;
+    if ((rc = rec.GetData(recordData))) {
+        return rc;
+    }
+    SM_RelcatRecord* rcRecord = (SM_RelcatRecord*) recordData;
+    rcRecord->indexCount++;
+    if ((rc = relcatFH.UpdateRec(rec))) {
+        return rc;
+    }
+    if ((rc = relcatFS.CloseScan())) {
+        return rc;
+    }
+
+    // Update attrcat
+    RM_FileScan attrcatFS;
+    if ((rc = attrcatFS.OpenScan(attrcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
+        return rc;
+    }
+    int position = 0;
+    while (rc != RM_EOF) {
+        rc = attrcatFS.GetNextRec(rec);
+        if (rc != 0 && rc != RM_EOF) {
+            return rc;
+        }
+
+        if (rc != RM_EOF) {
+            if ((rc = rec.GetData(recordData))) {
+                return rc;
+            }
+            SM_AttrcatRecord* acRecord = (SM_AttrcatRecord*) recordData;
+
+            // Check for the required attribute
+            if (strcmp(acRecord->attrName, attrName) == 0) {
+                acRecord->indexNo = position;
+                if ((rc = attrcatFH.UpdateRec(rec))) {
+                    return rc;
+                }
+                break;
+            }
+        }
+        position++;
+    }
+    if ((rc = attrcatFS.CloseScan())) {
+        return rc;
+    }
+
+    // Flush the system catalogs
+    if ((rc = relcatFH.ForcePages())) {
+        return rc;
+    }
+    if ((rc = attrcatFH.ForcePages())) {
+        return rc;
+    }
+
+    // Create and open the index file
+    if ((rc = ixManager->CreateIndex(relName, position, attrType, attrLength))) {
+        return rc;
+    }
+    IX_IndexHandle ixIH;
+    if ((rc = ixManager->OpenIndex(relName, position, ixIH))) {
+        return rc;
+    }
+
+    // Scan all the tuples in the relation
+    RM_FileHandle rmFH;
+    RM_FileScan rmFS;
+    RID rid;
+    if ((rc = rmManager->OpenFile(relName, rmFH))) {
+        return rc;
+    }
+    if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, NO_OP, NULL))) {
+        return rc;
+    }
+    while (rc != RM_EOF) {
+        rc = rmFS.GetNextRec(rec);
+        if (rc != 0 && rc != RM_EOF) {
+            return rc;
+        }
+
+        // Get the record data and rid
+        if (rc != RM_EOF) {
+            if ((rc = rec.GetData(recordData))) {
+                return rc;
+            }
+            if ((rc = rec.GetRid(rid))) {
+                return rc;
+            }
+
+            // Insert the attribute value in the index
+            char* attributeData = new char[attrLength];
+            memcpy(attributeData, recordData+offset, attrLength);
+            if (attrType == INT) {
+                int value = atoi(attributeData);
+                if ((rc = ixIH.InsertEntry(&value, rid))) {
+                    return rc;
+                }
+            }
+            else if (attrType == FLOAT) {
+                float value = atof(attributeData);
+                if ((rc = ixIH.InsertEntry(&value, rid))) {
+                    return rc;
+                }
+            }
+            else {
+                if ((rc = ixIH.InsertEntry(attributeData, rid))) {
+                    return rc;
+                }
+            }
+            delete[] attributeData;
+        }
+    }
+    if ((rc = rmFS.CloseScan())) {
+        return rc;
+    }
+
+    // Close the files
+    if ((rc = rmManager->CloseFile(rmFH))) {
+        return rc;
+    }
+    if ((rc = ixManager->CloseIndex(ixIH))) {
+        return rc;
+    }
+
+    // Return OK;
+    return OK_RC;
 }
 
 
+// Method: DropIndex(const char *relName, const char *attrName)
 // Destroy index on relName.attrName
+/* Steps:
+    1) Check the parameters
+    2) Check that the database is open
+    3) Check whether the index exists
+    4) Update and flush the system catalogs
+    5) Destroy the index file
+*/
 RC SM_Manager::DropIndex(const char *relName, const char *attrName) {
-    cout << "DropIndex\n"
-         << "   relName =" << relName << "\n"
-         << "   attrName=" << attrName << "\n";
-    return (0);
+    // Check the parameters
+    if (relName == NULL) {
+        return SM_NULL_RELATION;
+    }
+    if (attrName == NULL) {
+        return SM_NULL_ATTRIBUTES;
+    }
+
+    // Print the drop index command
+    if (printCommands) {
+        cout << "DropIndex\n"
+             << "   relName =" << relName << "\n"
+             << "   attrName=" << attrName << "\n";
+    }
+
+    // Check whether the index exists
+    int rc;
+    SM_AttrcatRecord* attrRecord = new SM_AttrcatRecord;
+    if ((rc = GetAttrInfo(relName, attrName, attrRecord))) {
+        return rc;
+    }
+    if (attrRecord->indexNo == -1) {
+        return SM_INDEX_DOES_NOT_EXIST;
+    }
+    delete attrRecord;
+
+    // Update relcat
+    RM_FileScan relcatFS;
+    RM_Record rec;
+    char relationName[MAXNAME+1];
+    strcpy(relationName, relName);
+    if ((rc = relcatFS.OpenScan(relcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
+        return rc;
+    }
+    if ((rc = relcatFS.GetNextRec(rec))) {
+        if (rc == RM_EOF) {
+            return SM_TABLE_DOES_NOT_EXIST;
+        }
+        else return rc;
+    }
+    char* recordData;
+    if ((rc = rec.GetData(recordData))) {
+        return rc;
+    }
+    SM_RelcatRecord* rcRecord = (SM_RelcatRecord*) recordData;
+    rcRecord->indexCount--;
+    if ((rc = relcatFH.UpdateRec(rec))) {
+        return rc;
+    }
+    if ((rc = relcatFS.CloseScan())) {
+        return rc;
+    }
+
+    // Update attrcat
+    RM_FileScan attrcatFS;
+    int position = -1;
+    if ((rc = attrcatFS.OpenScan(attrcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
+        return rc;
+    }
+    while (rc != RM_EOF) {
+        rc = attrcatFS.GetNextRec(rec);
+        if (rc != 0 && rc != RM_EOF) {
+            return rc;
+        }
+
+        if (rc != RM_EOF) {
+            if ((rc = rec.GetData(recordData))) {
+                return rc;
+            }
+            SM_AttrcatRecord* acRecord = (SM_AttrcatRecord*) recordData;
+
+            // Check for the required attribute
+            if (strcmp(acRecord->attrName, attrName) == 0) {
+                position = acRecord->indexNo;
+                acRecord->indexNo = -1;
+                if ((rc = attrcatFH.UpdateRec(rec))) {
+                    return rc;
+                }
+                break;
+            }
+        }
+    }
+    if ((rc = attrcatFS.CloseScan())) {
+        return rc;
+    }
+
+    // Flush the system catalogs
+    if ((rc = relcatFH.ForcePages())) {
+        return rc;
+    }
+    if ((rc = attrcatFH.ForcePages())) {
+        return rc;
+    }
+
+    // Destroy the index file
+    if ((rc = ixManager->DestroyIndex(relName, position))) {
+        return rc;
+    }
+
+    // Return OK
+    return OK_RC;
 }
 
 
@@ -421,11 +703,7 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
                 if (currentIndex == indexCount) {
                     return SM_INCORRECT_INDEX_COUNT;
                 }
-                char indexFileName[2*MAXNAME + 2];
-                strcpy(indexFileName, relName);
-                strcat(indexFileName, ".");
-                strcat(indexFileName, attributes[i].attrName);
-                if ((rc = ixManager->OpenIndex(indexFileName, indexNo, ixIH[currentIndex]))) {
+                if ((rc = ixManager->OpenIndex(relName, indexNo, ixIH[currentIndex]))) {
                     return rc;
                 }
                 currentIndex++;

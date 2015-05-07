@@ -29,7 +29,8 @@ static char *SM_WarnMsg[] = {
   (char*)"null parameters",
   (char*)"invalid system parameter",
   (char*)"invalid parameter value",
-  (char*)"index already exists"
+  (char*)"index already exists",
+  (char*)"index does not exist"
 };
 
 static char *SM_ErrorMsg[] = {
