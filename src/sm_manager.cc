@@ -7,6 +7,10 @@
 #include <cstdio>
 #include <unistd.h>
 #include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
+#include <vector>
 #include "redbase.h"
 #include "sm.h"
 #include "ix.h"
@@ -23,6 +27,9 @@ SM_Manager::SM_Manager(IX_Manager &ixm, RM_Manager &rmm) {
 
     // Initialize the flag
     isOpen = FALSE;
+
+    // Initialize the system parameters
+    printCommands = FALSE;
 }
 
 // Destructor
@@ -112,7 +119,7 @@ RC SM_Manager::CloseDb() {
 // Create relation relName, given number of attributes and attribute data
 /* Steps:
     1) Check that the database is open
-    2) Print the create table command
+    2) Check whether the table already exists
     3) Update relcat
     4) Update attrcat
     5) Create a RM file for the relation
@@ -156,15 +163,17 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
     }
 
     // Print the create table command
-    cout << "CreateTable\n"
-         << "   relName     =" << relName << "\n"
-         << "   attrCount   =" << attrCount << "\n";
-    for (int i = 0; i < attrCount; i++) {
-        cout << "   attributes[" << i << "].attrName=" << attributes[i].attrName
-             << "   attrType="
-             << (attributes[i].attrType == INT ? "INT" :
-                 attributes[i].attrType == FLOAT ? "FLOAT" : "STRING")
-             << "   attrLength=" << attributes[i].attrLength << "\n";
+    if (printCommands) {
+        cout << "CreateTable\n"
+             << "   relName     =" << relName << "\n"
+             << "   attrCount   =" << attrCount << "\n";
+        for (int i = 0; i < attrCount; i++) {
+            cout << "   attributes[" << i << "].attrName=" << attributes[i].attrName
+                 << "   attrType="
+                 << (attributes[i].attrType == INT ? "INT" :
+                     attributes[i].attrType == FLOAT ? "FLOAT" : "STRING")
+                 << "   attrLength=" << attributes[i].attrLength << "\n";
+        }
     }
 
     // Calculate the attribute information
@@ -239,11 +248,13 @@ RC SM_Manager::DropTable(const char *relName) {
 
     // Check the parameters
     if (relName == NULL) {
-        return SM_INVALID_NAME;
+        return SM_NULL_RELATION;
     }
 
     // Print the drop table command
-    cout << "DropTable\n   relName=" << relName << "\n";
+    if (printCommands) {
+        cout << "DropTable\n   relName=" << relName << "\n";
+    }
 
     // Delete the entry from relcat
     RM_FileScan relcatFS;
@@ -343,12 +354,171 @@ RC SM_Manager::DropIndex(const char *relName, const char *attrName) {
 }
 
 
+// Method: Load(const char *relName, const char *fileName)
 // Load relName from fileName
+/* Steps:
+    1) Check the parameters
+    2) Check whether the database is open
+    2) Obtain attribute information for the relation
+    3) Open the RM file and each index file
+    4) Open the data file
+    5) Read the tuples from the file
+        - Insert the tuple in the relation
+        - Insert the entries in the indexes
+    6) Close the files
+*/
 RC SM_Manager::Load(const char *relName, const char *fileName) {
-    cout << "Load\n"
-         << "   relName =" << relName << "\n"
-         << "   fileName=" << fileName << "\n";
-    return (0);
+    // Check the parameters
+    if (relName == NULL) {
+        return SM_NULL_RELATION;
+    }
+    if (fileName == NULL) {
+        return SM_NULL_FILENAME;
+    }
+
+    // Check that the database is open
+    if (!isOpen) {
+        return SM_DATABASE_CLOSED;
+    }
+
+    // Print the command
+    if (printCommands) {
+        cout << "Load\n"
+             << "   relName =" << relName << "\n"
+             << "   fileName=" << fileName << "\n";
+    }
+
+    // Get the relation and attributes information
+    int rc;
+    SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
+    if ((rc = GetRelInfo(relName, rcRecord))) {
+        return rc;
+    }
+    int tupleLength = rcRecord->tupleLength;
+    int attrCount = rcRecord->attrCount;
+    int indexCount = rcRecord->indexCount;
+    DataAttrInfo* attributes = new DataAttrInfo[attrCount];
+    if ((rc = GetAttrInfo(relName, attrCount, (char*) attributes))) {
+        return rc;
+    }
+    char* tupleData = new char[tupleLength];
+
+    // Open the RM file
+    RM_FileHandle rmFH;
+    RID rid;
+    if ((rc = rmManager->OpenFile(relName, rmFH))) {
+        return rc;
+    }
+
+    // Open the indexes
+    IX_IndexHandle* ixIH;
+    if (indexCount > 0) {
+        ixIH = new IX_IndexHandle[indexCount];
+        int currentIndex = 0;
+        for (int i=0; i<attrCount; i++) {
+            int indexNo = attributes[i].indexNo;
+            if (indexNo != -1) {
+                if (currentIndex == indexCount) {
+                    return SM_INCORRECT_INDEX_COUNT;
+                }
+                char indexFileName[2*MAXNAME + 2];
+                strcpy(indexFileName, relName);
+                strcat(indexFileName, ".");
+                strcat(indexFileName, attributes[i].attrName);
+                if ((rc = ixManager->OpenIndex(indexFileName, indexNo, ixIH[currentIndex]))) {
+                    return rc;
+                }
+                currentIndex++;
+            }
+        }
+    }
+
+    // Open the data file
+    ifstream dataFile(fileName);
+    if (!dataFile.is_open()) {
+        return SM_INVALID_DATA_FILE;
+    }
+    else {
+        // Read each line of the file
+        string line;
+        while (getline(dataFile, line)) {
+            // Parse the line
+            stringstream ss(line);
+            vector<string> dataValues;
+            string dataValue;
+            while (getline(ss, dataValue, ',')) {
+                dataValues.push_back(dataValue);
+            }
+
+            // Insert the tuple in the relation
+            for (int i=0; i<attrCount; i++) {
+                if (attributes[i].attrType == INT) {
+                    int value = atoi(dataValues[i].c_str());
+                    memcpy(tupleData+attributes[i].offset, &value, attributes[i].attrLength);
+                }
+                else if (attributes[i].attrType == FLOAT) {
+                    float value = atof(dataValues[i].c_str());
+                    memcpy(tupleData+attributes[i].offset, &value, attributes[i].attrLength);
+                }
+                else {
+                    memcpy(tupleData+attributes[i].offset, dataValues[i].c_str(), attributes[i].attrLength);
+                }
+            }
+            if ((rc = rmFH.InsertRec(tupleData, rid))) {
+                return rc;
+            }
+
+            // Insert the entries in the indexes
+            int currentIndex = 0;
+            for (int i=0; i<attrCount; i++) {
+                if (attributes[i].indexNo != -1) {
+                    if (attributes[i].attrType == INT) {
+                        int value = atoi(dataValues[i].c_str());
+                        if ((rc = ixIH[currentIndex].InsertEntry(&value, rid))) {
+                            return rc;
+                        }
+                    }
+                    else if (attributes[i].attrType == FLOAT) {
+                        float value = atof(dataValues[i].c_str());
+                        if ((rc = ixIH[currentIndex].InsertEntry(&value, rid))) {
+                            return rc;
+                        }
+                    }
+                    else {
+                        char* value = (char*) dataValues[i].c_str();
+                        if ((rc = ixIH[currentIndex].InsertEntry(value, rid))) {
+                            return rc;
+                        }
+                    }
+                    currentIndex++;
+                }
+            }
+        }
+        dataFile.close();
+    }
+
+    // Close the RM file
+    if ((rc = rmManager->CloseFile(rmFH))) {
+        return rc;
+    }
+
+    // Close the indexes
+    if (indexCount > 0) {
+        for (int i=0; i<indexCount; i++) {
+            if ((rc = ixManager->CloseIndex(ixIH[i]))) {
+                return rc;
+            }
+        }
+        delete[] ixIH;
+    }
+
+    // Clean up
+    delete rcRecord;
+    delete[] attributes;
+    delete[] tupleData;
+
+    // Return OK
+    return OK_RC;
 }
 
 
@@ -363,8 +533,15 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
     6) Close the scan and clean up
 */
 RC SM_Manager::Help() {
+    // Check that the database is open
+    if (!isOpen) {
+        return SM_DATABASE_CLOSED;
+    }
+
     // Print the command
-    cout << "Help\n";
+    if (printCommands) {
+        cout << "Help\n";
+    }
 
     // Fill the attributes structure
     int attrCount = SM_RELCAT_ATTR_COUNT;
@@ -428,9 +605,21 @@ RC SM_Manager::Help() {
     6) Close the scan and clean up
 */
 RC SM_Manager::Help(const char *relName) {
+    // Check that the database is open
+    if (!isOpen) {
+        return SM_DATABASE_CLOSED;
+    }
+
+    // Check the parameter
+    if (relName == NULL) {
+        return SM_NULL_RELATION;
+    }
+
     // Print the command
-    cout << "Help\n"
-         << "   relName=" << relName << "\n";
+    if (printCommands) {
+        cout << "Help\n"
+             << "   relName=" << relName << "\n";
+    }
 
     // Check if the relation exists
     int rc;
@@ -504,9 +693,21 @@ RC SM_Manager::Help(const char *relName) {
     7) Close the scan and file and clean up
 */
 RC SM_Manager::Print(const char *relName) {
+    // Check that the database is open
+    if (!isOpen) {
+        return SM_DATABASE_CLOSED;
+    }
+
+    // Check the parameters
+    if (relName == NULL) {
+        return SM_NULL_RELATION;
+    }
+
     // Print the command
-    cout << "Print\n"
-         << "   relName=" << relName << "\n";
+    if (printCommands) {
+        cout << "Print\n"
+             << "   relName=" << relName << "\n";
+    }
 
     // Fill the attributes structure
     RM_Record rec;
@@ -574,12 +775,42 @@ RC SM_Manager::Print(const char *relName) {
 }
 
 
+// Method: Set(const char *paramName, const char *value)
 // Set parameter to value
+/* System parameters:
+    1) printCommands - TRUE or FALSE
+*/
 RC SM_Manager::Set(const char *paramName, const char *value) {
-    cout << "Set\n"
-         << "   paramName=" << paramName << "\n"
-         << "   value    =" << value << "\n";
-    return (0);
+    // Check the parameters
+    if (paramName == NULL || value == NULL) {
+        return SM_NULL_PARAMETERS;
+    }
+
+    // Set the system parameters
+    if (strcmp(paramName, "printCommands") == 0) {
+        if (strcmp(value, "TRUE") == 0) {
+            printCommands = TRUE;
+        }
+        else if (strcmp(value, "FALSE") == 0) {
+            printCommands = FALSE;
+        }
+        else {
+            return SM_INVALID_VALUE;
+        }
+    }
+     else {
+        return SM_INVALID_SYSTEM_PARAMETER;
+    }
+
+    // Print the command
+    if (printCommands) {
+        cout << "Set\n"
+             << "   paramName=" << paramName << "\n"
+             << "   value    =" << value << "\n";
+    }
+
+    // Return OK
+    return OK_RC;
 }
 
 

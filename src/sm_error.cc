@@ -21,7 +21,15 @@ static char *SM_WarnMsg[] = {
   (char*)"null attribute pointer",
   (char*)"invalid user-specified name",
   (char*)"relation does not exist",
-  (char*)"relation exists"
+  (char*)"relation exists",
+  (char*)"null relation name",
+  (char*)"null file name",
+  (char*)"invalid data file",
+  (char*)"incorrect index count",
+  (char*)"null parameters",
+  (char*)"invalid system parameter",
+  (char*)"invalid parameter value",
+  (char*)"index already exists"
 };
 
 static char *SM_ErrorMsg[] = {

@@ -96,6 +96,8 @@ private:
     RM_FileHandle relcatFH;         // RM file handle for relcat
     RM_FileHandle attrcatFH;        // RM file handle for attrcat
     int isOpen;                     // Flag whether the database is open
+
+    int printCommands;              // System parameter specifying printing level
 };
 
 //
@@ -114,7 +116,15 @@ void SM_PrintError(RC rc);
 #define SM_INVALID_NAME                     (START_SM_WARN + 6) // Invalid name
 #define SM_TABLE_DOES_NOT_EXIST             (START_SM_WARN + 7) // Table does not exist
 #define SM_TABLE_ALREADY_EXISTS             (START_SM_WARN + 8) // Table already exists
-#define SM_LASTWARN                         SM_TABLE_ALREADY_EXISTS
+#define SM_NULL_RELATION                    (START_SM_WARN + 9) // Null relation name
+#define SM_NULL_FILENAME                    (START_SM_WARN + 10) // Null file name
+#define SM_INVALID_DATA_FILE                (START_SM_WARN + 11) // Invalid data file
+#define SM_INCORRECT_INDEX_COUNT            (START_SM_WARN + 12) // Incorrect index count
+#define SM_NULL_PARAMETERS                  (START_SM_WARN + 13) // Null parameters
+#define SM_INVALID_SYSTEM_PARAMETER         (START_SM_WARN + 14) // Invalid system parameter
+#define SM_INVALID_VALUE                    (START_SM_WARN + 15) // Invalid value
+#define SM_INDEX_EXISTS                     (START_SM_WARN + 16) // Index already exists
+#define SM_LASTWARN                         SM_INDEX_EXISTS
 
 // Errors
 #define SM_INVALID_DATABASE_NAME            (START_SM_ERR - 0) // Invalid database file name
