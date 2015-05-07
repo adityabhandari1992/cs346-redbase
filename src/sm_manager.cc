@@ -689,7 +689,6 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
     int indexCount = rcRecord->indexCount;
     DataAttrInfo* attributes = new DataAttrInfo[attrCount];
     if ((rc = GetAttrInfo(relName, attrCount, (char*) attributes))) {
-        delete attributes;
         return rc;
     }
     char* tupleData = new char[tupleLength];
@@ -723,6 +722,8 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
     // Open the data file
     ifstream dataFile(fileName);
     if (!dataFile.is_open()) {
+        delete rcRecord;
+        delete[] attributes;
         delete[] tupleData;
         delete[] ixIH;
         return SM_INVALID_DATA_FILE;
