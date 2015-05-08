@@ -2,3 +2,4 @@ corn_to_laptop.sh
 laptop_to_corn.sh
 build/*
 src/*.o
+src/*_test_out
