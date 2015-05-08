@@ -1,0 +1,19 @@
+create table Player(AARAmembership i, name c30, streetNum i, street c50, city c30, state c2, sponsorshipType i);
+
+create index Player(AARAmembership);
+
+help;
+
+load Player("../data/player.data");
+
+print Player;
+
+drop index Player(AARAmembership);
+
+drop table Player;
+
+help;
+
+print io;
+
+exit;
