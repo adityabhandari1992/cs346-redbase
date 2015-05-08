@@ -252,6 +252,10 @@ RC SM_Manager::DropTable(const char *relName) {
         return SM_NULL_RELATION;
     }
 
+    if (strcmp(relName, "relcat") == 0 || strcmp(relName, "attrcat") == 0) {
+        return SM_SYSTEM_CATALOG;
+    }
+
     // Print the drop table command
     if (printCommands) {
         cout << "DropTable\n   relName=" << relName << "\n";
@@ -662,6 +666,10 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
     }
     if (fileName == NULL) {
         return SM_NULL_FILENAME;
+    }
+
+    if (strcmp(relName, "relcat") == 0 || strcmp(relName, "attrcat") == 0) {
+        return SM_SYSTEM_CATALOG;
     }
 
     // Check that the database is open
@@ -1118,6 +1126,14 @@ RC SM_Manager::Set(const char *paramName, const char *value) {
     2) For each record, fill attributes array
 */
 RC SM_Manager::GetAttrInfo(const char* relName, int attrCount, char* attributeData) {
+    // Check the parameters
+    if (relName == NULL) {
+        return SM_NULL_RELATION;
+    }
+    if (attrCount < 0) {
+        return SM_INCORRECT_ATTRIBUTE_COUNT;
+    }
+
     int rc;
     RM_FileScan attrcatFS;
     RM_Record rec;
@@ -1179,6 +1195,14 @@ RC SM_Manager::GetAttrInfo(const char* relName, int attrCount, char* attributeDa
     3) Fill the attribute structure
 */
 RC SM_Manager::GetAttrInfo(const char* relName, const char* attrName, SM_AttrcatRecord* attributeData) {
+    // Check the parameters
+    if (relName == NULL) {
+        return SM_NULL_RELATION;
+    }
+    if (attrName == NULL) {
+        return SM_NULL_ATTRIBUTES;
+    }
+
     int rc;
     RM_FileScan attrcatFS;
     RM_Record rec;
@@ -1234,6 +1258,11 @@ RC SM_Manager::GetAttrInfo(const char* relName, const char* attrName, SM_Attrcat
     2) Fill relation data
 */
 RC SM_Manager::GetRelInfo(const char* relName, SM_RelcatRecord* relationData) {
+    // Check the parameters
+    if (relName == NULL) {
+        return SM_NULL_RELATION;
+    }
+
     int rc;
     RM_FileScan relcatFS;
     RM_Record rec;
