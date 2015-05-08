@@ -36,7 +36,85 @@ Stores the following:
 
 -------------------
 
+* System Catalogs - Metadata Management *
+
+The two system catalogs are as follows:
+
+1) relcat: For storing the information about relations in the database
+I have used the struct SM_RelcatRecord (described above) for the tuples in relcat. Each
+tuple of relcat thus stores the name, tuple length, attribute count and index count of all
+the relations in the database.
+
+2) attrcat: For storing the information about attributes of relations in the database
+I have used the struct SM_AttrcatRecord (described above) for the tuples in attrcat. Each
+tuple of attrcat thus stores the relation name, attribute name, offset of the attribute in
+the relation tuple, type of the attribute, length of the attribute and the index number (if
+an index exists on the attribute, else -1) for all the attributes in all the relations in the
+database.
+
+For both the system catalogs, the user cannot load tuples or drop the table. But, the user
+can print the attributes or the tuples in the tables (using the help or print commands).
+
+-------------------
+
+* Database creation and destruction *
+
+The code to create a new database is written in the file "dbcreate.cc" and the code to destroy
+a database is in "dbdestroy.cc".
+The procedures are implemented as follows:
+
+1) dbcreate:
+A subdirectory (with name same as the database name to be created) is created and using the
+system command "mkdir". After the directory is created, the path is changed to that subdirectory
+(using "chdir") and the system catalogs are created. In addition to this, the tuples for 'relcat'
+and 'attrcat' are inserted into 'relcat', and tuples for all the attributes of the two tables are
+inserted into 'attrcat'.
+
+2) dbdestroy:
+The subdirectory (with the name same as the database name to be destroyed) and all the files in
+that subdirectory is deleted using the system command "rm -r".
+
+-------------------
+
+* SM Manager Interface *
+
+I have extended the given SM_Manager interface to include the following additional public methods:
+
+1) RC GetAttrInfo(const char* relName, int attrCount, char* attributeData)
+    - Method to get the information about all the attributes of a relation
+The method should be called with the relation name passed as 'relName' and the attribute count
+in the relation passed as 'attrCount'. The method extracts the information about all the
+attributes in the relation from the system catalog 'attrcat' and stores them in an array of
+DataAttrInfo type (of size 'attrCount'). This array is then returned as a char* pointer via
+the parameter 'attributeData'.
+The method returns a warning SM_INCORRECT_ATTRIBUTE_COUNT if the attribute count for the
+relation from 'attrcat' does not match with the provided 'attrCount'.
+
+2) RC GetAttrInfo(const char* relName, const char* attrName, SM_AttrcatRecord* attributeData)
+    - Method to get the information about a particular attribute of a relation
+The method should be called with the relation name passed as 'relName' and the attribute name
+passed as 'attrName'. The method extracts the information about the required attribute from the
+system catalog 'attrcat' and stores it in an object of the struct SM_AttrcatRecord. The pointer
+to the object is then returned via the parameter 'attributeData'.
+The method returns with 'attributeData' unchanged in case the attribute named 'attrName' is not
+found in the relation named 'relName'.
+
+3) RC GetRelInfo(const char* relName, SM_RelcatRecord* relationData);
+    - Method to get the information about a particular relation
+The method should be called with the required relation name passed as 'relName'. The method
+extracts the information about the required relation from the system catalog 'relcat' and stores
+it in an object of the struct SM_RelcatRecord. The pointer to the object is then returned via
+the parameter 'relationData'.
+The method returns SM_TABLE_DOES_NOT_EXIST (with 'relationData' unchanged) in case the relation
+named 'relName' is not found in 'relcat'.
+
+-------------------
+
 * System Parameters *
+
+Currently, I have added just one system parameter named "printCommands".
+This system parameter can be used to toggle the printing of the user commands (in a user
+friendly manner). It takes 2 values - TRUE and FALSE.
 
 --------------------------------------------
 --------------------------------------------
@@ -59,5 +137,46 @@ The code files are:
 
 ** TESTING **
 
+In addition to the single test file provided, I wrote several test files of my own to test
+the different parts of the SM component.
+The contents of the tests are as follows:
+
+* Test1 (Simple) *
+    1) Create a database
+    2) Print relcat and attrcat contents
+    3) Destroy the database
+
+* Test2 (Create table) *
+    1) Create a database
+    2) Create a table
+    3) Print relcat, attrcat and table contents
+    4) Drop the table
+    5) Destroy the database
+
+* Test3 (Create index) *
+    1) Create a database
+    2) Create a table
+    3) Create an index on the table
+    4) Print relcat, attrcat and table contents
+    5) Drop the index and table
+    6) Destroy the database
+
+* Test4 (Load data) *
+    1) Create a database
+    2) Create a table
+    3) Create an index on the table
+    4) Load data from a data file
+    5) Print relcat, attrcat and table contents
+    6) Drop the index and table
+    7) Destroy the database
+
+* Test5 (Load large data) *
+    1) Create a database
+    2) Create a table
+    3) Create an index on the table
+    4) Load data from a large data file (>5000 tuples in each table)
+    5) Print relcat, attrcat and table contents
+    6) Drop the index and table
+    7) Destroy the database
 
 --------------------------------------------xx EOF xx----------------------------------------
