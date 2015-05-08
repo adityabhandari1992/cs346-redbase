@@ -11,6 +11,8 @@ Assistance taken:
     - Help with memory alignment in relcat and attrcat record structs
     - Clarification about user-specified names and SM_Manager::Set method
 
+2) Data files in the shared folder on corn used for testing
+
 --------------------------------------------
 --------------------------------------------
 
