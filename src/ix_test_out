@@ -1,164 +1,0 @@
-Starting IX component test.
-
-** Beginning Test
- *** Illegal Index Create Test (Negative indexNo): PASS
-
- *** Illegal Index Create Test (NULL Filename): PASS
-
- *** Illegal Index Create Test (Nonexisting Filename): PASS
-
- *** Illegal Index Create Test (Bad INT length): PASS
-
- *** Illegal Index Create Test (Bad FLOAT length): PASS
-
- *** Illegal Index Create Test (Bad STRING length): PASS
-
- *** Illegal Index Create Test (Bad STRING length): PASS
-
- *** Illegal Index Create Test (Bad Type): PASS
-
- *** Legal Index Create Test: PASS
-
- *** Legal Index Create Test: PASS
-
- *** Illegal Index Destroy Test (NULL fileName): PASS
-
- *** Illegal Index Destroy Test (Nonexisting fileName): PASS
-
- *** Illegal Index Destroy Test (Negative indexNo): PASS
-
- *** Illegal Index Destroy Test (Uncreated Index): PASS
-
- *** Legal Index Destroy Test: PASS
-
- *** Legal Index Destroy Test: PASS
-
- *** Legal Index Create Test: PASS
-
- *** Legal Index Create Test: PASS
-
- *** Illegal Index Open Test (Nonexisting fileName): PASS
-
- *** Illegal Index Open Test (NULL fileName): PASS
-
- *** Illegal Index Open Test (Nonexisting index name): PASS
-
- *** Legal Index Open Test: PASS
-
- *** Legal Index Open Test: PASS
-
- *** Illegal Index Open Test (One handle - two indexes): PASS
-
- *** Illegal Index Close Test (handle w/out index): PASS
-
- *** Legal Index Close Test: PASS
-
- *** Illegal Index Close Test (second close): PASS
-
- *** Illegal Index Scan (file not open): PASS
-
- *** Illegal Index Scan (NULL value): PASS
-             adding 1000 int entries
-	20%    	40%    	60%    	80%    	100%    	100%      
-Verifying index contents
-Verifying index contents
-
- *** Dallan's Insertion and Validation Test (INT): PASS
-
- *** Destroying Index Test (INT): PASS
-             adding 1000 string entries
-	20%    	40%    	60%    	80%    	100%    	100%      
-Verifying index contents
-Verifying index contents
-
- *** Insertion and Validation Test (STRING): PASS
-
- *** Destroying Index Test (STRING): PASS
-             adding 1000 float entries
-	20%    	40%    	60%    	80%    	100%    	100%      
-Verifying index contents
-Verifying index contents
-
- *** Insertion and Validation Test (FLOAT): PASS
-
- *** Destroying Index Test (FLOAT): PASS
-             adding 1000 int entries
-	20%    	40%    	60%    	80%    	100%    	100%      
-        deleting 990 int entries
-	20%      	40%      	60%      	80%      	100%      
-Verifying index contents
-Verifying index contents
-
- *** Dallan's Validation Test with Deletion(INT): PASS
-
- *** Destroying Index Test (INT): PASS
-             adding 1000 float entries
-	20%    	40%    	60%    	80%    	100%    	100%      
-        deleting 990 float entries
-	20%      	40%      	60%      	80%      	100%      
-Verifying index contents
-Verifying index contents
-
- *** Validation Test with Deletion(FLOAT): PASS
-
- *** Destroying Index Test (FLOAT): PASS
-             adding 1000 string entries
-	20%    	40%    	60%    	80%    	100%    	100%      
-             deleting 990 string entries
-	20%    	40%    	60%    	80%    	100%      
-Verifying index contents
-Verifying index contents
-
- *** Validation Test with Deletion(STRING): PASS
-
- *** Destroying Index Test (STRING): PASS
-
-Starting scan and delete by inserting 50 values of 50 ints
-Deleting all of the indices for half of the values
-Verifying count of remaining values
-Scan and Delete Test PASS
-
-
-** Congratulations if you have made it this far 
-only one test left - THE ACCORDIAN ... Good Luck !!!
-
-Inserted 2500 values
-
-
-
-Add 50 of vals 1-50 : PASS
-Deleted 2450 entries
-
-DeleteInts passed
-
-
-Del 50 all vals except 5 : PASS
-Inserted 2450 values
-
-
-
-Add 50 of vals 1-50 (exc val = 5): PASS
-Deleted 2400 entries
-
-
-Del 50 all vals except 5-6 : PASS
-Inserted 2400 values
-
-
-
-Add 50 of vals 1-50 (exc val = 5-6): PASS
-Deleted 2350 entries
-
-
-Del 50 all vals except 5-7 : PASS
-Inserted 2350 values
-
-
-
-Add 50 of vals 1-50 (exc val = 5 - 7): PASS
-Deleted 2300 entries
-
-
-THE ACCORDIAN : PASS
-Ending IX component test.
-
