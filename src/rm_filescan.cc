@@ -255,8 +255,10 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
             rc = pfFH.GetNextPage(pageNumber, pfPH);
             if (rc == PF_EOF) {
                 pageNumber = RM_NO_FREE_PAGE;
-                // Return EOF
-                return RM_EOF;
+
+                // Return OK if record already found, else return EOF
+                if (recordMatch) return OK_RC;
+                else return RM_EOF;
             }
             else if (rc) {
                 // Return the error from the PF FileHandle
