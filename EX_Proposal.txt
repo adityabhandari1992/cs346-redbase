@@ -1,0 +1,19 @@
+CS 346: EX Component Proposal
+
+- Master node => Creates children data nodes when needed
+- Communication among children nodes? Subdirectories with dump files?
+- Setup milestones
+
+- Milestone 1: Support multiple nodes and simple whole table scans across them
+    - SM Component command to create a distributed database (multiple nodes)
+    - Fragment data across the nodes (simple / user specified)
+    - Communication among the nodes and with the master node
+    - Full table scan by UNION of fragmented result sets
+
+- Milestone 2: Support INSERT, UPDATE and DELETE on the relations
+    - Command issued by the master node to the appropriate child data node
+    - Query executed by the child node
+
+- Milestone 3: Support distributed JOIN
+    - Move data of a relation to all nodes (Add extra operators in the query plan)
+    - Perform join at each child node and UNION of result sets at the master node
