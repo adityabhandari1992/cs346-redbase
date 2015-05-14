@@ -3,3 +3,7 @@ laptop_to_corn.sh
 build/*
 src/*.o
 src/*_test_out
+*.aux
+*.log
+*.out
+src/testDB/*
