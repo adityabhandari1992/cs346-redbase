@@ -1,10 +1,8 @@
 //
-// ql_manager_stub.cc
+// File:        sm_manager.cc
+// Description: SM_Manager class implementation
+// Authors:     Aditya Bhandari (adityasb@stanford.edu)
 //
-
-// Note that for the SM component (HW3) the QL is actually a
-// simple stub that will allow everything to compile.  Without
-// a QL stub, we would need two parsers.
 
 #include <cstdio>
 #include <iostream>
@@ -29,6 +27,11 @@ QL_Manager::QL_Manager(SM_Manager &smm, IX_Manager &ixm, RM_Manager &rmm)
 {
     // Can't stand unused variable warnings!
     assert (&smm && &ixm && &rmm);
+
+    // Store the objects
+    this->rmManager = &rmm;
+    this->ixManager = &ixm;
+    this->smManager = &smm;
 }
 
 //

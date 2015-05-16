@@ -48,11 +48,26 @@ public:
         const Condition conditions[]);   // conditions in where clause
 
 private:
+    RM_Manager* rmManager;          // RM_Manager object
+    IX_Manager* ixManager;          // IX_Manager object
+    SM_Manager* smManager;         // SM_Manager object
 };
 
 //
 // Print-error function
 //
 void QL_PrintError(RC rc);
+
+// Warnings
+#define QL_DATABASE_DOES_NOT_EXIST          (START_QL_WARN + 0) // Database does not exist
+#define QL_LASTWARN                         QL_DATABASE_DOES_NOT_EXIST
+
+// Errors
+#define QL_INVALID_DATABASE_NAME            (START_QL_ERR - 0) // Invalid database file name
+
+// Error in UNIX system call or library routine
+#define QL_UNIX                 (START_QL_ERR - 1) // Unix error
+#define QL_LASTERROR            QL_UNIX
+
 
 #endif
