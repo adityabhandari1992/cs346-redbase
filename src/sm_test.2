@@ -1,19 +1,20 @@
-create table emp(id i, f_name s80, l_name s80, dept i, ssn i, age i);
+create table Player(AARAmembership i, name c30, streetNum i, street c50, city c30, state c2, sponsorshipType i);
 
-create index emp(id);
+create index Player(AARAmembership);
 
 help;
 
-load emp("../data/company/emp.data");
+load Player("../data/player.data");
 
-print emp;
+print Player;
 
-drop index emp(id);
+drop index Player(AARAmembership);
 
-drop table emp;
+drop table Player;
 
 help;
 
 print io;
 
 exit;
+

@@ -158,7 +158,7 @@ sub CreateLinks {
 
       @hardfiles = (
 
-          "$pfdir/redbase.h",
+#         "$pfdir/redbase.h",
           "$smdir/interp.c",
           "$smdir/nodes.c",
           "$smdir/parse.y",
