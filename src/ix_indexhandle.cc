@@ -3010,6 +3010,7 @@ RC IX_IndexHandle::DeleteFromLeaf(void* pData, const RID &rid, PageNum node) {
     int rc;
 
     bool disposeFlag = false;
+    bool isRoot = false;
     // Get the node data
     PF_PageHandle pfPH;
     char* nodeData;
@@ -3122,9 +3123,6 @@ RC IX_IndexHandle::DeleteFromLeaf(void* pData, const RID &rid, PageNum node) {
 
             // Else if bucket does not exist
             else {
-                if ((rc = pfFH.MarkDirty(node))) {
-                    return rc;
-                }
                 // Shift the keys and values to the left
                 for (int i=keyPosition+1; i<numberKeys; i++) {
                     if (attrType == INT) {
@@ -3204,8 +3202,9 @@ RC IX_IndexHandle::DeleteFromLeaf(void* pData, const RID &rid, PageNum node) {
                     // Push the node deletion to the parent
                     PageNum parent = nodeHeader->parent;
                     if (parent == IX_NO_PAGE) {
-                        indexHeader.rootPage = IX_NO_PAGE;
-                        headerModified = TRUE;
+                        isRoot = true;
+                        // indexHeader.rootPage = IX_NO_PAGE;
+                        // headerModified = TRUE;
                     }
                     else {
                         // Call the push deletion up method
@@ -3287,7 +3286,7 @@ RC IX_IndexHandle::DeleteFromLeaf(void* pData, const RID &rid, PageNum node) {
         }
 
         // Dispose the node page if dispose flag is true
-        if (disposeFlag) {
+        if (disposeFlag && !isRoot) {
             if ((rc = pfFH.DisposePage(node))) {
                 return rc;
             }

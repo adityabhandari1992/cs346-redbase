@@ -1,0 +1,25 @@
+create table T (id i, name c20);
+
+load T ("../data/t.data");
+
+create index T (id);
+
+print T;
+
+Delete From T Where name > "Adi";
+
+print T;
+
+Delete From T Where id > 1;
+
+print T;
+
+load T ("../data/t.data");
+
+print T;
+
+Delete From T Where name = "Adi";
+
+print T;
+
+drop table T;

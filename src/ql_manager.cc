@@ -760,7 +760,7 @@ RC QL_Manager::Delete(const char *relName,
         delete[] ixIHs;
 
         // Close the file scan
-        if ((rc == rmFS.CloseScan())) {
+        if ((rc = rmFS.CloseScan())) {
             return rc;
         }
 
@@ -785,32 +785,40 @@ RC QL_Manager::Delete(const char *relName,
 
 /************ UPDATE ************/
 
-//
+// Method: Update(const char *relName, const RelAttr &updAttr, const int bIsValue,
+//                const RelAttr &rhsRelAttr, const Value &rhsValue, int nConditions,
+//                const Condition conditions[])
 // Update from the relName all tuples that satisfy conditions
-//
+/* Steps:
+
+*/
 RC QL_Manager::Update(const char *relName,
                       const RelAttr &updAttr,
                       const int bIsValue,
                       const RelAttr &rhsRelAttr,
                       const Value &rhsValue,
                       int nConditions, const Condition conditions[]) {
-    int i;
+    // Check the parameters
 
-    cout << "Update\n";
+    // Print the command
+    if (smManager->getPrintFlag()) {
+        int i;
+        cout << "Update\n";
+        cout << "   relName = " << relName << "\n";
+        cout << "   updAttr:" << updAttr << "\n";
+        if (bIsValue)
+            cout << "   rhs is value: " << rhsValue << "\n";
+        else
+            cout << "   rhs is attribute: " << rhsRelAttr << "\n";
+        cout << "   nConditions = " << nConditions << "\n";
+        for (i = 0; i < nConditions; i++)
+            cout << "   conditions[" << i << "]:" << conditions[i] << "\n";
+    }
 
-    cout << "   relName = " << relName << "\n";
-    cout << "   updAttr:" << updAttr << "\n";
-    if (bIsValue)
-        cout << "   rhs is value: " << rhsValue << "\n";
-    else
-        cout << "   rhs is attribute: " << rhsRelAttr << "\n";
-
-    cout << "   nCondtions = " << nConditions << "\n";
-    for (i = 0; i < nConditions; i++)
-        cout << "   conditions[" << i << "]:" << conditions[i] << "\n";
-
-    return 0;
+    // Return OK
+    return OK_RC;
 }
+
 
 // Method: GetAttrInfoFromArray(char* attributes, int attrCount, char* attributeData)
 // Get the attribute info from the attributes array

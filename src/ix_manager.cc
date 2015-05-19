@@ -314,10 +314,10 @@ RC IX_Manager::CloseIndex(IX_IndexHandle &indexHandle) {
             return rc;
         }
 
-        // // Flush the modified header page
-        // if ((rc = pfFH.ForcePages(headerPageNum))) {
-        //     return rc;
-        // }
+        // Flush the modified header page
+        if ((rc = pfFH.ForcePages(headerPageNum))) {
+            return rc;
+        }
     }
 
     // Free the last scanned entry array
