@@ -4,6 +4,7 @@
 // Authors:     Aditya Bhandari (adityasb@stanford.edu)
 //
 
+#include <iostream>
 #include <cstring>
 #include <string>
 #include "rm_internal.h"
@@ -218,7 +219,7 @@ RC RM_FileScan::GetNextRec(RM_Record &rec) {
             }
             // If the attribute is string
             else if (attrType == STRING) {
-                string recordValue(recordData);
+                string recordValue(recordData + attrOffset);
                 char* givenValueChar = static_cast<char*>(value);
                 string givenValue(givenValueChar);
                 recordMatch = matchRecord(recordValue, givenValue);
