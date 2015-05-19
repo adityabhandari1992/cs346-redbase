@@ -50,7 +50,12 @@ public:
 private:
     RM_Manager* rmManager;          // RM_Manager object
     IX_Manager* ixManager;          // IX_Manager object
-    SM_Manager* smManager;         // SM_Manager object
+    SM_Manager* smManager;          // SM_Manager object
+
+    RC GetAttrInfoFromArray(char* attributes, int attrCount, const char* attrName, char* attributeData);
+
+    template <typename T>
+    bool matchRecord(T lhsValue, T rhsValue, CompOp op);
 };
 
 //
@@ -60,7 +65,15 @@ void QL_PrintError(RC rc);
 
 // Warnings
 #define QL_DATABASE_DOES_NOT_EXIST          (START_QL_WARN + 0) // Database does not exist
-#define QL_LASTWARN                         QL_DATABASE_DOES_NOT_EXIST
+#define QL_DATABASE_CLOSED                  (START_QL_WARN + 1) // Database is closed
+#define QL_NULL_RELATION                    (START_QL_WARN + 2) // Null relation name
+#define QL_SYSTEM_CATALOG                   (START_QL_WARN + 3) // System catalog
+#define QL_INCORRECT_INDEX_COUNT            (START_QL_WARN + 4) // Incorrect index count
+#define QL_INCORRECT_ATTR_COUNT             (START_QL_WARN + 5) // Incorrect attribute count
+#define QL_INCORRECT_ATTRIBUTE_TYPE         (START_QL_WARN + 6) // Incorrect attribute type
+#define QL_INVALID_CONDITION                (START_QL_WARN + 7) // Invalid condition
+#define QL_ATTRIBUTE_NOT_FOUND              (START_QL_WARN + 8) // Attribute not found
+#define QL_LASTWARN                         QL_INVALID_CONDITION
 
 // Errors
 #define QL_INVALID_DATABASE_NAME            (START_QL_ERR - 0) // Invalid database file name

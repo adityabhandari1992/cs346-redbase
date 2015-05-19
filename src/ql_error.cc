@@ -13,7 +13,15 @@
 using namespace std;
 
 static char *QL_WarnMsg[] = {
-  (char*)"database does not exist"
+  (char*)"database does not exist",
+  (char*)"database is closed",
+  (char*)"null relation name",
+  (char*)"cannot change system catalog",
+  (char*)"incorrect index count",
+  (char*)"incorrect attribute count",
+  (char*)"incorrect attribute type",
+  (char*)"invalid condition",
+  (char*)"attribute not found"
 };
 
 static char *QL_ErrorMsg[] = {
