@@ -438,7 +438,7 @@ RC QL_Manager::Delete(const char *relName,
         queryPlan += ", ";
         queryPlan += attributeData->attrName;
         queryPlan += OperatorToString(op);
-        queryPlan += GetValue(conditions[indexCondition].rhsValue);
+        GetValue(conditions[indexCondition].rhsValue, queryPlan);
         queryPlan += ")\n";
 
         // Open all the indexes
@@ -572,6 +572,7 @@ RC QL_Manager::Delete(const char *relName,
             }
         }
         delete[] ixIHs;
+        delete attributeData;
 
         // Close the scans and files
         if ((rc = ixIS.CloseScan())) {
@@ -632,7 +633,7 @@ RC QL_Manager::Delete(const char *relName,
             queryPlan += ", ";
             queryPlan += attributeData->attrName;
             queryPlan += OperatorToString(op);
-            queryPlan += GetValue(conditions[conditionNumber].rhsValue);
+            GetValue(conditions[conditionNumber].rhsValue, queryPlan);
             queryPlan += ")\n";
 
             delete attributeData;
@@ -925,23 +926,22 @@ const char* QL_Manager::OperatorToString(CompOp op) {
 }
 
 // Get the value in a string for printing
-const char* QL_Manager::GetValue(Value v) {
+void QL_Manager::GetValue(Value v, string& queryPlan) {
     AttrType vType = v.type;
     if (vType == INT) {
         int value = *static_cast<int*>(v.data);
         stringstream ss;
         ss << value;
-        return ss.str().c_str();
+        queryPlan += ss.str();
     }
     else if (vType == FLOAT) {
         float value = *static_cast<float*>(v.data);
         stringstream ss;
         ss << value;
-        return ss.str().c_str();
+        queryPlan += ss.str();
     }
     else {
         char* value = static_cast<char*>(v.data);
-        string s(value);
-        return s.c_str();
+        queryPlan += value;
     }
 }

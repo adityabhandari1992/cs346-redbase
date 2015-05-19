@@ -58,7 +58,7 @@ private:
     bool matchRecord(T lhsValue, T rhsValue, CompOp op);
 
     const char* OperatorToString(CompOp op);
-    const char* GetValue(Value v);
+    void GetValue(Value v, std::string& queryPlan);
 };
 
 //
