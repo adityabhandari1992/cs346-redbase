@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <cassert>
 #include <unistd.h>
+#include <sstream>
 #include "redbase.h"
 #include "sm.h"
 #include "ql.h"
@@ -398,6 +399,7 @@ RC QL_Manager::Delete(const char *relName,
     }
 
     // Prepare the printer class
+    string queryPlan = "";
     cout << "Deleted tuples:" << endl;
     Printer p(attributes, attrCount);
     p.PrintHeader(cout);
@@ -431,6 +433,13 @@ RC QL_Manager::Delete(const char *relName,
         if ((rc = ixIS.OpenScan(ixIH, op, (conditions[indexCondition].rhsValue).data))) {
             return rc;
         }
+        queryPlan += "IndexScan (";
+        queryPlan += relName;
+        queryPlan += ", ";
+        queryPlan += attributeData->attrName;
+        queryPlan += OperatorToString(op);
+        queryPlan += GetValue(conditions[indexCondition].rhsValue);
+        queryPlan += ")\n";
 
         // Open all the indexes
         IX_IndexHandle* ixIHs = new IX_IndexHandle[attrCount];
@@ -617,6 +626,15 @@ RC QL_Manager::Delete(const char *relName,
             if ((rc = rmFS.OpenScan(rmFH, lhsType, lhsLength, lhsOffset, op, (conditions[conditionNumber].rhsValue).data))) {
                 return rc;
             }
+
+            queryPlan += "FileScan (";
+            queryPlan += relName;
+            queryPlan += ", ";
+            queryPlan += attributeData->attrName;
+            queryPlan += OperatorToString(op);
+            queryPlan += GetValue(conditions[conditionNumber].rhsValue);
+            queryPlan += ")\n";
+
             delete attributeData;
         }
 
@@ -626,6 +644,10 @@ RC QL_Manager::Delete(const char *relName,
             if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, NO_OP, NULL))) {
                 return rc;
             }
+
+            queryPlan += "FileScan (";
+            queryPlan += relName;
+            queryPlan += ")\n";
         }
 
         // Open all the indexes
@@ -773,6 +795,12 @@ RC QL_Manager::Delete(const char *relName,
     // Print the footer
     p.PrintFooter(cout);
 
+    // Print the query plan
+    if (bQueryPlans) {
+        cout << "\nPhysical Query Plan :" << endl;
+        cout << queryPlan;
+    }
+
     // Clean up
     delete rcRecord;
     delete[] attributes;
@@ -874,4 +902,46 @@ bool QL_Manager::matchRecord(T lhsValue, T rhsValue, CompOp op) {
             break;
     }
     return recordMatch;
+}
+
+// Get the string form of the operator
+const char* QL_Manager::OperatorToString(CompOp op) {
+    switch(op) {
+        case EQ_OP:
+            return " = ";
+        case LT_OP:
+            return " < ";
+        case GT_OP:
+            return " > ";
+        case LE_OP:
+            return " <= ";
+        case GE_OP:
+            return " >= ";
+        case NE_OP:
+            return " != ";
+        default:
+            return " NO_OP ";
+    }
+}
+
+// Get the value in a string for printing
+const char* QL_Manager::GetValue(Value v) {
+    AttrType vType = v.type;
+    if (vType == INT) {
+        int value = *static_cast<int*>(v.data);
+        stringstream ss;
+        ss << value;
+        return ss.str().c_str();
+    }
+    else if (vType == FLOAT) {
+        float value = *static_cast<float*>(v.data);
+        stringstream ss;
+        ss << value;
+        return ss.str().c_str();
+    }
+    else {
+        char* value = static_cast<char*>(v.data);
+        string s(value);
+        return s.c_str();
+    }
 }

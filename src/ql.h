@@ -56,6 +56,9 @@ private:
 
     template <typename T>
     bool matchRecord(T lhsValue, T rhsValue, CompOp op);
+
+    const char* OperatorToString(CompOp op);
+    const char* GetValue(Value v);
 };
 
 //

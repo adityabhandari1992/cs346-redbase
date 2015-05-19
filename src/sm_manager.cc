@@ -1105,6 +1105,17 @@ RC SM_Manager::Set(const char *paramName, const char *value) {
             return SM_INVALID_VALUE;
         }
     }
+    else if (strcmp(paramName, "bQueryPlans") == 0) {
+        if (strcmp(value, "TRUE") == 0) {
+            bQueryPlans = 1;
+        }
+        else if (strcmp(value, "FALSE") == 0) {
+            bQueryPlans = 0;
+        }
+        else {
+            return SM_INVALID_VALUE;
+        }
+    }
      else {
         return SM_INVALID_SYSTEM_PARAMETER;
     }

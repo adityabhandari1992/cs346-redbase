@@ -1,3 +1,5 @@
+set bQueryPlans = "TRUE";
+
 create table T (id i, name c20);
 
 load T ("../data/t.data");
@@ -10,7 +12,7 @@ Delete From T Where name > "Adi";
 
 print T;
 
-Delete From T Where id > 1;
+Delete From T;
 
 print T;
 
