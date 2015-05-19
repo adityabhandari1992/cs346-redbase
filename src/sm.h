@@ -89,6 +89,9 @@ public:
     RC GetAttrInfo(const char* relName, const char* attrName, SM_AttrcatRecord* attributeData);
     RC GetRelInfo(const char* relName, SM_RelcatRecord* relationData);
 
+    int getPrintFlag();             // Method to get the printCommands flag
+    int getOpenFlag();              // Method to get the isOpen flag
+
 private:
     RM_Manager* rmManager;          // RM_Manager object
     IX_Manager* ixManager;          // IX_Manager object

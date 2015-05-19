@@ -491,26 +491,28 @@ RC SM_Manager::CreateIndex(const char *relName, const char *attrName) {
             }
 
             // Insert the attribute value in the index
-            char* attributeData = new char[attrLength];
-            memcpy(attributeData, recordData+offset, attrLength);
             if (attrType == INT) {
-                int value = atoi(attributeData);
+                int value;
+                memcpy(&value, recordData+offset, sizeof(value));
                 if ((rc = ixIH.InsertEntry(&value, rid))) {
                     return rc;
                 }
             }
             else if (attrType == FLOAT) {
-                float value = atof(attributeData);
+                float value;
+                memcpy(&value, recordData+offset, sizeof(value));
                 if ((rc = ixIH.InsertEntry(&value, rid))) {
                     return rc;
                 }
             }
             else {
-                if ((rc = ixIH.InsertEntry(attributeData, rid))) {
+                char* value = new char[attrLength];
+                strcpy(value, recordData+offset);
+                if ((rc = ixIH.InsertEntry(value, rid))) {
                     return rc;
                 }
+                delete[] value;
             }
-            delete[] attributeData;
         }
     }
     if ((rc = rmFS.CloseScan())) {
@@ -1300,4 +1302,14 @@ RC SM_Manager::GetRelInfo(const char* relName, SM_RelcatRecord* relationData) {
 
     // Return OK
     return OK_RC;
+}
+
+// Method to get the printCommands flag
+int SM_Manager::getPrintFlag() {
+    return printCommands;
+}
+
+// Method to get the isOpen flag
+int SM_Manager::getOpenFlag() {
+    return isOpen;
 }
