@@ -283,16 +283,6 @@ RC QL_Manager::Delete(const char *relName,
         return QL_SYSTEM_CATALOG;
     }
 
-    // Print the command
-    if (smManager->getPrintFlag()) {
-        int i;
-        cout << "Delete\n";
-        cout << "   relName = " << relName << "\n";
-        cout << "   nCondtions = " << nConditions << "\n";
-        for (i = 0; i < nConditions; i++)
-            cout << "   conditions[" << i << "]:" << conditions[i] << "\n";
-    }
-
     // Get the relation and attributes information
     int rc;
     SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
@@ -377,6 +367,16 @@ RC QL_Manager::Delete(const char *relName,
         }
     }
 
+    // Print the command
+    if (smManager->getPrintFlag()) {
+        int i;
+        cout << "Delete\n";
+        cout << "   relName = " << relName << "\n";
+        cout << "   nCondtions = " << nConditions << "\n";
+        for (i = 0; i < nConditions; i++)
+            cout << "   conditions[" << i << "]:" << conditions[i] << "\n";
+    }
+
     // Find whether index exists on some condition
     bool indexExists = false;
     int indexCondition = -1;
@@ -433,13 +433,8 @@ RC QL_Manager::Delete(const char *relName,
         if ((rc = ixIS.OpenScan(ixIH, op, (conditions[indexCondition].rhsValue).data))) {
             return rc;
         }
-        queryPlan += "IndexScan (";
-        queryPlan += relName;
-        queryPlan += ", ";
-        queryPlan += attributeData->attrName;
-        queryPlan += OperatorToString(op);
-        GetValue(conditions[indexCondition].rhsValue, queryPlan);
-        queryPlan += ")\n";
+
+        AddScanToQueryPlan("IndexScan", relName, true, attributeData->attrName, op, &conditions[indexCondition].rhsValue, queryPlan);
 
         // Open all the indexes
         IX_IndexHandle* ixIHs = new IX_IndexHandle[attrCount];
@@ -628,13 +623,7 @@ RC QL_Manager::Delete(const char *relName,
                 return rc;
             }
 
-            queryPlan += "FileScan (";
-            queryPlan += relName;
-            queryPlan += ", ";
-            queryPlan += attributeData->attrName;
-            queryPlan += OperatorToString(op);
-            GetValue(conditions[conditionNumber].rhsValue, queryPlan);
-            queryPlan += ")\n";
+            AddScanToQueryPlan("FileScan", relName, true, attributeData->attrName, op, &conditions[conditionNumber].rhsValue, queryPlan);
 
             delete attributeData;
         }
@@ -646,9 +635,7 @@ RC QL_Manager::Delete(const char *relName,
                 return rc;
             }
 
-            queryPlan += "FileScan (";
-            queryPlan += relName;
-            queryPlan += ")\n";
+            AddScanToQueryPlan("FileScan", relName, false, NULL, NO_OP, NULL, queryPlan);
         }
 
         // Open all the indexes
@@ -926,22 +913,36 @@ const char* QL_Manager::OperatorToString(CompOp op) {
 }
 
 // Get the value in a string for printing
-void QL_Manager::GetValue(Value v, string& queryPlan) {
-    AttrType vType = v.type;
+void QL_Manager::GetValue(const Value* v, string& queryPlan) {
+    AttrType vType = v->type;
     if (vType == INT) {
-        int value = *static_cast<int*>(v.data);
+        int value = *static_cast<int*>(v->data);
         stringstream ss;
         ss << value;
         queryPlan += ss.str();
     }
     else if (vType == FLOAT) {
-        float value = *static_cast<float*>(v.data);
+        float value = *static_cast<float*>(v->data);
         stringstream ss;
         ss << value;
         queryPlan += ss.str();
     }
     else {
-        char* value = static_cast<char*>(v.data);
+        char* value = static_cast<char*>(v->data);
         queryPlan += value;
     }
+}
+
+// Add a scan operator to the query plan
+void QL_Manager::AddScanToQueryPlan(string scanType, const char* relName, bool cond, char* attrName, CompOp op, const Value* v, string& queryPlan) {
+    queryPlan += scanType;
+    queryPlan += " (";
+    queryPlan += relName;
+    if (cond) {
+        queryPlan += ", ";
+        queryPlan += attrName;
+        queryPlan += OperatorToString(op);
+        GetValue(v, queryPlan);
+    }
+    queryPlan += ")\n";
 }
