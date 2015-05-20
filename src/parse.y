@@ -37,7 +37,7 @@ void yyrestart(FILE*);
 #endif
 
 // The PF_STATS indicates that we will be tracking statistics for the PF
-// Layer.  The Manager is defined within pf_buffermgr.cc.  
+// Layer.  The Manager is defined within pf_buffermgr.cc.
 // We include it within the parser so that a system command can display
 // statistics about the DB.
 #ifdef PF_STATS
@@ -76,7 +76,7 @@ QL_Manager *pQlm;          // QL component manager
     NODE *n;
 }
 
-%token     
+%token
       RW_CREATE
       RW_DROP
       RW_TABLE
@@ -138,7 +138,7 @@ QL_Manager *pQlm;          // QL component manager
       exit
       query
       insert
-      delete 
+      delete
       update
       non_mt_attrtype_list
       attrtype
@@ -223,8 +223,8 @@ utility
    | help
    | print
    | buffer
-   | statistics 
-   | queryplans 
+   | statistics
+   | queryplans
    ;
 
 queryplans
@@ -235,21 +235,21 @@ queryplans
       $$ = NULL;
    }
    | RW_QUERY_PLAN RW_OFF
-   { 
+   {
       bQueryPlans = 0;
       cout << "Query plan display turned off.\n";
       $$ = NULL;
    }
    ;
 
-   
+
 
 buffer
    : RW_RESET RW_BUFFER
    {
       if (pPfm->ClearBuffer())
          cout << "Trouble clearing buffer!  Things may be pinned.\n";
-      else 
+      else
          cout << "Everything kicked out of Buffer!\n";
       $$ = NULL;
    }
@@ -406,7 +406,7 @@ non_mt_select_clause
    {
        $$ = list_node(relattr_node(NULL, (char*)"*"));
    }
-      
+
 
 non_mt_relattr_list
    : relattr ',' non_mt_relattr_list
@@ -606,7 +606,7 @@ void RBparse(PF_Manager &pfm, SM_Manager &smm, QL_Manager &qlm)
       cout << PROMPT;
 
       /* Get the prompt to actually show up on the screen */
-      cout.flush(); 
+      cout.flush();
 
       /* If a query was successfully read, interpret it */
       if(yyparse() == 0 && parse_tree != NULL)
@@ -625,7 +625,7 @@ ostream &operator<<(ostream &s, const AttrInfo &ai)
 {
    return
       s << " attrName=" << ai.attrName
-      << " attrType=" << 
+      << " attrType=" <<
       (ai.attrType == INT ? "INT" :
        ai.attrType == FLOAT ? "FLOAT" : "STRING")
       << " attrLength=" << ai.attrLength;

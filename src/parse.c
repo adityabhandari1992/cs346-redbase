@@ -102,7 +102,7 @@ void yyrestart(FILE*);
 #endif
 
 // The PF_STATS indicates that we will be tracking statistics for the PF
-// Layer.  The Manager is defined within pf_buffermgr.cc.  
+// Layer.  The Manager is defined within pf_buffermgr.cc.
 // We include it within the parser so that a system command can display
 // statistics about the DB.
 #ifdef PF_STATS
@@ -1513,7 +1513,7 @@ yyreduce:
 
   case 27:
 #line 238 "parse.y" /* yacc.c:1646  */
-    { 
+    {
       bQueryPlans = 0;
       cout << "Query plan display turned off.\n";
       (yyval.n) = NULL;
@@ -1526,7 +1526,7 @@ yyreduce:
     {
       if (pPfm->ClearBuffer())
          cout << "Trouble clearing buffer!  Things may be pinned.\n";
-      else 
+      else
          cout << "Everything kicked out of Buffer!\n";
       (yyval.n) = NULL;
    }
@@ -2213,7 +2213,7 @@ void RBparse(PF_Manager &pfm, SM_Manager &smm, QL_Manager &qlm)
       cout << PROMPT;
 
       /* Get the prompt to actually show up on the screen */
-      cout.flush(); 
+      cout.flush();
 
       /* If a query was successfully read, interpret it */
       if(yyparse() == 0 && parse_tree != NULL)
@@ -2232,7 +2232,7 @@ ostream &operator<<(ostream &s, const AttrInfo &ai)
 {
    return
       s << " attrName=" << ai.attrName
-      << " attrType=" << 
+      << " attrType=" <<
       (ai.attrType == INT ? "INT" :
        ai.attrType == FLOAT ? "FLOAT" : "STRING")
       << " attrLength=" << ai.attrLength;
