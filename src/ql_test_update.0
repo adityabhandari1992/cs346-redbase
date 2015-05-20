@@ -8,7 +8,7 @@ load T ("../data/t.data");
 
 print T;
 
-Update T Set name = "Assass" Where id = 1;
+Update T Set name = "ASB" Where id = 1;
 
 print T;
 
@@ -16,7 +16,7 @@ Update T Set id = 4 Where id = 3;
 
 print T;
 
-Update T Set name = "Assass" Where id = 3;
+Update T Set name = "ASB";
 
 print T;
 

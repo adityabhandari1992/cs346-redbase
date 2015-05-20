@@ -21,11 +21,9 @@
 
 using namespace std;
 
-//
-// QL_Manager::QL_Manager(SM_Manager &smm, IX_Manager &ixm, RM_Manager &rmm)
-//
+
+// Method: QL_Manager(SM_Manager &smm, IX_Manager &ixm, RM_Manager &rmm)
 // Constructor for the QL Manager
-//
 QL_Manager::QL_Manager(SM_Manager &smm, IX_Manager &ixm, RM_Manager &rmm) {
     // Store the objects
     this->rmManager = &rmm;
@@ -33,11 +31,8 @@ QL_Manager::QL_Manager(SM_Manager &smm, IX_Manager &ixm, RM_Manager &rmm) {
     this->smManager = &smm;
 }
 
-//
-// QL_Manager::~QL_Manager()
-//
+// Method: ~QL_Manager()
 // Destructor for the QL Manager
-//
 QL_Manager::~QL_Manager() {
     // Nothing to free
 }
@@ -45,29 +40,36 @@ QL_Manager::~QL_Manager() {
 
 /************ SELECT ************/
 
-//
+// Method:
 // Handle the select clause
-//
+/* Steps:
+    1) Check the parameters
+    2) Check whether the database is open
+    3) Obtain attribute information for the relations and check
+    4) Check the conditions
+    5) Check the selection expressions
+
+*/
 RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
                       int nRelations, const char * const relations[],
                       int nConditions, const Condition conditions[]) {
-    int i;
+    // Print the command
+    if (smManager->getPrintFlag()) {
+        int i;
+        cout << "Select\n";
+        cout << "   nSelAttrs = " << nSelAttrs << "\n";
+        for (i = 0; i < nSelAttrs; i++)
+            cout << "   selAttrs[" << i << "]:" << selAttrs[i] << "\n";
+        cout << "   nRelations = " << nRelations << "\n";
+        for (i = 0; i < nRelations; i++)
+            cout << "   relations[" << i << "] " << relations[i] << "\n";
+        cout << "   nCondtions = " << nConditions << "\n";
+        for (i = 0; i < nConditions; i++)
+            cout << "   conditions[" << i << "]:" << conditions[i] << "\n";
+    }
 
-    cout << "Select\n";
-
-    cout << "   nSelAttrs = " << nSelAttrs << "\n";
-    for (i = 0; i < nSelAttrs; i++)
-        cout << "   selAttrs[" << i << "]:" << selAttrs[i] << "\n";
-
-    cout << "   nRelations = " << nRelations << "\n";
-    for (i = 0; i < nRelations; i++)
-        cout << "   relations[" << i << "] " << relations[i] << "\n";
-
-    cout << "   nCondtions = " << nConditions << "\n";
-    for (i = 0; i < nConditions; i++)
-        cout << "   conditions[" << i << "]:" << conditions[i] << "\n";
-
-    return 0;
+    // Return OK
+    return OK_RC;
 }
 
 
@@ -297,66 +299,11 @@ RC QL_Manager::Delete(const char *relName,
         return rc;
     }
 
-    // Check the conditions
-    for (int i=0; i<nConditions; i++) {
-        Condition currentCondition = conditions[i];
-
-        // Check whether LHS is a correct attribute
-        char* lhsRelName = (currentCondition.lhsAttr).relName;
-        if (lhsRelName != NULL && strcmp(lhsRelName, relName) != 0) {
-            delete rcRecord;
-            delete[] attributes;
-            return QL_INVALID_CONDITION;
-        }
-
-        char* lhs = (currentCondition.lhsAttr).attrName;
-        AttrType lhsType;
-        bool found = false;
-        for (int j=0; j<attrCount; j++) {
-            if (strcmp(attributes[j].attrName, lhs) == 0) {
-                lhsType = attributes[j].attrType;
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            delete rcRecord;
-            delete[] attributes;
-            return QL_INVALID_CONDITION;
-        }
-
-        // Check if rhs is of correct type
-        if (currentCondition.bRhsIsAttr) {
-            char* rhsRelName = (currentCondition.rhsAttr).relName;
-            if (rhsRelName != NULL && strcmp(rhsRelName, relName) != 0) {
-                delete rcRecord;
-                delete[] attributes;
-                return QL_INVALID_CONDITION;
-            }
-            char* rhs = (currentCondition.rhsAttr).attrName;
-            bool found = false;
-            for (int j=0; j<attrCount; j++) {
-                if (strcmp(attributes[j].attrName, rhs) == 0) {
-                    if (attributes[j].attrType == lhsType) {
-                        found = true;
-                        break;
-                    }
-                }
-            }
-            if (!found) {
-                delete rcRecord;
-                delete[] attributes;
-                return QL_INVALID_CONDITION;
-            }
-        }
-        else {
-            AttrType rhsType = (currentCondition.rhsValue).type;
-            if (rhsType != lhsType) {
-                delete rcRecord;
-                delete[] attributes;
-                return QL_INVALID_CONDITION;
-            }
-        }
+    // Validate the conditions
+    if ((rc = ValidateConditionsSingleRelation(relName, attrCount, (char*) attributes, nConditions, conditions))) {
+        delete rcRecord;
+        delete[] attributes;
+        return rc;
     }
 
     // Print the command
@@ -450,80 +397,8 @@ RC QL_Manager::Delete(const char *relName,
 
             // Check the conditions
             bool match = true;
-            DataAttrInfo* lhsData = new DataAttrInfo;
-            DataAttrInfo* rhsData = new DataAttrInfo;
-            for (int i=0; i<nConditions; i++) {
-                Condition currentCondition = conditions[i];
-                char* lhs = (currentCondition.lhsAttr).attrName;
-                if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhs, (char*) lhsData))) {
-                    return rc;
-                }
-
-                // If the RHS is also an attribute
-                if (currentCondition.bRhsIsAttr) {
-                    char* rhs = (currentCondition.rhsAttr).attrName;
-                    if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, rhs, (char*) rhsData))) {
-                        return rc;
-                    }
-
-                    if (lhsData->attrType == INT) {
-                        int lhsValue, rhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        memcpy(&rhsValue, recordData + (rhsData->offset), sizeof(rhsValue));
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else if (lhsData->attrType == FLOAT) {
-                        float lhsValue, rhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        memcpy(&rhsValue, recordData + (rhsData->offset), sizeof(rhsValue));
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else {
-                        string lhsValue(recordData + (lhsData->offset));
-                        string rhsValue(recordData + (rhsData->offset));
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                }
-
-                // Else if the RHS is a constant value
-                else {
-                    if (lhsData->attrType == INT) {
-                        int lhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        int rhsValue = *static_cast<int*>((currentCondition.rhsValue).data);
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else if (lhsData->attrType == FLOAT) {
-                        float lhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        float rhsValue = *static_cast<float*>((currentCondition.rhsValue).data);
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else {
-                        string lhsValue(recordData + (lhsData->offset));
-                        char* rhsValueChar = static_cast<char*>((currentCondition.rhsValue).data);
-                        string rhsValue(rhsValueChar);
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                }
+            if ((rc = CheckConditionsSingleRelation(recordData, match, (char*) attributes, attrCount, nConditions, conditions))) {
+                return rc;
             }
 
             // If all the conditions are satisfied
@@ -545,9 +420,6 @@ RC QL_Manager::Delete(const char *relName,
                 // Print the deleted tuple
                 p.Print(cout, recordData);
             }
-
-            delete lhsData;
-            delete rhsData;
         }
 
         // Close all the indexes
@@ -651,80 +523,8 @@ RC QL_Manager::Delete(const char *relName,
 
             // Check the conditions
             bool match = true;
-            DataAttrInfo* lhsData = new DataAttrInfo;
-            DataAttrInfo* rhsData = new DataAttrInfo;
-            for (int i=0; i<nConditions; i++) {
-                Condition currentCondition = conditions[i];
-                char* lhs = (currentCondition.lhsAttr).attrName;
-                if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhs, (char*) lhsData))) {
-                    return rc;
-                }
-
-                // If the RHS is also an attribute
-                if (currentCondition.bRhsIsAttr) {
-                    char* rhs = (currentCondition.rhsAttr).attrName;
-                    if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, rhs, (char*) rhsData))) {
-                        return rc;
-                    }
-
-                    if (lhsData->attrType == INT) {
-                        int lhsValue, rhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        memcpy(&rhsValue, recordData + (rhsData->offset), sizeof(rhsValue));
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else if (lhsData->attrType == FLOAT) {
-                        float lhsValue, rhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        memcpy(&rhsValue, recordData + (rhsData->offset), sizeof(rhsValue));
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else {
-                        string lhsValue(recordData + (lhsData->offset));
-                        string rhsValue(recordData + (rhsData->offset));
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                }
-
-                // Else if the RHS is a constant value
-                else {
-                    if (lhsData->attrType == INT) {
-                        int lhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        int rhsValue = *static_cast<int*>((currentCondition.rhsValue).data);
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else if (lhsData->attrType == FLOAT) {
-                        float lhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        float rhsValue = *static_cast<float*>((currentCondition.rhsValue).data);
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else {
-                        string lhsValue(recordData + (lhsData->offset));
-                        char* rhsValueChar = static_cast<char*>((currentCondition.rhsValue).data);
-                        string rhsValue(rhsValueChar);
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                }
+            if ((rc = CheckConditionsSingleRelation(recordData, match, (char*) attributes, attrCount, nConditions, conditions))) {
+                return rc;
             }
 
             // If all conditions are satisfied
@@ -746,9 +546,6 @@ RC QL_Manager::Delete(const char *relName,
                 // Print the deleted tuple
                 p.Print(cout, recordData);
             }
-
-            delete lhsData;
-            delete rhsData;
         }
 
         // Close all the indexes
@@ -907,66 +704,11 @@ RC QL_Manager::Update(const char *relName,
         }
     }
 
-    // Check the conditions
-    for (int i=0; i<nConditions; i++) {
-        Condition currentCondition = conditions[i];
-
-        // Check whether LHS is a correct attribute
-        char* lhsRelName = (currentCondition.lhsAttr).relName;
-        if (lhsRelName != NULL && strcmp(lhsRelName, relName) != 0) {
-            delete rcRecord;
-            delete[] attributes;
-            return QL_INVALID_CONDITION;
-        }
-
-        char* lhs = (currentCondition.lhsAttr).attrName;
-        AttrType lhsType;
-        bool found = false;
-        for (int j=0; j<attrCount; j++) {
-            if (strcmp(attributes[j].attrName, lhs) == 0) {
-                lhsType = attributes[j].attrType;
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            delete rcRecord;
-            delete[] attributes;
-            return QL_INVALID_CONDITION;
-        }
-
-        // Check if rhs is of correct type
-        if (currentCondition.bRhsIsAttr) {
-            char* rhsRelName = (currentCondition.rhsAttr).relName;
-            if (rhsRelName != NULL && strcmp(rhsRelName, relName) != 0) {
-                delete rcRecord;
-                delete[] attributes;
-                return QL_INVALID_CONDITION;
-            }
-            char* rhs = (currentCondition.rhsAttr).attrName;
-            bool found = false;
-            for (int j=0; j<attrCount; j++) {
-                if (strcmp(attributes[j].attrName, rhs) == 0) {
-                    if (attributes[j].attrType == lhsType) {
-                        found = true;
-                        break;
-                    }
-                }
-            }
-            if (!found) {
-                delete rcRecord;
-                delete[] attributes;
-                return QL_INVALID_CONDITION;
-            }
-        }
-        else {
-            AttrType rhsType = (currentCondition.rhsValue).type;
-            if (rhsType != lhsType) {
-                delete rcRecord;
-                delete[] attributes;
-                return QL_INVALID_CONDITION;
-            }
-        }
+    // Validate the conditions
+    if ((rc = ValidateConditionsSingleRelation(relName, attrCount, (char*) attributes, nConditions, conditions))) {
+        delete rcRecord;
+        delete[] attributes;
+        return rc;
     }
 
     // Print the command
@@ -1068,80 +810,8 @@ RC QL_Manager::Update(const char *relName,
 
             // Check the conditions
             bool match = true;
-            DataAttrInfo* lhsData = new DataAttrInfo;
-            DataAttrInfo* rhsData = new DataAttrInfo;
-            for (int i=0; i<nConditions; i++) {
-                Condition currentCondition = conditions[i];
-                char* lhs = (currentCondition.lhsAttr).attrName;
-                if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhs, (char*) lhsData))) {
-                    return rc;
-                }
-
-                // If the RHS is also an attribute
-                if (currentCondition.bRhsIsAttr) {
-                    char* rhs = (currentCondition.rhsAttr).attrName;
-                    if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, rhs, (char*) rhsData))) {
-                        return rc;
-                    }
-
-                    if (lhsData->attrType == INT) {
-                        int lhsValue, rhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        memcpy(&rhsValue, recordData + (rhsData->offset), sizeof(rhsValue));
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else if (lhsData->attrType == FLOAT) {
-                        float lhsValue, rhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        memcpy(&rhsValue, recordData + (rhsData->offset), sizeof(rhsValue));
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else {
-                        string lhsValue(recordData + (lhsData->offset));
-                        string rhsValue(recordData + (rhsData->offset));
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                }
-
-                // Else if the RHS is a constant value
-                else {
-                    if (lhsData->attrType == INT) {
-                        int lhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        int rhsValue = *static_cast<int*>((currentCondition.rhsValue).data);
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else if (lhsData->attrType == FLOAT) {
-                        float lhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        float rhsValue = *static_cast<float*>((currentCondition.rhsValue).data);
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else {
-                        string lhsValue(recordData + (lhsData->offset));
-                        char* rhsValueChar = static_cast<char*>((currentCondition.rhsValue).data);
-                        string rhsValue(rhsValueChar);
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                }
+            if ((rc = CheckConditionsSingleRelation(recordData, match, (char*) attributes, attrCount, nConditions, conditions))) {
+                return rc;
             }
 
             // If all the conditions are satisfied
@@ -1195,9 +865,6 @@ RC QL_Manager::Update(const char *relName,
                 // Print the deleted tuple
                 p.Print(cout, recordData);
             }
-
-            delete lhsData;
-            delete rhsData;
         }
 
         // Close the update attribute index if it exists
@@ -1303,80 +970,8 @@ RC QL_Manager::Update(const char *relName,
 
             // Check the conditions
             bool match = true;
-            DataAttrInfo* lhsData = new DataAttrInfo;
-            DataAttrInfo* rhsData = new DataAttrInfo;
-            for (int i=0; i<nConditions; i++) {
-                Condition currentCondition = conditions[i];
-                char* lhs = (currentCondition.lhsAttr).attrName;
-                if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhs, (char*) lhsData))) {
-                    return rc;
-                }
-
-                // If the RHS is also an attribute
-                if (currentCondition.bRhsIsAttr) {
-                    char* rhs = (currentCondition.rhsAttr).attrName;
-                    if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, rhs, (char*) rhsData))) {
-                        return rc;
-                    }
-
-                    if (lhsData->attrType == INT) {
-                        int lhsValue, rhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        memcpy(&rhsValue, recordData + (rhsData->offset), sizeof(rhsValue));
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else if (lhsData->attrType == FLOAT) {
-                        float lhsValue, rhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        memcpy(&rhsValue, recordData + (rhsData->offset), sizeof(rhsValue));
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else {
-                        string lhsValue(recordData + (lhsData->offset));
-                        string rhsValue(recordData + (rhsData->offset));
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                }
-
-                // Else if the RHS is a constant value
-                else {
-                    if (lhsData->attrType == INT) {
-                        int lhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        int rhsValue = *static_cast<int*>((currentCondition.rhsValue).data);
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else if (lhsData->attrType == FLOAT) {
-                        float lhsValue;
-                        memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
-                        float rhsValue = *static_cast<float*>((currentCondition.rhsValue).data);
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    else {
-                        string lhsValue(recordData + (lhsData->offset));
-                        char* rhsValueChar = static_cast<char*>((currentCondition.rhsValue).data);
-                        string rhsValue(rhsValueChar);
-                        if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                }
+            if ((rc = CheckConditionsSingleRelation(recordData, match, (char*) attributes, attrCount, nConditions, conditions))) {
+                return rc;
             }
 
             // If all conditions are satisfied
@@ -1430,9 +1025,6 @@ RC QL_Manager::Update(const char *relName,
                 // Print the updated tuple
                 p.Print(cout, recordData);
             }
-
-            delete lhsData;
-            delete rhsData;
         }
 
         // Close the open index if any
@@ -1471,6 +1063,7 @@ RC QL_Manager::Update(const char *relName,
     return OK_RC;
 }
 
+/********** HELPER METHODS **********/
 
 // Method: GetAttrInfoFromArray(char* attributes, int attrCount, char* attributeData)
 // Get the attribute info from the attributes array
@@ -1528,6 +1121,7 @@ bool QL_Manager::matchRecord(T lhsValue, T rhsValue, CompOp op) {
     return recordMatch;
 }
 
+// Method: const char* OperatorToString(CompOp op)
 // Get the string form of the operator
 const char* QL_Manager::OperatorToString(CompOp op) {
     switch(op) {
@@ -1548,6 +1142,7 @@ const char* QL_Manager::OperatorToString(CompOp op) {
     }
 }
 
+// Method: void GetValue(const Value* v, string& queryPlan)
 // Get the value in a string for printing
 void QL_Manager::GetValue(const Value* v, string& queryPlan) {
     AttrType vType = v->type;
@@ -1569,6 +1164,7 @@ void QL_Manager::GetValue(const Value* v, string& queryPlan) {
     }
 }
 
+// Method: void AddScanToQueryPlan(string scanType, const char* relName, bool cond, char* attrName, CompOp op, const Value* v, string& queryPlan)
 // Add a scan operator to the query plan
 void QL_Manager::AddScanToQueryPlan(string scanType, const char* relName, bool cond, char* attrName, CompOp op, const Value* v, string& queryPlan) {
     queryPlan += scanType;
@@ -1581,4 +1177,149 @@ void QL_Manager::AddScanToQueryPlan(string scanType, const char* relName, bool c
         GetValue(v, queryPlan);
     }
     queryPlan += ")\n";
+}
+
+// Method: ValidateConditionsSingleRelation(const char* relName, int attrCount, char* attributeData, int nConditions, const Condition conditions[])
+// Validate the conditions for a single relation
+RC QL_Manager::ValidateConditionsSingleRelation(const char* relName, int attrCount, char* attributeData, int nConditions, const Condition conditions[]) {
+    DataAttrInfo* attributes = (DataAttrInfo*) attributeData;
+    for (int i=0; i<nConditions; i++) {
+        Condition currentCondition = conditions[i];
+
+        // Check whether LHS is a correct attribute
+        char* lhsRelName = (currentCondition.lhsAttr).relName;
+        if (lhsRelName != NULL && strcmp(lhsRelName, relName) != 0) {
+            return QL_INVALID_CONDITION;
+        }
+
+        char* lhs = (currentCondition.lhsAttr).attrName;
+        AttrType lhsType;
+        bool found = false;
+        for (int j=0; j<attrCount; j++) {
+            if (strcmp(attributes[j].attrName, lhs) == 0) {
+                lhsType = attributes[j].attrType;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return QL_INVALID_CONDITION;
+        }
+
+        // Check if rhs is of correct type
+        if (currentCondition.bRhsIsAttr) {
+            char* rhsRelName = (currentCondition.rhsAttr).relName;
+            if (rhsRelName != NULL && strcmp(rhsRelName, relName) != 0) {
+                return QL_INVALID_CONDITION;
+            }
+            char* rhs = (currentCondition.rhsAttr).attrName;
+            bool found = false;
+            for (int j=0; j<attrCount; j++) {
+                if (strcmp(attributes[j].attrName, rhs) == 0) {
+                    if (attributes[j].attrType == lhsType) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                return QL_INVALID_CONDITION;
+            }
+        }
+        else {
+            AttrType rhsType = (currentCondition.rhsValue).type;
+            if (rhsType != lhsType) {
+                return QL_INVALID_CONDITION;
+            }
+        }
+    }
+
+    return OK_RC;
+}
+
+// Method: CheckConditionsSingleRelation(char* recordData, bool& match, char* attributeData, int attrCount, int nConditions, const Condition conditions[])
+// Check the conditions for a single relation
+RC QL_Manager::CheckConditionsSingleRelation(char* recordData, bool& match, char* attributeData, int attrCount, int nConditions, const Condition conditions[]) {
+    int rc;
+    DataAttrInfo* lhsData = new DataAttrInfo;
+    DataAttrInfo* rhsData = new DataAttrInfo;
+    for (int i=0; i<nConditions; i++) {
+        Condition currentCondition = conditions[i];
+        char* lhs = (currentCondition.lhsAttr).attrName;
+        if ((rc = GetAttrInfoFromArray(attributeData, attrCount, lhs, (char*) lhsData))) {
+            return rc;
+        }
+
+        // If the RHS is also an attribute
+        if (currentCondition.bRhsIsAttr) {
+            char* rhs = (currentCondition.rhsAttr).attrName;
+            if ((rc = GetAttrInfoFromArray(attributeData, attrCount, rhs, (char*) rhsData))) {
+                return rc;
+            }
+
+            if (lhsData->attrType == INT) {
+                int lhsValue, rhsValue;
+                memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
+                memcpy(&rhsValue, recordData + (rhsData->offset), sizeof(rhsValue));
+                if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
+                    match = false;
+                    break;
+                }
+            }
+            else if (lhsData->attrType == FLOAT) {
+                float lhsValue, rhsValue;
+                memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
+                memcpy(&rhsValue, recordData + (rhsData->offset), sizeof(rhsValue));
+                if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
+                    match = false;
+                    break;
+                }
+            }
+            else {
+                string lhsValue(recordData + (lhsData->offset));
+                string rhsValue(recordData + (rhsData->offset));
+                if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
+                    match = false;
+                    break;
+                }
+            }
+        }
+
+        // Else if the RHS is a constant value
+        else {
+            if (lhsData->attrType == INT) {
+                int lhsValue;
+                memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
+                int rhsValue = *static_cast<int*>((currentCondition.rhsValue).data);
+                if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
+                    match = false;
+                    break;
+                }
+            }
+            else if (lhsData->attrType == FLOAT) {
+                float lhsValue;
+                memcpy(&lhsValue, recordData + (lhsData->offset), sizeof(lhsValue));
+                float rhsValue = *static_cast<float*>((currentCondition.rhsValue).data);
+                if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
+                    match = false;
+                    break;
+                }
+            }
+            else {
+                string lhsValue(recordData + (lhsData->offset));
+                char* rhsValueChar = static_cast<char*>((currentCondition.rhsValue).data);
+                string rhsValue(rhsValueChar);
+                if (!matchRecord(lhsValue, rhsValue, currentCondition.op)) {
+                    match = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Clean up
+    delete lhsData;
+    delete rhsData;
+
+    return OK_RC;
 }

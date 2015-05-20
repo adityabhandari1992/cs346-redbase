@@ -57,6 +57,9 @@ private:
     template <typename T>
     bool matchRecord(T lhsValue, T rhsValue, CompOp op);
 
+    RC ValidateConditionsSingleRelation(const char* relName, int attrCount, char* attributeData, int nConditions, const Condition conditions[]);
+    RC CheckConditionsSingleRelation(char* recordData, bool& match, char* attributeData, int attrCount, int nConditions, const Condition conditions[]);
+
     const char* OperatorToString(CompOp op);
     void GetValue(const Value* v, std::string& queryPlan);
     void AddScanToQueryPlan(std::string scanType, const char* relName, bool cond, char* attrName, CompOp op, const Value* v, std::string& queryPlan);
