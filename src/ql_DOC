@@ -1,0 +1,45 @@
+CS 346 : Redbase Part 4 (QL)
+The Query Language Component
+
+--------------------------------------------
+
+** AUTHOR **
+Aditya Bhandari (adityasb@stanford.edu)
+
+Assistance taken:
+1) Jaeho Shin (TA) :
+    - Clarification about physical query plans
+
+2) Data files in the shared folder on corn used for testing
+
+--------------------------------------------
+--------------------------------------------
+
+** DESIGN **
+
+* Data Structures *
+
+-------------------
+
+* Physical Query Plan *
+
+--------------------------------------------
+--------------------------------------------
+
+** IMPLEMENTATION DETAILS **
+
+The algorithms used for implementing the important methods of the classes are described
+as comment headers in the code files itself.
+
+The code files are:
+    - ql.h
+    - ql_manager.cc
+    - ql_error.cc
+
+--------------------------------------------
+--------------------------------------------
+
+** TESTING **
+
+
+--------------------------------------------xx EOF xx----------------------------------------
