@@ -77,7 +77,8 @@ void QL_PrintError(RC rc);
 #define QL_INCORRECT_ATTRIBUTE_TYPE         (START_QL_WARN + 6) // Incorrect attribute type
 #define QL_INVALID_CONDITION                (START_QL_WARN + 7) // Invalid condition
 #define QL_ATTRIBUTE_NOT_FOUND              (START_QL_WARN + 8) // Attribute not found
-#define QL_LASTWARN                         QL_INVALID_CONDITION
+#define QL_INVALID_UPDATE_ATTRIBUTE         (START_QL_WARN + 9) // Invalid update attribute
+#define QL_LASTWARN                         QL_INVALID_UPDATE_ATTRIBUTE
 
 // Errors
 #define QL_INVALID_DATABASE_NAME            (START_QL_ERR - 0) // Invalid database file name

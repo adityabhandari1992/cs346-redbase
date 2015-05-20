@@ -21,7 +21,8 @@ static char *QL_WarnMsg[] = {
   (char*)"incorrect attribute count",
   (char*)"incorrect attribute type",
   (char*)"invalid condition",
-  (char*)"attribute not found"
+  (char*)"attribute not found",
+  (char*)"invalid update attribute"
 };
 
 static char *QL_ErrorMsg[] = {
