@@ -7,3 +7,5 @@ src/*_test_out
 *.log
 *.out
 src/testDB/*
+build/*
+
