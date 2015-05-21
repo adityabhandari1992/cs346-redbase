@@ -188,7 +188,9 @@ void QL_IndexScanOp::GetAttributeCount(int &attrCount) {
 
 // Get the attribute information
 void QL_IndexScanOp::GetAttributeInfo(DataAttrInfo* attributes) {
-    attributes = this->attributes;
+    for (int i=0; i<attrCount; i++) {
+        attributes[i] = this->attributes[i];
+    }
 }
 
 // Print the physical query plan
@@ -372,7 +374,9 @@ void QL_FileScanOp::GetAttributeCount(int &attrCount) {
 
 // Get the attribute information
 void QL_FileScanOp::GetAttributeInfo(DataAttrInfo* attributes) {
-    attributes = this->attributes;
+    for (int i=0; i<attrCount; i++) {
+        attributes[i] = this->attributes[i];
+    }
 }
 
 // Print the physical query plan
@@ -394,7 +398,7 @@ void QL_FileScanOp::Print(int indentationLevel) {
 /********** QL_ProjectOp class **********/
 
 // Constructor
-QL_ProjectOp::QL_ProjectOp(SM_Manager* smManager, QL_Op* childOp, int count, RelAttr relAttrs[]) {
+QL_ProjectOp::QL_ProjectOp(SM_Manager* smManager, shared_ptr<QL_Op> childOp, int count, RelAttr relAttrs[]) {
     // Store the objects
     this->smManager = smManager;
     this->childOp = childOp;
@@ -403,8 +407,8 @@ QL_ProjectOp::QL_ProjectOp(SM_Manager* smManager, QL_Op* childOp, int count, Rel
     // Copy the relAttrs array
     this->relAttrs = new RelAttr[count];
     for (int i=0; i<count; i++) {
-        if (relAttrs[i].relName != NULL) strcpy(this->relAttrs[i].relName, relAttrs[i].relName);
-        strcpy(this->relAttrs[i].attrName, relAttrs[i].attrName);
+        if (relAttrs[i].relName != NULL) this->relAttrs[i].relName = relAttrs[i].relName;
+        this->relAttrs[i].attrName = relAttrs[i].attrName;
     }
 
     // Create the attributes array
@@ -517,7 +521,9 @@ void QL_ProjectOp::GetAttributeCount(int &attrCount) {
 
 // Get the attribute information
 void QL_ProjectOp::GetAttributeInfo(DataAttrInfo* attributes) {
-    attributes = this->attributes;
+    for (int i=0; i<relAttrCount; i++) {
+        attributes[i] = this->attributes[i];
+    }
 }
 
 // Print the physical query plan

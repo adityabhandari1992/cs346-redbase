@@ -9,6 +9,7 @@
 
 #include <string>
 #include <stdlib.h>
+#include <memory>
 #include "redbase.h"
 #include "parser.h"
 #include "printer.h"
@@ -107,7 +108,7 @@ private:
 // Project operator class
 class QL_ProjectOp : public QL_Op {
 public:
-    QL_ProjectOp(SM_Manager* smManager, QL_Op* childOp, int count, RelAttr relAttrs[]);
+    QL_ProjectOp(SM_Manager* smManager, std::shared_ptr<QL_Op> childOp, int count, RelAttr relAttrs[]);
     ~QL_ProjectOp();
 
     RC Open();
@@ -120,7 +121,7 @@ public:
 
 private:
     SM_Manager* smManager;
-    QL_Op* childOp;
+    std::shared_ptr<QL_Op> childOp;
     int relAttrCount;
     RelAttr* relAttrs;
     DataAttrInfo* attributes;
