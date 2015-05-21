@@ -497,6 +497,8 @@ RC QL_ProjectOp::GetNext(char* recordData) {
 
     // Get the next record data from the child
     if ((rc = childOp->GetNext(data))) {
+        delete[] childAttributes;
+        delete[] data;
         return rc;
     }
 
@@ -508,6 +510,7 @@ RC QL_ProjectOp::GetNext(char* recordData) {
         }
         memcpy(recordData + attributes[i].offset, data + originalAttrData->offset, attributes[i].attrLength);
     }
+    delete[] childAttributes;
     delete originalAttrData;
     delete[] data;
 
