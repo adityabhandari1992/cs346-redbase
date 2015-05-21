@@ -1,6 +1,6 @@
 //
 // File:        ql_internal.h
-// Description: Declarations internal to the QL component
+// Description: Classes for all the operators in the QL component
 // Authors:     Aditya Bhandari (adityasb@stanford.edu)
 //
 
@@ -17,7 +17,8 @@
 #include "sm.h"
 #include "ql.h"
 
-// QL_Op abstract class
+// QL_Op
+// QL Operator abstract class
 class QL_Op {
 public:
     virtual RC Open() = 0;
@@ -25,8 +26,13 @@ public:
     virtual RC GetNext(char* recordData) = 0;
     virtual RC GetNext(RID &rid) { return QL_EOF; }
     virtual void Print(int indentationLevel) = 0;
+
+    virtual void GetAttributeCount(int &attrCount) = 0;
+    virtual void GetAttributeInfo(DataAttrInfo* attributes) = 0;
 };
 
+
+// QL_IndexScanOp
 // Index Scan operator class
 class QL_IndexScanOp : public QL_Op {
 public:
@@ -39,6 +45,9 @@ public:
     RC GetNext(char* recordData);
     RC GetNext(RID &rid);
     void Print(int indentationLevel);
+
+    void GetAttributeCount(int &attrCount);
+    void GetAttributeInfo(DataAttrInfo* attributes);
 
 private:
     SM_Manager* smManager;
@@ -53,10 +62,13 @@ private:
     const Value* v;
     int tupleLength;
     int attrCount;
+    DataAttrInfo* attributes;
 
     int isOpen;
 };
 
+
+// QL_FileScanOp
 // File Scan operator class
 class QL_FileScanOp : public QL_Op {
 public:
@@ -70,6 +82,9 @@ public:
     RC GetNext(RID &rid);
     void Print(int indentationLevel);
 
+    void GetAttributeCount(int &attrCount);
+    void GetAttributeInfo(DataAttrInfo* attributes);
+
 private:
     SM_Manager* smManager;
     RM_Manager* rmManager;
@@ -82,9 +97,76 @@ private:
     const Value* v;
     int tupleLength;
     int attrCount;
+    DataAttrInfo* attributes;
 
     int isOpen;
 };
+
+
+// QL_ProjectOp
+// Project operator class
+class QL_ProjectOp : public QL_Op {
+public:
+    QL_ProjectOp(SM_Manager* smManager, QL_Op* childOp, int count, RelAttr relAttrs[]);
+    ~QL_ProjectOp();
+
+    RC Open();
+    RC Close();
+    RC GetNext(char* recordData);
+    void Print(int indentationLevel);
+
+    void GetAttributeCount(int &attrCount);
+    void GetAttributeInfo(DataAttrInfo* attributes);
+
+private:
+    SM_Manager* smManager;
+    QL_Op* childOp;
+    int relAttrCount;
+    RelAttr* relAttrs;
+    DataAttrInfo* attributes;
+
+    int isOpen;
+};
+
+// QL_FilterOp
+// Filter operator class
+class QL_FilterOp : public QL_Op {
+public:
+    QL_FilterOp(SM_Manager* smManager, RM_Manager* rmManager, const char* relName,
+                bool cond, char* attrName, CompOp op, const Value* v);
+    ~QL_FilterOp();
+
+    RC Open();
+    RC Close();
+    RC GetNext(char* recordData);
+    void Print(int indentationLevel);
+
+    void GetAttributeCount(int &attrCount);
+    void GetAttributeInfo(DataAttrInfo* attributes);
+};
+
+// QL_CrossProductOp
+// Cross product operator class
+class QL_CrossProductOp : public QL_Op {
+public:
+    QL_CrossProductOp(SM_Manager* smManager, RM_Manager* rmManager, const char* relName,
+                  bool cond, char* attrName, CompOp op, const Value* v);
+    ~QL_CrossProductOp();
+
+    RC Open();
+    RC Close();
+    RC GetNext(char* recordData);
+    void Print(int indentationLevel);
+
+    void GetAttributeCount(int &attrCount);
+    void GetAttributeInfo(DataAttrInfo* attributes);
+};
+
+// QL_NLJoinOp
+// Natural loop join operator class
+// class QL_NLJoinOp : public QL_Op {
+//     // TODO
+// };
 
 // Helper methods
 void PrintOperator(CompOp op);

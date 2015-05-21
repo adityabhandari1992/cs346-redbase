@@ -36,13 +36,26 @@ QL_IndexScanOp::QL_IndexScanOp(SM_Manager* smManager, IX_Manager* ixManager, RM_
     this->op = op;
     this->v = v;
 
+    // Get the relation information
+    SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
+    memset(rcRecord, 0, sizeof(SM_RelcatRecord));
+    smManager->GetRelInfo(relName, rcRecord);
+    attrCount = rcRecord->attrCount;
+    tupleLength = rcRecord->tupleLength;
+    delete rcRecord;
+
+    // Create the attributes array
+    attributes = new DataAttrInfo[attrCount];
+    smManager->GetAttrInfo(relName, attrCount, (char*) attributes);
+
     // Set open flag to FALSE
     isOpen = FALSE;
 }
 
 // Destructor
 QL_IndexScanOp::~QL_IndexScanOp() {
-    // Nothing to free
+    // Delete the attrributes array
+    delete[] attributes;
 }
 
 // Open the operator
@@ -52,21 +65,8 @@ RC QL_IndexScanOp::Open() {
         return QL_OPERATOR_OPEN;
     }
 
-    // Get the relation and attributes information
-    int rc;
-    SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
-    memset(rcRecord, 0, sizeof(SM_RelcatRecord));
-    if ((rc = smManager->GetRelInfo(relName, rcRecord))) {
-        return rc;
-    }
-    attrCount = rcRecord->attrCount;
-    tupleLength = rcRecord->tupleLength;
-    DataAttrInfo* attributes = new DataAttrInfo[attrCount];
-    if ((rc = smManager->GetAttrInfo(relName, attrCount, (char*) attributes))) {
-        return rc;
-    }
-
     // Get the index attribute information
+    int rc;
     DataAttrInfo* attributeData = new DataAttrInfo;
     if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, attrName, (char*) attributeData))) {
         return rc;
@@ -90,9 +90,7 @@ RC QL_IndexScanOp::Open() {
     isOpen = TRUE;
 
     // Clean up
-    delete rcRecord;
     delete attributeData;
-    delete[] attributes;
 
     return OK_RC;
 }
@@ -183,6 +181,16 @@ RC QL_IndexScanOp::GetNext(RID &rid) {
     return OK_RC;
 }
 
+// Get the attribute count
+void QL_IndexScanOp::GetAttributeCount(int &attrCount) {
+    attrCount = this->attrCount;
+}
+
+// Get the attribute information
+void QL_IndexScanOp::GetAttributeInfo(DataAttrInfo* attributes) {
+    attributes = this->attributes;
+}
+
 // Print the physical query plan
 void QL_IndexScanOp::Print(int indentationLevel) {
     for (int i=0; i<indentationLevel; i++) {
@@ -214,13 +222,26 @@ QL_FileScanOp::QL_FileScanOp(SM_Manager* smManager, RM_Manager* rmManager, const
         this->v = v;
     }
 
+    // Get the relation information
+    SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
+    memset(rcRecord, 0, sizeof(SM_RelcatRecord));
+    smManager->GetRelInfo(relName, rcRecord);
+    attrCount = rcRecord->attrCount;
+    tupleLength = rcRecord->tupleLength;
+    delete rcRecord;
+
+    // Create the attributes array
+    attributes = new DataAttrInfo[attrCount];
+    smManager->GetAttrInfo(relName, attrCount, (char*) attributes);
+
     // Set open flag to FALSE
     isOpen = FALSE;
 }
 
 // Destructor
 QL_FileScanOp::~QL_FileScanOp() {
-    // Nothing to free
+    // Delete the attributes array
+    delete[] attributes;
 }
 
 // Open the operator
@@ -230,21 +251,8 @@ RC QL_FileScanOp::Open() {
         return QL_OPERATOR_OPEN;
     }
 
-    // Get the relation and attributes information
-    int rc;
-    SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
-    memset(rcRecord, 0, sizeof(SM_RelcatRecord));
-    if ((rc = smManager->GetRelInfo(relName, rcRecord))) {
-        return rc;
-    }
-    attrCount = rcRecord->attrCount;
-    tupleLength = rcRecord->tupleLength;
-    DataAttrInfo* attributes = new DataAttrInfo[attrCount];
-    if ((rc = smManager->GetAttrInfo(relName, attrCount, (char*) attributes))) {
-        return rc;
-    }
-
     // Open the RM file
+    int rc;
     if ((rc = rmManager->OpenFile(relName, rmFH))) {
         return rc;
     }
@@ -269,10 +277,6 @@ RC QL_FileScanOp::Open() {
 
     // Set the flag
     isOpen = TRUE;
-
-    // Clean up
-    delete rcRecord;
-    delete[] attributes;
 
     return OK_RC;
 }
@@ -361,6 +365,16 @@ RC QL_FileScanOp::GetNext(RID &rid) {
     return OK_RC;
 }
 
+// Get the attribute count
+void QL_FileScanOp::GetAttributeCount(int &attrCount) {
+    attrCount = this->attrCount;
+}
+
+// Get the attribute information
+void QL_FileScanOp::GetAttributeInfo(DataAttrInfo* attributes) {
+    attributes = this->attributes;
+}
+
 // Print the physical query plan
 void QL_FileScanOp::Print(int indentationLevel) {
     for (int i=0; i<indentationLevel; i++) {
@@ -372,6 +386,150 @@ void QL_FileScanOp::Print(int indentationLevel) {
         cout << ", " << attrName;
         PrintOperator(op);
         PrintValue(v);
+    }
+    cout << ")" << endl;
+}
+
+
+/********** QL_ProjectOp class **********/
+
+// Constructor
+QL_ProjectOp::QL_ProjectOp(SM_Manager* smManager, QL_Op* childOp, int count, RelAttr relAttrs[]) {
+    // Store the objects
+    this->smManager = smManager;
+    this->childOp = childOp;
+    this->relAttrCount = count;
+
+    // Copy the relAttrs array
+    this->relAttrs = new RelAttr[count];
+    for (int i=0; i<count; i++) {
+        if (relAttrs[i].relName != NULL) strcpy(this->relAttrs[i].relName, relAttrs[i].relName);
+        strcpy(this->relAttrs[i].attrName, relAttrs[i].attrName);
+    }
+
+    // Create the attributes array
+    attributes = new DataAttrInfo[count];
+    SM_AttrcatRecord* acRecord = new SM_AttrcatRecord;
+    int currentOffset = 0;
+    for (int i=0; i<count; i++) {
+        smManager->GetAttrInfo(relAttrs[i].relName, relAttrs[i].attrName, acRecord);
+        if (relAttrs[i].relName != NULL) strcpy(attributes[i].relName, relAttrs[i].relName);
+        strcpy(attributes[i].attrName, relAttrs[i].attrName);
+        attributes[i].offset = currentOffset;
+        attributes[i].attrType = acRecord->attrType;
+        attributes[i].attrLength = acRecord->attrLength;
+        attributes[i].indexNo = -1;
+        currentOffset += attributes[i].attrLength;
+    }
+    delete acRecord;
+
+    // Set open flag to FALSE
+    isOpen = FALSE;
+}
+
+// Destructor
+QL_ProjectOp::~QL_ProjectOp() {
+    // Delete the relAttrs and attributes array
+    delete[] relAttrs;
+    delete[] attributes;
+}
+
+// Open the operator
+RC QL_ProjectOp::Open() {
+    // Check if already open
+    if (isOpen) {
+        return QL_OPERATOR_OPEN;
+    }
+
+    // Open the child operator
+    int rc;
+    if ((rc = childOp->Open())) {
+        return rc;
+    }
+
+    // Set the flag
+    isOpen = TRUE;
+
+    return OK_RC;
+}
+
+// Close the operator
+RC QL_ProjectOp::Close() {
+    // Check if already closed
+    if (!isOpen) {
+        return QL_OPERATOR_CLOSED;
+    }
+
+    // Close the child operator
+    int rc;
+    if ((rc = childOp->Close())) {
+        return rc;
+    }
+
+    // Set the flag
+    isOpen = FALSE;
+
+    return OK_RC;
+}
+
+// Get the next data
+RC QL_ProjectOp::GetNext(char* recordData) {
+    // Check if closed
+    if (!isOpen) {
+        return QL_OPERATOR_CLOSED;
+    }
+
+    // Get the child attribute information
+    int rc;
+    int childAttrCount;
+    childOp->GetAttributeCount(childAttrCount);
+    DataAttrInfo* childAttributes = new DataAttrInfo[childAttrCount];
+    childOp->GetAttributeInfo(childAttributes);
+    int tupleLength = 0;
+    for (int i=0; i<childAttrCount; i++) {
+        tupleLength += childAttributes[i].attrLength;
+    }
+    char* data = new char[tupleLength];
+
+    // Get the next record data from the child
+    if ((rc = childOp->GetNext(data))) {
+        return rc;
+    }
+
+    // Create the new tuple for the required attributes
+    DataAttrInfo* originalAttrData = new DataAttrInfo;
+    for (int i=0; i<relAttrCount; i++) {
+        if ((rc = GetAttrInfoFromArray((char*) childAttributes, childAttrCount, attributes[i].attrName, (char*) originalAttrData))) {
+            return rc;
+        }
+        memcpy(recordData + attributes[i].offset, data + originalAttrData->offset, attributes[i].attrLength);
+    }
+    delete originalAttrData;
+    delete[] data;
+
+    return OK_RC;
+}
+
+// Get the attribute count
+void QL_ProjectOp::GetAttributeCount(int &attrCount) {
+    attrCount = this->relAttrCount;
+}
+
+// Get the attribute information
+void QL_ProjectOp::GetAttributeInfo(DataAttrInfo* attributes) {
+    attributes = this->attributes;
+}
+
+// Print the physical query plan
+void QL_ProjectOp::Print(int indentationLevel) {
+    for (int i=0; i<indentationLevel; i++) {
+        cout << "\t";
+    }
+    cout << "ProjectOp (";
+    for (int i=0; i<relAttrCount; i++) {
+        if (relAttrs[i].relName != NULL) cout << relAttrs[i].relName << ".";
+        cout << relAttrs[i].attrName;
+        if (i != relAttrCount-1) cout << ", ";
     }
     cout << ")" << endl;
 }
