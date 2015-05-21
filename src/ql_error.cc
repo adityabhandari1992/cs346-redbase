@@ -9,6 +9,7 @@
 #include <cstring>
 #include <iostream>
 #include "ql.h"
+#include "ql_internal.h"
 
 using namespace std;
 
@@ -22,7 +23,10 @@ static char *QL_WarnMsg[] = {
   (char*)"incorrect attribute type",
   (char*)"invalid condition",
   (char*)"attribute not found",
-  (char*)"invalid update attribute"
+  (char*)"invalid update attribute",
+  (char*)"physical operator is open",
+  (char*)"physical operator is closed",
+  (char*)"end of file"
 };
 
 static char *QL_ErrorMsg[] = {

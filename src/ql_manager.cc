@@ -11,16 +11,17 @@
 #include <cassert>
 #include <unistd.h>
 #include <sstream>
+#include <memory>
 #include "redbase.h"
-#include "sm.h"
 #include "ql.h"
+#include "ql_internal.h"
+#include "sm.h"
 #include "ix.h"
 #include "rm.h"
 #include "printer.h"
 #include "parser.h"
 
 using namespace std;
-
 
 // Method: QL_Manager(SM_Manager &smm, IX_Manager &ixm, RM_Manager &rmm)
 // Constructor for the QL Manager
@@ -338,10 +339,12 @@ RC QL_Manager::Delete(const char *relName,
     }
 
     // Prepare the printer class
-    string queryPlan = "";
     cout << "Deleted tuples:" << endl;
     Printer p(attributes, attrCount);
     p.PrintHeader(cout);
+
+    // Declare a scan operator
+    shared_ptr<QL_Op> scanOp;
 
     // If index exists
     if (indexExists) {
@@ -352,12 +355,9 @@ RC QL_Manager::Delete(const char *relName,
         if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhs, (char*) attributeData))) {
             return rc;
         }
-        int lhsIndexNo = attributeData->indexNo;
 
         // Open the RM file
         RM_FileHandle rmFH;
-        IX_IndexHandle ixIH;
-        IX_IndexScan ixIS;
         RID rid;
         RM_Record rec;
         char* recordData;
@@ -366,14 +366,10 @@ RC QL_Manager::Delete(const char *relName,
         }
 
         // Open the index scan
-        if ((rc = ixManager->OpenIndex(relName, lhsIndexNo, ixIH))) {
+        scanOp.reset(new QL_IndexScanOp(smManager, ixManager, rmManager, relName, attributeData->attrName, op, &conditions[indexCondition].rhsValue));
+        if ((rc = scanOp->Open())) {
             return rc;
         }
-        if ((rc = ixIS.OpenScan(ixIH, op, (conditions[indexCondition].rhsValue).data))) {
-            return rc;
-        }
-
-        AddScanToQueryPlan("IndexScan", relName, true, attributeData->attrName, op, &conditions[indexCondition].rhsValue, queryPlan);
 
         // Open all the indexes
         IX_IndexHandle* ixIHs = new IX_IndexHandle[attrCount];
@@ -386,7 +382,7 @@ RC QL_Manager::Delete(const char *relName,
         }
 
         // Find the entries to delete
-        while ((rc = ixIS.GetNextEntry(rid)) != IX_EOF) {
+        while ((rc = scanOp->GetNext(rid)) != QL_EOF) {
             // Get the record from the file
             if ((rc = rmFH.GetRec(rid, rec))) {
                 return rc;
@@ -433,11 +429,8 @@ RC QL_Manager::Delete(const char *relName,
         delete[] ixIHs;
         delete attributeData;
 
-        // Close the scans and files
-        if ((rc = ixIS.CloseScan())) {
-            return rc;
-        }
-        if ((rc = ixManager->CloseIndex(ixIH))) {
+        // Close the scan and RM file
+        if ((rc = scanOp->Close())) {
             return rc;
         }
         if ((rc = rmManager->CloseFile(rmFH))) {
@@ -451,7 +444,6 @@ RC QL_Manager::Delete(const char *relName,
         RM_FileHandle rmFH;
         RID rid;
         RM_Record rec;
-        RM_FileScan rmFS;
         char* recordData;
         if ((rc = rmManager->OpenFile(relName, rmFH))) {
             return rc;
@@ -479,15 +471,11 @@ RC QL_Manager::Delete(const char *relName,
             if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhs, (char*) attributeData))) {
                 return rc;
             }
-            AttrType lhsType = attributeData->attrType;
-            int lhsLength = attributeData->attrLength;
-            int lhsOffset = attributeData->offset;
 
-            if ((rc = rmFS.OpenScan(rmFH, lhsType, lhsLength, lhsOffset, op, (conditions[conditionNumber].rhsValue).data))) {
+            scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, true, attributeData->attrName, op, &conditions[conditionNumber].rhsValue));
+            if ((rc = scanOp->Open())) {
                 return rc;
             }
-
-            AddScanToQueryPlan("FileScan", relName, true, attributeData->attrName, op, &conditions[conditionNumber].rhsValue, queryPlan);
 
             delete attributeData;
         }
@@ -495,11 +483,10 @@ RC QL_Manager::Delete(const char *relName,
         // Else if no such condition
         else {
             // Open a full file scan
-            if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, NO_OP, NULL))) {
+            scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, false, NULL, NO_OP, NULL));
+            if ((rc = scanOp->Open())) {
                 return rc;
             }
-
-            AddScanToQueryPlan("FileScan", relName, false, NULL, NO_OP, NULL, queryPlan);
         }
 
         // Open all the indexes
@@ -513,11 +500,11 @@ RC QL_Manager::Delete(const char *relName,
         }
 
         // Get the next record to delete
-        while ((rc = rmFS.GetNextRec(rec)) != RM_EOF) {
-            if ((rc = rec.GetData(recordData))) {
+        while ((rc = scanOp->GetNext(rid)) != QL_EOF) {
+            if ((rc = rmFH.GetRec(rid, rec))) {
                 return rc;
             }
-            if ((rc = rec.GetRid(rid))) {
+            if ((rc = rec.GetData(recordData))) {
                 return rc;
             }
 
@@ -558,12 +545,10 @@ RC QL_Manager::Delete(const char *relName,
         }
         delete[] ixIHs;
 
-        // Close the file scan
-        if ((rc = rmFS.CloseScan())) {
+        // Close the file scan and RM file
+        if ((rc = scanOp->Close())) {
             return rc;
         }
-
-        // Close the RM file
         if ((rc = rmManager->CloseFile(rmFH))) {
             return rc;
         }
@@ -575,7 +560,10 @@ RC QL_Manager::Delete(const char *relName,
     // Print the query plan
     if (bQueryPlans) {
         cout << "\nPhysical Query Plan :" << endl;
-        cout << queryPlan;
+        cout << "DeleteOp (" << relName << ")" << endl;
+        cout << "[" << endl;
+        scanOp->Print(1);
+        cout << "]" << endl;
     }
 
     // Clean up
@@ -749,10 +737,12 @@ RC QL_Manager::Update(const char *relName,
     }
 
     // Prepare the printer class
-    string queryPlan = "";
     cout << "Updated tuples:" << endl;
     Printer p(attributes, attrCount);
     p.PrintHeader(cout);
+
+    // Create a QL_Op object
+    shared_ptr<QL_Op> scanOp;
 
     // If index exists
     if (indexExists) {
@@ -763,12 +753,9 @@ RC QL_Manager::Update(const char *relName,
         if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhs, (char*) attributeData))) {
             return rc;
         }
-        int lhsIndexNo = attributeData->indexNo;
 
         // Open the RM file
         RM_FileHandle rmFH;
-        IX_IndexHandle ixIH;
-        IX_IndexScan ixIS;
         RID rid;
         RM_Record rec;
         char* recordData;
@@ -776,15 +763,11 @@ RC QL_Manager::Update(const char *relName,
             return rc;
         }
 
-        // Open the index scan
-        if ((rc = ixManager->OpenIndex(relName, lhsIndexNo, ixIH))) {
+        // Open the IndexScan operator
+        scanOp.reset(new QL_IndexScanOp(smManager, ixManager, rmManager, relName, attributeData->attrName, op, &conditions[indexCondition].rhsValue));
+        if ((rc = scanOp->Open())) {
             return rc;
         }
-        if ((rc = ixIS.OpenScan(ixIH, op, (conditions[indexCondition].rhsValue).data))) {
-            return rc;
-        }
-
-        AddScanToQueryPlan("IndexScan", relName, true, attributeData->attrName, op, &conditions[indexCondition].rhsValue, queryPlan);
 
         // Open the update attribute index if it exists
         IX_IndexHandle updAttrIH;
@@ -799,7 +782,12 @@ RC QL_Manager::Update(const char *relName,
         }
 
         // Find the entries to update
-        while ((rc = ixIS.GetNextEntry(rid)) != IX_EOF) {
+        while ((rc = scanOp->GetNext(rid)) != QL_EOF) {
+            // Return if some error
+            if (rc) {
+                return rc;
+            }
+
             // Get the record from the file
             if ((rc = rmFH.GetRec(rid, rec))) {
                 return rc;
@@ -878,11 +866,8 @@ RC QL_Manager::Update(const char *relName,
         delete attributeData;
         delete updAttrData;
 
-        // Close the scans and files
-        if ((rc = ixIS.CloseScan())) {
-            return rc;
-        }
-        if ((rc = ixManager->CloseIndex(ixIH))) {
+        // Close the scan and file
+        if ((rc = scanOp->Close())) {
             return rc;
         }
         if ((rc = rmManager->CloseFile(rmFH))) {
@@ -896,7 +881,6 @@ RC QL_Manager::Update(const char *relName,
         RM_FileHandle rmFH;
         RID rid;
         RM_Record rec;
-        RM_FileScan rmFS;
         char* recordData;
         if ((rc = rmManager->OpenFile(relName, rmFH))) {
             return rc;
@@ -924,27 +908,22 @@ RC QL_Manager::Update(const char *relName,
             if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhs, (char*) attributeData))) {
                 return rc;
             }
-            AttrType lhsType = attributeData->attrType;
-            int lhsLength = attributeData->attrLength;
-            int lhsOffset = attributeData->offset;
 
-            if ((rc = rmFS.OpenScan(rmFH, lhsType, lhsLength, lhsOffset, op, (conditions[conditionNumber].rhsValue).data))) {
+            // Open a conditional file scan
+            scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, true, attributeData->attrName, op, &conditions[conditionNumber].rhsValue));
+            if ((rc = scanOp->Open())) {
                 return rc;
             }
-
-            AddScanToQueryPlan("FileScan", relName, true, attributeData->attrName, op, &conditions[conditionNumber].rhsValue, queryPlan);
-
             delete attributeData;
         }
 
         // Else if no such condition
         else {
             // Open a full file scan
-            if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, NO_OP, NULL))) {
+            scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, false, NULL, NO_OP, NULL));
+            if ((rc = scanOp->Open())) {
                 return rc;
             }
-
-            AddScanToQueryPlan("FileScan", relName, false, NULL, NO_OP, NULL, queryPlan);
         }
 
         // Open the update attribute index if it exists
@@ -960,11 +939,12 @@ RC QL_Manager::Update(const char *relName,
         }
 
         // Get the next record to update
-        while ((rc = rmFS.GetNextRec(rec)) != RM_EOF) {
-            if ((rc = rec.GetData(recordData))) {
+        while ((rc = scanOp->GetNext(rid)) != QL_EOF) {
+            if ((rc = rmFH.GetRec(rid, rec))) {
                 return rc;
             }
-            if ((rc = rec.GetRid(rid))) {
+
+            if ((rc = rec.GetData(recordData))) {
                 return rc;
             }
 
@@ -1036,7 +1016,7 @@ RC QL_Manager::Update(const char *relName,
         delete updAttrData;
 
         // Close the file scan
-        if ((rc = rmFS.CloseScan())) {
+        if ((rc = scanOp->Close())) {
             return rc;
         }
 
@@ -1052,7 +1032,10 @@ RC QL_Manager::Update(const char *relName,
     // Print the query plan
     if (bQueryPlans) {
         cout << "\nPhysical Query Plan :" << endl;
-        cout << queryPlan;
+        cout << "UpdateOp (" << relName << "." << updAttrName << ")" << endl;
+        cout << "[" << endl;
+        scanOp->Print(1);
+        cout << "]" << endl;
     }
 
     // Clean up
@@ -1063,33 +1046,8 @@ RC QL_Manager::Update(const char *relName,
     return OK_RC;
 }
 
-/********** HELPER METHODS **********/
 
-// Method: GetAttrInfoFromArray(char* attributes, int attrCount, char* attributeData)
-// Get the attribute info from the attributes array
-RC QL_Manager::GetAttrInfoFromArray(char* attributes, int attrCount, const char* attrName, char* attributeData) {
-    bool found = false;
-    DataAttrInfo* attributesArray = (DataAttrInfo*) attributes;
-    DataAttrInfo* attribute = (DataAttrInfo*) attributeData;
-    for (int i=0; i<attrCount; i++) {
-        if (strcmp(attributesArray[i].attrName, attrName) == 0) {
-            strcpy(attribute->relName, attributesArray[i].relName);
-            strcpy(attribute->attrName, attributesArray[i].attrName);
-            attribute->offset = attributesArray[i].offset;
-            attribute->attrType = attributesArray[i].attrType;
-            attribute->attrLength = attributesArray[i].attrLength;
-            attribute->indexNo = attributesArray[i].indexNo;
-            found = true;
-            break;
-        }
-    }
-
-    if (!found) {
-        return QL_ATTRIBUTE_NOT_FOUND;
-    }
-
-    return OK_RC;
-}
+/************ HELPER METHODS ************/
 
 // Method: matchRecord(T lhsValue, T rhsValue, CompOp op)
 // Template function to compare two values
@@ -1119,64 +1077,6 @@ bool QL_Manager::matchRecord(T lhsValue, T rhsValue, CompOp op) {
             break;
     }
     return recordMatch;
-}
-
-// Method: const char* OperatorToString(CompOp op)
-// Get the string form of the operator
-const char* QL_Manager::OperatorToString(CompOp op) {
-    switch(op) {
-        case EQ_OP:
-            return " = ";
-        case LT_OP:
-            return " < ";
-        case GT_OP:
-            return " > ";
-        case LE_OP:
-            return " <= ";
-        case GE_OP:
-            return " >= ";
-        case NE_OP:
-            return " != ";
-        default:
-            return " NO_OP ";
-    }
-}
-
-// Method: void GetValue(const Value* v, string& queryPlan)
-// Get the value in a string for printing
-void QL_Manager::GetValue(const Value* v, string& queryPlan) {
-    AttrType vType = v->type;
-    if (vType == INT) {
-        int value = *static_cast<int*>(v->data);
-        stringstream ss;
-        ss << value;
-        queryPlan += ss.str();
-    }
-    else if (vType == FLOAT) {
-        float value = *static_cast<float*>(v->data);
-        stringstream ss;
-        ss << value;
-        queryPlan += ss.str();
-    }
-    else {
-        char* value = static_cast<char*>(v->data);
-        queryPlan += value;
-    }
-}
-
-// Method: void AddScanToQueryPlan(string scanType, const char* relName, bool cond, char* attrName, CompOp op, const Value* v, string& queryPlan)
-// Add a scan operator to the query plan
-void QL_Manager::AddScanToQueryPlan(string scanType, const char* relName, bool cond, char* attrName, CompOp op, const Value* v, string& queryPlan) {
-    queryPlan += scanType;
-    queryPlan += " (";
-    queryPlan += relName;
-    if (cond) {
-        queryPlan += ", ";
-        queryPlan += attrName;
-        queryPlan += OperatorToString(op);
-        GetValue(v, queryPlan);
-    }
-    queryPlan += ")\n";
 }
 
 // Method: ValidateConditionsSingleRelation(const char* relName, int attrCount, char* attributeData, int nConditions, const Condition conditions[])

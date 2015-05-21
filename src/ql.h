@@ -52,17 +52,11 @@ private:
     IX_Manager* ixManager;          // IX_Manager object
     SM_Manager* smManager;          // SM_Manager object
 
-    RC GetAttrInfoFromArray(char* attributes, int attrCount, const char* attrName, char* attributeData);
-
     template <typename T>
     bool matchRecord(T lhsValue, T rhsValue, CompOp op);
 
     RC ValidateConditionsSingleRelation(const char* relName, int attrCount, char* attributeData, int nConditions, const Condition conditions[]);
     RC CheckConditionsSingleRelation(char* recordData, bool& match, char* attributeData, int attrCount, int nConditions, const Condition conditions[]);
-
-    const char* OperatorToString(CompOp op);
-    void GetValue(const Value* v, std::string& queryPlan);
-    void AddScanToQueryPlan(std::string scanType, const char* relName, bool cond, char* attrName, CompOp op, const Value* v, std::string& queryPlan);
 };
 
 //
@@ -81,7 +75,10 @@ void QL_PrintError(RC rc);
 #define QL_INVALID_CONDITION                (START_QL_WARN + 7) // Invalid condition
 #define QL_ATTRIBUTE_NOT_FOUND              (START_QL_WARN + 8) // Attribute not found
 #define QL_INVALID_UPDATE_ATTRIBUTE         (START_QL_WARN + 9) // Invalid update attribute
-#define QL_LASTWARN                         QL_INVALID_UPDATE_ATTRIBUTE
+#define QL_OPERATOR_OPEN                    (START_QL_WARN + 10) // Operator is open
+#define QL_OPERATOR_CLOSED                  (START_QL_WARN + 11) // Operator is closed
+#define QL_EOF                              (START_QL_WARN + 12) // EOF
+#define QL_LASTWARN                         QL_EOF
 
 // Errors
 #define QL_INVALID_DATABASE_NAME            (START_QL_ERR - 0) // Invalid database file name
