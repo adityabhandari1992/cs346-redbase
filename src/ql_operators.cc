@@ -124,6 +124,10 @@ RC QL_IndexScanOp::Close() {
 }
 
 // Get the next data
+/* Steps:
+    1) Get the next record from the index scan
+    2) Copy the data to the return parameter
+*/
 RC QL_IndexScanOp::GetNext(char* recordData) {
     // Check if closed
     if (!isOpen) {
@@ -195,9 +199,8 @@ void QL_IndexScanOp::GetAttributeInfo(DataAttrInfo* attributes) {
 
 // Print the physical query plan
 void QL_IndexScanOp::Print(int indentationLevel) {
-    for (int i=0; i<indentationLevel; i++) {
-        cout << "\t";
-    }
+    for (int i=0; i<indentationLevel; i++) cout << "\t";
+
     cout << "IndexScanOp (";
     cout << relName << ", " << attrName;
     PrintOperator(op);
@@ -307,6 +310,10 @@ RC QL_FileScanOp::Close() {
 }
 
 // Get the next data
+/* Steps:
+    1) Get the next record from the file scan
+    2) Copy the data to the return parameter
+*/
 RC QL_FileScanOp::GetNext(char* recordData) {
     // Check if closed
     if (!isOpen) {
@@ -381,9 +388,8 @@ void QL_FileScanOp::GetAttributeInfo(DataAttrInfo* attributes) {
 
 // Print the physical query plan
 void QL_FileScanOp::Print(int indentationLevel) {
-    for (int i=0; i<indentationLevel; i++) {
-        cout << "\t";
-    }
+    for (int i=0; i<indentationLevel; i++) cout << "\t";
+
     cout << "FileScanOp (";
     cout << relName;
     if (cond) {
@@ -477,6 +483,12 @@ RC QL_ProjectOp::Close() {
 }
 
 // Get the next data
+/* Steps:
+    1) Get the child attribute information
+    2) Get the next data tuple from the child
+    3) Construct a new tuple for the required attributes
+    4) Copy the tuple to the return parameter
+*/
 RC QL_ProjectOp::GetNext(char* recordData) {
     // Check if closed
     if (!isOpen) {
@@ -531,9 +543,8 @@ void QL_ProjectOp::GetAttributeInfo(DataAttrInfo* attributes) {
 
 // Print the physical query plan
 void QL_ProjectOp::Print(int indentationLevel) {
-    for (int i=0; i<indentationLevel; i++) {
-        cout << "\t";
-    }
+    for (int i=0; i<indentationLevel; i++) cout << "\t";
+
     cout << "ProjectOp (";
     for (int i=0; i<relAttrCount; i++) {
         if (relAttrs[i].relName != NULL) cout << relAttrs[i].relName << ".";
@@ -541,6 +552,12 @@ void QL_ProjectOp::Print(int indentationLevel) {
         if (i != relAttrCount-1) cout << ", ";
     }
     cout << ")" << endl;
+
+    for (int i=0; i<indentationLevel; i++) cout << "\t";
+    cout << "[" << endl;
+    childOp->Print(indentationLevel+1);
+    for (int i=0; i<indentationLevel; i++) cout << "\t";
+    cout << "]" << endl;
 }
 
 
@@ -607,6 +624,12 @@ RC QL_FilterOp::Close() {
 }
 
 // Get the next data
+/* Steps:
+    1) Get the next data tuple from the child
+    2) Check the required condition on the tuple
+    3) If satisfied, copy the tuple to the return parameter
+    4) Else go to step 1 till QL_EOF
+*/
 RC QL_FilterOp::GetNext(char* recordData) {
     // Check if closed
     if (!isOpen) {
@@ -724,9 +747,8 @@ void QL_FilterOp::GetAttributeInfo(DataAttrInfo* attributes) {
 
 // Print the physical query plan
 void QL_FilterOp::Print(int indentationLevel) {
-    for (int i=0; i<indentationLevel; i++) {
-        cout << "\t";
-    }
+    for (int i=0; i<indentationLevel; i++) cout << "\t";
+
     cout << "FilterOp (";
     if ((filterCond.lhsAttr).relName != NULL) cout << (filterCond.lhsAttr).relName << ".";
     cout << (filterCond.lhsAttr).attrName;
@@ -750,6 +772,220 @@ void QL_FilterOp::Print(int indentationLevel) {
         }
     }
     cout << ")" << endl;
+
+    for (int i=0; i<indentationLevel; i++) cout << "\t";
+    cout << "[" << endl;
+    childOp->Print(indentationLevel+1);
+    for (int i=0; i<indentationLevel; i++) cout << "\t";
+    cout << "]" << endl;
+}
+
+
+/********** QL_CrossProductOp class **********/
+
+// Constructor
+QL_CrossProductOp::QL_CrossProductOp(SM_Manager* smManager, std::shared_ptr<QL_Op> leftOp, std::shared_ptr<QL_Op> rightOp) {
+    // Store the objects
+    this->smManager = smManager;
+    this->leftOp = leftOp;
+    this->rightOp = rightOp;
+
+    // Get the attribute information for the left operator
+    int leftAttrCount;
+    leftOp->GetAttributeCount(leftAttrCount);
+    DataAttrInfo* leftAttributes = new DataAttrInfo[leftAttrCount];
+    leftOp->GetAttributeInfo(leftAttributes);
+
+    // Get the attribute information for the right operator
+    int rightAttrCount;
+    rightOp->GetAttributeCount(rightAttrCount);
+    DataAttrInfo* rightAttributes = new DataAttrInfo[rightAttrCount];
+    rightOp->GetAttributeInfo(rightAttributes);
+
+    // Construct the attributes information
+    int currentOffset = 0;
+    this->attrCount = leftAttrCount + rightAttrCount;
+    attributes = new DataAttrInfo[this->attrCount];
+    for (int i=0; i<leftAttrCount; i++) {
+        attributes[i] = leftAttributes[i];
+        attributes[i].indexNo = -1;
+        attributes[i].offset = currentOffset;
+        currentOffset += leftAttributes[i].attrLength;
+    }
+    for (int i=0; i<rightAttrCount; i++) {
+        attributes[leftAttrCount+i] = rightAttributes[i];
+        attributes[leftAttrCount+i].indexNo = -1;
+        attributes[leftAttrCount+i].offset = currentOffset;
+        currentOffset += rightAttributes[i].attrLength;
+    }
+    delete[] leftAttributes;
+    delete[] rightAttributes;
+
+    // Initialize leftData
+    leftData = NULL;
+
+    // Set open flag to FALSE
+    isOpen = FALSE;
+}
+
+// Destructor
+QL_CrossProductOp::~QL_CrossProductOp() {
+    // Delete the attributes and leftData array
+    delete[] attributes;
+    delete[] leftData;
+}
+
+// Open the operator
+RC QL_CrossProductOp::Open() {
+    // Check if already open
+    if (isOpen) {
+        return QL_OPERATOR_OPEN;
+    }
+
+    // Open the children operators
+    int rc;
+    if ((rc = leftOp->Open())) {
+        return rc;
+    }
+    if ((rc = rightOp->Open())) {
+        return rc;
+    }
+
+    // Set the flag
+    isOpen = TRUE;
+
+    return OK_RC;
+}
+
+// Close the operator
+RC QL_CrossProductOp::Close() {
+    // Check if already closed
+    if (!isOpen) {
+        return QL_OPERATOR_CLOSED;
+    }
+
+    // Close the children operators
+    int rc;
+    if ((rc = leftOp->Close())) {
+        return rc;
+    }
+    if ((rc = rightOp->Close())) {
+        return rc;
+    }
+
+    // Set the flag
+    isOpen = FALSE;
+
+    return OK_RC;
+}
+
+// Get the next data
+/* Steps:
+    1) Check leftData
+        - If NULL, get next data tuple from left child
+    2) Get next data tuple from right child
+        - If QL_EOF, get next data tuple from left child
+                     and first tuple from right child
+            - If QL_EOF, return QL_EOF
+    3) Construct new tuple by joining left and right data tuples
+*/
+RC QL_CrossProductOp::GetNext(char* recordData) {
+    // Check if closed
+    if (!isOpen) {
+        return QL_OPERATOR_CLOSED;
+    }
+
+    // Get attribute information of left child
+    int leftAttrCount;
+    leftOp->GetAttributeCount(leftAttrCount);
+    DataAttrInfo* leftAttributes = new DataAttrInfo[leftAttrCount];
+    leftOp->GetAttributeInfo(leftAttributes);
+    int leftTupleLength = 0;
+    for (int i=0; i<leftAttrCount; i++) {
+        leftTupleLength += leftAttributes[i].attrLength;
+    }
+
+    // Get attribute information of right child
+    int rightAttrCount;
+    rightOp->GetAttributeCount(rightAttrCount);
+    DataAttrInfo* rightAttributes = new DataAttrInfo[rightAttrCount];
+    rightOp->GetAttributeInfo(rightAttributes);
+    int rightTupleLength = 0;
+    for (int i=0; i<rightAttrCount; i++) {
+        rightTupleLength += rightAttributes[i].attrLength;
+    }
+
+    // Check leftData
+    int rc;
+    if (leftData == NULL) {
+        leftData = new char[leftTupleLength];
+        if ((rc = leftOp->GetNext(leftData))) {
+            return rc;
+        }
+    }
+
+    // Get the next tuple from the right child
+    char* rightData = new char[rightTupleLength];
+    if ((rc = rightOp->GetNext(rightData)) == QL_EOF) {
+        // Get next tuple from left child
+        if ((rc = leftOp->GetNext(leftData))) {
+            return rc;
+        }
+
+        // Get first tuple from right child
+        if ((rc = rightOp->Close())) {
+            return rc;
+        }
+        if ((rc = rightOp->Open())) {
+            return rc;
+        }
+        if ((rc = rightOp->GetNext(rightData))) {
+            return rc;
+        }
+    }
+    else if (rc) {
+        delete[] leftAttributes;
+        delete[] rightAttributes;
+        delete[] rightData;
+        return rc;
+    }
+
+    // Construct new tuple by joining left and right data tuples
+    memcpy(recordData, leftData, leftTupleLength);
+    memcpy(recordData + leftTupleLength, rightData, rightTupleLength);
+
+    // Clean up
+    delete[] leftAttributes;
+    delete[] rightAttributes;
+    delete[] rightData;
+
+    return OK_RC;
+}
+
+// Get the attribute count
+void QL_CrossProductOp::GetAttributeCount(int &attrCount) {
+    attrCount = this->attrCount;
+}
+
+// Get the attribute information
+void QL_CrossProductOp::GetAttributeInfo(DataAttrInfo* attributes) {
+    for (int i=0; i<attrCount; i++) {
+        attributes[i] = this->attributes[i];
+    }
+}
+
+// Print the physical query plan
+void QL_CrossProductOp::Print(int indentationLevel) {
+    for (int i=0; i<indentationLevel; i++) cout << "\t";
+
+    cout << "CrossProductOp" << endl;
+
+    for (int i=0; i<indentationLevel; i++) cout << "\t";
+    cout << "[" << endl;
+    leftOp->Print(indentationLevel+1);
+    rightOp->Print(indentationLevel+1);
+    for (int i=0; i<indentationLevel; i++) cout << "\t";
+    cout << "]" << endl;
 }
 
 

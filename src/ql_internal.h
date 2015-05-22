@@ -154,8 +154,7 @@ private:
 // Cross product operator class
 class QL_CrossProductOp : public QL_Op {
 public:
-    QL_CrossProductOp(SM_Manager* smManager, RM_Manager* rmManager, const char* relName,
-                  bool cond, char* attrName, CompOp op, const Value* v);
+    QL_CrossProductOp(SM_Manager* smManager, std::shared_ptr<QL_Op> leftOp, std::shared_ptr<QL_Op> rightOp);
     ~QL_CrossProductOp();
 
     RC Open();
@@ -165,6 +164,15 @@ public:
 
     void GetAttributeCount(int &attrCount);
     void GetAttributeInfo(DataAttrInfo* attributes);
+
+private:
+    SM_Manager* smManager;
+    std::shared_ptr<QL_Op> leftOp;
+    std::shared_ptr<QL_Op> rightOp;
+    int attrCount;
+    DataAttrInfo* attributes;
+    char* leftData;
+    int isOpen;
 };
 
 // QL_NLJoinOp
