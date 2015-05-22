@@ -56,6 +56,171 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
                       int nConditions, const Condition conditions[]) {
     int rc;
 
+    // Test for ProjectOp
+    // shared_ptr<QL_Op> childOp;
+    // childOp.reset(new QL_FileScanOp(smManager, rmManager, relations[0], false, NULL, NO_OP, NULL));
+
+    // int attrCount;
+    // childOp->GetAttributeCount(attrCount);
+
+    // DataAttrInfo* attributes = new DataAttrInfo[attrCount];
+    // childOp->GetAttributeInfo(attributes);
+
+    // RelAttr* relAttrs = new RelAttr[attrCount];
+    // for (int i=0; i<attrCount; i++) {
+    //     relAttrs[i].relName = attributes[i].relName;
+    //     relAttrs[i].attrName = attributes[i].attrName;
+    // }
+
+    // shared_ptr<QL_Op> rootOp;
+    // rootOp.reset(new QL_ProjectOp(smManager, childOp, attrCount, relAttrs));
+
+    // int finalAttrCount;
+    // rootOp->GetAttributeCount(finalAttrCount);
+    // DataAttrInfo* finalAttributes = new DataAttrInfo[finalAttrCount];
+    // rootOp->GetAttributeInfo(finalAttributes);
+    // int tupleLength = 0;
+    // for (int i=0; i<finalAttrCount; i++) {
+    //     tupleLength += finalAttributes[i].attrLength;
+    // }
+
+    // Printer p(finalAttributes, finalAttrCount);
+    // p.PrintHeader(cout);
+
+    // char* recordData = new char[tupleLength];
+    // rootOp->Open();
+    // while((rc = rootOp->GetNext(recordData)) != QL_EOF) {
+    //     p.Print(cout, recordData);
+    // }
+    // rootOp->Close();
+
+    // p.PrintFooter(cout);
+
+    // cout << "\nPhysical Query Plan:" << endl;
+    // rootOp->Print(0);
+    // cout << "[" << endl;
+    // childOp->Print(1);
+    // cout << "]" << endl;
+
+    // delete[] recordData;
+    // delete[] relAttrs;
+    // delete[] attributes;
+    // delete[] finalAttributes;
+    // End test for ProjectOp
+
+    // Test for FilterOp
+    // shared_ptr<QL_Op> childOp;
+    // childOp.reset(new QL_FileScanOp(smManager, rmManager, relations[0], false, NULL, NO_OP, NULL));
+
+    // Condition filterCond = conditions[0];
+
+    // shared_ptr<QL_Op> rootOp;
+    // rootOp.reset(new QL_FilterOp(smManager, childOp, filterCond));
+
+    // int attrCount;
+    // rootOp->GetAttributeCount(attrCount);
+    // DataAttrInfo* attributes = new DataAttrInfo[attrCount];
+    // rootOp->GetAttributeInfo(attributes);
+    // int tupleLength = 0;
+    // for (int i=0; i<attrCount; i++) {
+    //     tupleLength += attributes[i].attrLength;
+    // }
+
+    // Printer p(attributes, attrCount);
+    // p.PrintHeader(cout);
+
+    // char* recordData = new char[tupleLength];
+    // rootOp->Open();
+    // while((rc = rootOp->GetNext(recordData)) != QL_EOF) {
+    //     p.Print(cout, recordData);
+    // }
+    // rootOp->Close();
+
+    // p.PrintFooter(cout);
+
+    // cout << "\nPhysical Query Plan:" << endl;
+    // rootOp->Print(0);
+
+    // delete[] recordData;
+    // delete[] attributes;
+    // End test for FilterOp
+
+    // Test for CrossProductOp
+    // shared_ptr<QL_Op> leftOp;
+    // leftOp.reset(new QL_FileScanOp(smManager, rmManager, relations[0], false, NULL, NO_OP, NULL));
+
+    // shared_ptr<QL_Op> rightOp;
+    // rightOp.reset(new QL_FileScanOp(smManager, rmManager, relations[1], false, NULL, NO_OP, NULL));
+
+    // shared_ptr<QL_Op> rootOp;
+    // rootOp.reset(new QL_CrossProductOp(smManager, leftOp, rightOp));
+
+    // int attrCount;
+    // rootOp->GetAttributeCount(attrCount);
+    // DataAttrInfo* attributes = new DataAttrInfo[attrCount];
+    // rootOp->GetAttributeInfo(attributes);
+    // int tupleLength = 0;
+    // for (int i=0; i<attrCount; i++) {
+    //     tupleLength += attributes[i].attrLength;
+    // }
+
+    // Printer p(attributes, attrCount);
+    // p.PrintHeader(cout);
+
+    // char* recordData = new char[tupleLength];
+    // rootOp->Open();
+    // while((rc = rootOp->GetNext(recordData)) != QL_EOF) {
+    //     p.Print(cout, recordData);
+    // }
+    // rootOp->Close();
+
+    // p.PrintFooter(cout);
+
+    // cout << "\nPhysical Query Plan:" << endl;
+    // rootOp->Print(0);
+
+    // delete[] recordData;
+    // delete[] attributes;
+    // End test for CrossProductOp
+
+    // Test for NLJoinOp
+    // shared_ptr<QL_Op> leftOp;
+    // leftOp.reset(new QL_FileScanOp(smManager, rmManager, relations[0], false, NULL, NO_OP, NULL));
+
+    // shared_ptr<QL_Op> rightOp;
+    // rightOp.reset(new QL_FileScanOp(smManager, rmManager, relations[1], false, NULL, NO_OP, NULL));
+
+    // shared_ptr<QL_Op> rootOp;
+    // rootOp.reset(new QL_NLJoinOp(smManager, leftOp, rightOp, conditions[0]));
+
+    // int attrCount;
+    // rootOp->GetAttributeCount(attrCount);
+    // DataAttrInfo* attributes = new DataAttrInfo[attrCount];
+    // rootOp->GetAttributeInfo(attributes);
+    // int tupleLength = 0;
+    // for (int i=0; i<attrCount; i++) {
+    //     tupleLength += attributes[i].attrLength;
+    // }
+
+    // Printer p(attributes, attrCount);
+    // p.PrintHeader(cout);
+
+    // char* recordData = new char[tupleLength];
+    // rootOp->Open();
+    // while((rc = rootOp->GetNext(recordData)) != QL_EOF) {
+    //     p.Print(cout, recordData);
+    // }
+    // rootOp->Close();
+
+    // p.PrintFooter(cout);
+
+    // cout << "\nPhysical Query Plan:" << endl;
+    // rootOp->Print(0);
+
+    // delete[] recordData;
+    // delete[] attributes;
+    // End test for NLJoinOp
+
     // Print the command
     if (smManager->getPrintFlag()) {
         int i;

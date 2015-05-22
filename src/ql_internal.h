@@ -171,15 +171,39 @@ private:
     std::shared_ptr<QL_Op> rightOp;
     int attrCount;
     DataAttrInfo* attributes;
+    int firstTuple;
     char* leftData;
+    char* rightData;
     int isOpen;
 };
 
 // QL_NLJoinOp
 // Natural loop join operator class
-// class QL_NLJoinOp : public QL_Op {
-//     // TODO
-// };
+class QL_NLJoinOp : public QL_Op {
+public:
+    QL_NLJoinOp(SM_Manager* smManager, std::shared_ptr<QL_Op> leftOp, std::shared_ptr<QL_Op> rightOp, Condition joinCond);
+    ~QL_NLJoinOp();
+
+    RC Open();
+    RC Close();
+    RC GetNext(char* recordData);
+    void Print(int indentationLevel);
+
+    void GetAttributeCount(int &attrCount);
+    void GetAttributeInfo(DataAttrInfo* attributes);
+
+private:
+    SM_Manager* smManager;
+    std::shared_ptr<QL_Op> leftOp;
+    std::shared_ptr<QL_Op> rightOp;
+    Condition joinCond;
+    int attrCount;
+    DataAttrInfo* attributes;
+    int firstTuple;
+    char* leftData;
+    char* rightData;
+    int isOpen;
+};
 
 // Helper methods
 void PrintOperator(CompOp op);
