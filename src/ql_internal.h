@@ -130,7 +130,7 @@ private:
 // Filter operator class
 class QL_FilterOp : public QL_Op {
 public:
-    QL_FilterOp(SM_Manager* smManager, std::shared_ptr<QL_Op>, Condition filterCond);
+    QL_FilterOp(SM_Manager* smManager, std::shared_ptr<QL_Op> childOp, Condition filterCond);
     ~QL_FilterOp();
 
     RC Open();

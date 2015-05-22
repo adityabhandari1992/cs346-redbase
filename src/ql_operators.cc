@@ -547,7 +547,7 @@ void QL_ProjectOp::Print(int indentationLevel) {
 /********** QL_FilterOp class **********/
 
 // Constructor
-QL_FilterOp::QL_FilterOp(SM_Manager* smManager, shared_ptr<QL_Op>, Condition filterCond) {
+QL_FilterOp::QL_FilterOp(SM_Manager* smManager, shared_ptr<QL_Op> childOp, Condition filterCond) {
     // Store the objects
     this->smManager = smManager;
     this->childOp = childOp;
@@ -692,7 +692,7 @@ RC QL_FilterOp::GetNext(char* recordData) {
     }
 
     // If condition is not satisfied, return QL_EOF
-    if (!match || rc != QL_EOF) {
+    if (!match || rc == QL_EOF) {
         delete lhsData;
         delete rhsData;
         delete[] data;
@@ -736,7 +736,18 @@ void QL_FilterOp::Print(int indentationLevel) {
         cout << (filterCond.rhsAttr).attrName;
     }
     else {
-        cout << (filterCond.rhsValue).data << endl;
+        if ((filterCond.rhsValue).type == INT) {
+            int value = *static_cast<int*>((filterCond.rhsValue).data);
+            cout << value;
+        }
+        else if ((filterCond.rhsValue).type == FLOAT) {
+            float value = *static_cast<float*>((filterCond.rhsValue).data);
+            cout << value;
+        }
+        else {
+            char* value = static_cast<char*>((filterCond.rhsValue).data);
+            cout << value;
+        }
     }
     cout << ")" << endl;
 }
