@@ -64,7 +64,6 @@ private:
     int tupleLength;
     int attrCount;
     DataAttrInfo* attributes;
-
     int isOpen;
 };
 
@@ -99,7 +98,6 @@ private:
     int tupleLength;
     int attrCount;
     DataAttrInfo* attributes;
-
     int isOpen;
 };
 
@@ -125,7 +123,6 @@ private:
     int relAttrCount;
     RelAttr* relAttrs;
     DataAttrInfo* attributes;
-
     int isOpen;
 };
 
@@ -133,8 +130,7 @@ private:
 // Filter operator class
 class QL_FilterOp : public QL_Op {
 public:
-    QL_FilterOp(SM_Manager* smManager, RM_Manager* rmManager, const char* relName,
-                bool cond, char* attrName, CompOp op, const Value* v);
+    QL_FilterOp(SM_Manager* smManager, std::shared_ptr<QL_Op>, Condition filterCond);
     ~QL_FilterOp();
 
     RC Open();
@@ -144,6 +140,14 @@ public:
 
     void GetAttributeCount(int &attrCount);
     void GetAttributeInfo(DataAttrInfo* attributes);
+
+private:
+    SM_Manager* smManager;
+    std::shared_ptr<QL_Op> childOp;
+    Condition filterCond;
+    int attrCount;
+    DataAttrInfo* attributes;
+    int isOpen;
 };
 
 // QL_CrossProductOp
@@ -172,6 +176,9 @@ public:
 // Helper methods
 void PrintOperator(CompOp op);
 void PrintValue(const Value* v);
-RC GetAttrInfoFromArray(char* attributes, int attrCount, const char* attrName, char* attributeData);
+RC GetAttrInfoFromArray(char* attributes, int attrCount, const char* relName, const char* attrName, char* attributeData);
+
+template <typename T>
+bool matchRecord(T lhsValue, T rhsValue, CompOp op);
 
 #endif

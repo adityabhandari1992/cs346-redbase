@@ -68,7 +68,7 @@ RC QL_IndexScanOp::Open() {
     // Get the index attribute information
     int rc;
     DataAttrInfo* attributeData = new DataAttrInfo;
-    if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, attrName, (char*) attributeData))) {
+    if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, relName, attrName, (char*) attributeData))) {
         return rc;
     }
     int attrIndexNo = attributeData->indexNo;
@@ -263,7 +263,7 @@ RC QL_FileScanOp::Open() {
     if (cond) {
         // Get the scan attribute information
         DataAttrInfo* attributeData = new DataAttrInfo;
-        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, attrName, (char*) attributeData))) {
+        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, relName, attrName, (char*) attributeData))) {
             return rc;
         }
         if ((rc = rmFS.OpenScan(rmFH, attributeData->attrType, attributeData->attrLength, attributeData->offset, op, v->data))) {
@@ -505,7 +505,7 @@ RC QL_ProjectOp::GetNext(char* recordData) {
     // Create the new tuple for the required attributes
     DataAttrInfo* originalAttrData = new DataAttrInfo;
     for (int i=0; i<relAttrCount; i++) {
-        if ((rc = GetAttrInfoFromArray((char*) childAttributes, childAttrCount, attributes[i].attrName, (char*) originalAttrData))) {
+        if ((rc = GetAttrInfoFromArray((char*) childAttributes, childAttrCount, attributes[i].relName, attributes[i].attrName, (char*) originalAttrData))) {
             return rc;
         }
         memcpy(recordData + attributes[i].offset, data + originalAttrData->offset, attributes[i].attrLength);
@@ -539,6 +539,204 @@ void QL_ProjectOp::Print(int indentationLevel) {
         if (relAttrs[i].relName != NULL) cout << relAttrs[i].relName << ".";
         cout << relAttrs[i].attrName;
         if (i != relAttrCount-1) cout << ", ";
+    }
+    cout << ")" << endl;
+}
+
+
+/********** QL_FilterOp class **********/
+
+// Constructor
+QL_FilterOp::QL_FilterOp(SM_Manager* smManager, shared_ptr<QL_Op>, Condition filterCond) {
+    // Store the objects
+    this->smManager = smManager;
+    this->childOp = childOp;
+    this->filterCond = filterCond;
+
+    // Get the attribute information from the child operator
+    childOp->GetAttributeCount(this->attrCount);
+    attributes = new DataAttrInfo[this->attrCount];
+    childOp->GetAttributeInfo(attributes);
+
+    // Set open flag to FALSE
+    isOpen = FALSE;
+}
+
+// Destructor
+QL_FilterOp::~QL_FilterOp() {
+    // Delete the attributes array
+    delete[] attributes;
+}
+
+// Open the operator
+RC QL_FilterOp::Open() {
+    // Check if already open
+    if (isOpen) {
+        return QL_OPERATOR_OPEN;
+    }
+
+    // Open the child operator
+    int rc;
+    if ((rc = childOp->Open())) {
+        return rc;
+    }
+
+    // Set the flag
+    isOpen = TRUE;
+
+    return OK_RC;
+}
+
+// Close the operator
+RC QL_FilterOp::Close() {
+    // Check if already closed
+    if (!isOpen) {
+        return QL_OPERATOR_CLOSED;
+    }
+
+    // Close the child operator
+    int rc;
+    if ((rc = childOp->Close())) {
+        return rc;
+    }
+
+    // Set the flag
+    isOpen = FALSE;
+
+    return OK_RC;
+}
+
+// Get the next data
+RC QL_FilterOp::GetNext(char* recordData) {
+    // Check if closed
+    if (!isOpen) {
+        return QL_OPERATOR_CLOSED;
+    }
+
+    DataAttrInfo* lhsData = new DataAttrInfo;
+    DataAttrInfo* rhsData = new DataAttrInfo;
+    bool match = false;
+
+    // Get the next record data from the child
+    int rc;
+    int tupleLength = 0;
+    for (int i=0; i<attrCount; i++) {
+        tupleLength += attributes[i].attrLength;
+    }
+    char* data = new char[tupleLength];
+
+    // Check the required condition on the next record
+    while((rc = childOp->GetNext(data)) != QL_EOF) {
+        if (rc) {
+            delete[] data;
+            return rc;
+        }
+
+        // Get the information about the LHS attribute
+        char* lhsRelName = (filterCond.lhsAttr).relName;
+        char* lhsAttrName = (filterCond.lhsAttr).attrName;
+        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhsRelName, lhsAttrName, (char*) lhsData))) {
+            return rc;
+        }
+
+        // If the RHS is also an attribute
+        if (filterCond.bRhsIsAttr) {
+            char* rhsRelName = (filterCond.rhsAttr).relName;
+            char* rhsAttrName = (filterCond.rhsAttr).attrName;
+            if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, rhsRelName, rhsAttrName, (char*) rhsData))) {
+                return rc;
+            }
+
+            if (lhsData->attrType == INT) {
+                int lhsValue, rhsValue;
+                memcpy(&lhsValue, data + (lhsData->offset), sizeof(lhsValue));
+                memcpy(&rhsValue, data + (rhsData->offset), sizeof(rhsValue));
+                match = matchRecord(lhsValue, rhsValue, filterCond.op);
+            }
+            else if (lhsData->attrType == FLOAT) {
+                float lhsValue, rhsValue;
+                memcpy(&lhsValue, data + (lhsData->offset), sizeof(lhsValue));
+                memcpy(&rhsValue, data + (rhsData->offset), sizeof(rhsValue));
+                match = matchRecord(lhsValue, rhsValue, filterCond.op);
+            }
+            else {
+                string lhsValue(data + (lhsData->offset));
+                string rhsValue(data + (rhsData->offset));
+                match = matchRecord(lhsValue, rhsValue, filterCond.op);
+            }
+        }
+
+        // Else if the RHS is a constant value
+        else {
+            if (lhsData->attrType == INT) {
+                int lhsValue;
+                memcpy(&lhsValue, data + (lhsData->offset), sizeof(lhsValue));
+                int rhsValue = *static_cast<int*>((filterCond.rhsValue).data);
+                match = matchRecord(lhsValue, rhsValue, filterCond.op);
+            }
+            else if (lhsData->attrType == FLOAT) {
+                float lhsValue;
+                memcpy(&lhsValue, data + (lhsData->offset), sizeof(lhsValue));
+                float rhsValue = *static_cast<float*>((filterCond.rhsValue).data);
+                match = matchRecord(lhsValue, rhsValue, filterCond.op);
+            }
+            else {
+                string lhsValue(data + (lhsData->offset));
+                char* rhsValueChar = static_cast<char*>((filterCond.rhsValue).data);
+                string rhsValue(rhsValueChar);
+                match = matchRecord(lhsValue, rhsValue, filterCond.op);
+            }
+        }
+
+        if (match) break;
+    }
+
+    // If condition is not satisfied, return QL_EOF
+    if (!match || rc != QL_EOF) {
+        delete lhsData;
+        delete rhsData;
+        delete[] data;
+        return QL_EOF;
+    }
+    else {
+        memcpy(recordData, data, tupleLength);
+    }
+
+    // Clean up
+    delete lhsData;
+    delete rhsData;
+    delete[] data;
+
+    return OK_RC;
+}
+
+// Get the attribute count
+void QL_FilterOp::GetAttributeCount(int &attrCount) {
+    attrCount = this->attrCount;
+}
+
+// Get the attribute information
+void QL_FilterOp::GetAttributeInfo(DataAttrInfo* attributes) {
+    for (int i=0; i<attrCount; i++) {
+        attributes[i] = this->attributes[i];
+    }
+}
+
+// Print the physical query plan
+void QL_FilterOp::Print(int indentationLevel) {
+    for (int i=0; i<indentationLevel; i++) {
+        cout << "\t";
+    }
+    cout << "FilterOp (";
+    if ((filterCond.lhsAttr).relName != NULL) cout << (filterCond.lhsAttr).relName << ".";
+    cout << (filterCond.lhsAttr).attrName;
+    PrintOperator(filterCond.op);
+    if (filterCond.bRhsIsAttr) {
+        if ((filterCond.rhsAttr).relName != NULL) cout << (filterCond.rhsAttr).relName << ".";
+        cout << (filterCond.rhsAttr).attrName;
+    }
+    else {
+        cout << (filterCond.rhsValue).data << endl;
     }
     cout << ")" << endl;
 }
@@ -590,20 +788,22 @@ void PrintValue(const Value* v) {
 }
 
 // Get the attribute info from the attributes array
-RC GetAttrInfoFromArray(char* attributes, int attrCount, const char* attrName, char* attributeData) {
+RC GetAttrInfoFromArray(char* attributes, int attrCount, const char* relName, const char* attrName, char* attributeData) {
     bool found = false;
     DataAttrInfo* attributesArray = (DataAttrInfo*) attributes;
     DataAttrInfo* attribute = (DataAttrInfo*) attributeData;
     for (int i=0; i<attrCount; i++) {
-        if (strcmp(attributesArray[i].attrName, attrName) == 0) {
-            strcpy(attribute->relName, attributesArray[i].relName);
-            strcpy(attribute->attrName, attributesArray[i].attrName);
-            attribute->offset = attributesArray[i].offset;
-            attribute->attrType = attributesArray[i].attrType;
-            attribute->attrLength = attributesArray[i].attrLength;
-            attribute->indexNo = attributesArray[i].indexNo;
-            found = true;
-            break;
+        if (relName == NULL || strcmp(attributesArray[i].relName, relName) == 0) {
+            if (strcmp(attributesArray[i].attrName, attrName) == 0) {
+                strcpy(attribute->relName, attributesArray[i].relName);
+                strcpy(attribute->attrName, attributesArray[i].attrName);
+                attribute->offset = attributesArray[i].offset;
+                attribute->attrType = attributesArray[i].attrType;
+                attribute->attrLength = attributesArray[i].attrLength;
+                attribute->indexNo = attributesArray[i].indexNo;
+                found = true;
+                break;
+            }
         }
     }
 
@@ -612,4 +812,33 @@ RC GetAttrInfoFromArray(char* attributes, int attrCount, const char* attrName, c
     }
 
     return OK_RC;
+}
+
+// Template function to compare two values
+template <typename T>
+bool matchRecord(T lhsValue, T rhsValue, CompOp op) {
+    bool recordMatch = false;
+    switch(op) {
+        case EQ_OP:
+            if (lhsValue == rhsValue) recordMatch = true;
+            break;
+        case LT_OP:
+            if (lhsValue < rhsValue) recordMatch = true;
+            break;
+        case GT_OP:
+            if (lhsValue > rhsValue) recordMatch = true;
+            break;
+        case LE_OP:
+            if (lhsValue <= rhsValue) recordMatch = true;
+            break;
+        case GE_OP:
+            if (lhsValue >= rhsValue) recordMatch = true;
+            break;
+        case NE_OP:
+            if (lhsValue != rhsValue) recordMatch = true;
+            break;
+        default:
+            break;
+    }
+    return recordMatch;
 }

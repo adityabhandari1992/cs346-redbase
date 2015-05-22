@@ -54,6 +54,8 @@ QL_Manager::~QL_Manager() {
 RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
                       int nRelations, const char * const relations[],
                       int nConditions, const Condition conditions[]) {
+    int rc;
+
     // Print the command
     if (smManager->getPrintFlag()) {
         int i;
@@ -349,10 +351,11 @@ RC QL_Manager::Delete(const char *relName,
     // If index exists
     if (indexExists) {
         // Get the index attribute information
-        char* lhs = (conditions[indexCondition].lhsAttr).attrName;
+        char* lhsRelName = (conditions[indexCondition].lhsAttr).relName;
+        char* lhsAttrName = (conditions[indexCondition].lhsAttr).attrName;
         CompOp op = conditions[indexCondition].op;
         DataAttrInfo* attributeData = new DataAttrInfo;
-        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhs, (char*) attributeData))) {
+        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhsRelName, lhsAttrName, (char*) attributeData))) {
             return rc;
         }
 
@@ -464,11 +467,12 @@ RC QL_Manager::Delete(const char *relName,
         // If such a condition exists
         if (conditionExists) {
             // Open a file scan on that condition
-            char* lhs = (conditions[conditionNumber].lhsAttr).attrName;
+            char* lhsRelName = (conditions[conditionNumber].lhsAttr).relName;
+            char* lhsAttrName = (conditions[conditionNumber].lhsAttr).attrName;
             CompOp op = conditions[conditionNumber].op;
 
             DataAttrInfo* attributeData = new DataAttrInfo;
-            if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhs, (char*) attributeData))) {
+            if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhsRelName, lhsAttrName, (char*) attributeData))) {
                 return rc;
             }
 
@@ -747,10 +751,11 @@ RC QL_Manager::Update(const char *relName,
     // If index exists
     if (indexExists) {
         // Get the index attribute information
-        char* lhs = (conditions[indexCondition].lhsAttr).attrName;
+        char* lhsRelName = (conditions[indexCondition].lhsAttr).relName;
+        char* lhsAttrName = (conditions[indexCondition].lhsAttr).attrName;
         CompOp op = conditions[indexCondition].op;
         DataAttrInfo* attributeData = new DataAttrInfo;
-        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhs, (char*) attributeData))) {
+        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhsRelName, lhsAttrName, (char*) attributeData))) {
             return rc;
         }
 
@@ -772,7 +777,7 @@ RC QL_Manager::Update(const char *relName,
         // Open the update attribute index if it exists
         IX_IndexHandle updAttrIH;
         DataAttrInfo* updAttrData = new DataAttrInfo;
-        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, updAttrName, (char*) updAttrData))) {
+        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, updAttrRelName, updAttrName, (char*) updAttrData))) {
             return rc;
         }
         if (updAttrData->indexNo != -1) {
@@ -831,7 +836,7 @@ RC QL_Manager::Update(const char *relName,
                 // Else if RHS is an attribute
                 else {
                     DataAttrInfo* rhsAttrData = new DataAttrInfo;
-                    if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, rhsRelAttr.attrName, (char*) rhsAttrData))) {
+                    if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, rhsRelAttr.relName, rhsRelAttr.attrName, (char*) rhsAttrData))) {
                         return rc;
                     }
                     memcpy(recordData + updAttrData->offset, recordData + rhsAttrData->offset, updAttrData->attrLength);
@@ -901,11 +906,12 @@ RC QL_Manager::Update(const char *relName,
         // If such a condition exists
         if (conditionExists) {
             // Open a file scan on that condition
-            char* lhs = (conditions[conditionNumber].lhsAttr).attrName;
+            char* lhsRelName = (conditions[conditionNumber].lhsAttr).relName;
+            char* lhsAttrName = (conditions[conditionNumber].lhsAttr).attrName;
             CompOp op = conditions[conditionNumber].op;
 
             DataAttrInfo* attributeData = new DataAttrInfo;
-            if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhs, (char*) attributeData))) {
+            if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhsRelName, lhsAttrName, (char*) attributeData))) {
                 return rc;
             }
 
@@ -929,7 +935,7 @@ RC QL_Manager::Update(const char *relName,
         // Open the update attribute index if it exists
         IX_IndexHandle ixIH;
         DataAttrInfo* updAttrData = new DataAttrInfo;
-        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, updAttrName, (char*) updAttrData))) {
+        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, updAttrRelName, updAttrName, (char*) updAttrData))) {
             return rc;
         }
         if (updAttrData->indexNo != -1) {
@@ -983,7 +989,7 @@ RC QL_Manager::Update(const char *relName,
                 // Else if RHS is an attribute
                 else {
                     DataAttrInfo* rhsAttrData = new DataAttrInfo;
-                    if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, rhsRelAttr.attrName, (char*) rhsAttrData))) {
+                    if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, rhsRelAttr.relName, rhsRelAttr.attrName, (char*) rhsAttrData))) {
                         return rc;
                     }
                     memcpy(recordData + updAttrData->offset, recordData + rhsAttrData->offset, updAttrData->attrLength);
@@ -1048,36 +1054,6 @@ RC QL_Manager::Update(const char *relName,
 
 
 /************ HELPER METHODS ************/
-
-// Method: matchRecord(T lhsValue, T rhsValue, CompOp op)
-// Template function to compare two values
-template <typename T>
-bool QL_Manager::matchRecord(T lhsValue, T rhsValue, CompOp op) {
-    bool recordMatch = false;
-    switch(op) {
-        case EQ_OP:
-            if (lhsValue == rhsValue) recordMatch = true;
-            break;
-        case LT_OP:
-            if (lhsValue < rhsValue) recordMatch = true;
-            break;
-        case GT_OP:
-            if (lhsValue > rhsValue) recordMatch = true;
-            break;
-        case LE_OP:
-            if (lhsValue <= rhsValue) recordMatch = true;
-            break;
-        case GE_OP:
-            if (lhsValue >= rhsValue) recordMatch = true;
-            break;
-        case NE_OP:
-            if (lhsValue != rhsValue) recordMatch = true;
-            break;
-        default:
-            break;
-    }
-    return recordMatch;
-}
 
 // Method: ValidateConditionsSingleRelation(const char* relName, int attrCount, char* attributeData, int nConditions, const Condition conditions[])
 // Validate the conditions for a single relation
@@ -1145,15 +1121,17 @@ RC QL_Manager::CheckConditionsSingleRelation(char* recordData, bool& match, char
     DataAttrInfo* rhsData = new DataAttrInfo;
     for (int i=0; i<nConditions; i++) {
         Condition currentCondition = conditions[i];
-        char* lhs = (currentCondition.lhsAttr).attrName;
-        if ((rc = GetAttrInfoFromArray(attributeData, attrCount, lhs, (char*) lhsData))) {
+        char* lhsRelName = (currentCondition.lhsAttr).relName;
+        char* lhsAttrName = (currentCondition.lhsAttr).attrName;
+        if ((rc = GetAttrInfoFromArray(attributeData, attrCount, lhsRelName, lhsAttrName, (char*) lhsData))) {
             return rc;
         }
 
         // If the RHS is also an attribute
         if (currentCondition.bRhsIsAttr) {
-            char* rhs = (currentCondition.rhsAttr).attrName;
-            if ((rc = GetAttrInfoFromArray(attributeData, attrCount, rhs, (char*) rhsData))) {
+            char* rhsRelName = (currentCondition.rhsAttr).relName;
+            char* rhsAttrName = (currentCondition.rhsAttr).attrName;
+            if ((rc = GetAttrInfoFromArray(attributeData, attrCount, rhsRelName, rhsAttrName, (char*) rhsData))) {
                 return rc;
             }
 

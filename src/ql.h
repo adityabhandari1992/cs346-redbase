@@ -52,9 +52,6 @@ private:
     IX_Manager* ixManager;          // IX_Manager object
     SM_Manager* smManager;          // SM_Manager object
 
-    template <typename T>
-    bool matchRecord(T lhsValue, T rhsValue, CompOp op);
-
     RC ValidateConditionsSingleRelation(const char* relName, int attrCount, char* attributeData, int nConditions, const Condition conditions[]);
     RC CheckConditionsSingleRelation(char* recordData, bool& match, char* attributeData, int attrCount, int nConditions, const Condition conditions[]);
 };
