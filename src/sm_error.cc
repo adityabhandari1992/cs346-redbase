@@ -31,7 +31,8 @@ static char *SM_WarnMsg[] = {
   (char*)"invalid parameter value",
   (char*)"index already exists",
   (char*)"index does not exist",
-  (char*)"cannot change system catalog"
+  (char*)"cannot change system catalog",
+  (char*)"invalid attribute"
 };
 
 static char *SM_ErrorMsg[] = {

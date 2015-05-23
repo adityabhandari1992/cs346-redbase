@@ -54,6 +54,7 @@ private:
 
     RC ValidateConditionsSingleRelation(const char* relName, int attrCount, char* attributeData, int nConditions, const Condition conditions[]);
     RC CheckConditionsSingleRelation(char* recordData, bool& match, char* attributeData, int attrCount, int nConditions, const Condition conditions[]);
+    RC ValidateConditionsMultipleRelations(SM_RelcatRecord* rcRecords[], char* attributeData[], int nRelations, int nConditions, Condition conditions[]);
 };
 
 //
@@ -75,7 +76,10 @@ void QL_PrintError(RC rc);
 #define QL_OPERATOR_OPEN                    (START_QL_WARN + 10) // Operator is open
 #define QL_OPERATOR_CLOSED                  (START_QL_WARN + 11) // Operator is closed
 #define QL_EOF                              (START_QL_WARN + 12) // EOF
-#define QL_LASTWARN                         QL_EOF
+#define QL_INVALID_SELECT_ATTRIBUTES        (START_QL_WARN + 13) // Invalid select attributes
+#define QL_INVALID_FROM_CLAUSE              (START_QL_WARN + 14) // Invalid from clause in select
+#define QL_INVALID_ATTRIBUTE                (START_QL_WARN + 15) // Invalid attribute
+#define QL_LASTWARN                         QL_INVALID_ATTRIBUTE
 
 // Errors
 #define QL_INVALID_DATABASE_NAME            (START_QL_ERR - 0) // Invalid database file name

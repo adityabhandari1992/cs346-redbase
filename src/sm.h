@@ -129,7 +129,8 @@ void SM_PrintError(RC rc);
 #define SM_INDEX_EXISTS                     (START_SM_WARN + 16) // Index already exists
 #define SM_INDEX_DOES_NOT_EXIST             (START_SM_WARN + 17) // Index does not exist
 #define SM_SYSTEM_CATALOG                   (START_SM_WARN + 18) // Cannot change system catalog
-#define SM_LASTWARN                         SM_SYSTEM_CATALOG
+#define SM_INVALID_ATTRIBUTE                (START_SM_WARN + 19) // Invalid attribute
+#define SM_LASTWARN                         SM_INVALID_ATTRIBUTE
 
 // Errors
 #define SM_INVALID_DATABASE_NAME            (START_SM_ERR - 0) // Invalid database file name

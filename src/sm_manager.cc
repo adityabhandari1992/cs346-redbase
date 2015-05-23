@@ -1250,8 +1250,13 @@ RC SM_Manager::GetAttrInfo(const char* relName, const char* attrName, SM_Attrcat
                 attributeData->attrType = acRecord->attrType;
                 attributeData->attrLength = acRecord->attrLength;
                 attributeData->indexNo = acRecord->indexNo;
+                break;
             }
         }
+    }
+
+    if (rc == RM_EOF) {
+        return SM_INVALID_ATTRIBUTE;
     }
 
     // Close the scan

@@ -44,182 +44,188 @@ QL_Manager::~QL_Manager() {
 // Method:
 // Handle the select clause
 /* Steps:
-    1) Check the parameters
-    2) Check whether the database is open
-    3) Obtain attribute information for the relations and check
-    4) Check the conditions
-    5) Check the selection expressions
+    1) Check whether the database is open
+    2) Obtain attribute information for the relations and check
+    3) Validate the selection expressions
+    4) Validate the conditions
+    5) Form the physical operator tree
+    6) Get the tuples from the root node
+    7) Print the physical query plan
 
 */
 RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
                       int nRelations, const char * const relations[],
                       int nConditions, const Condition conditions[]) {
+    // Check whether database is open
+    if (!smManager->getOpenFlag()) {
+        return QL_DATABASE_CLOSED;
+    }
+
+    // Check if the relations exist
     int rc;
+    SM_RelcatRecord* rcRecords[nRelations];
+    DataAttrInfo* attributes[nRelations];
+    int attrCount[nRelations];
+    for (int i=0; i<nRelations; i++) {
+        rcRecords[i] = new SM_RelcatRecord;
+        memset(rcRecords[i], 0, sizeof(SM_RelcatRecord));
+        if ((rc = smManager->GetRelInfo(relations[i], rcRecords[i]))) {
+            for (int j=0; j<=i; j++) delete rcRecords[j];
+            for (int j=0; j<i; j++) delete[] attributes[j];
+            return rc;
+        }
+        attrCount[i] = rcRecords[i]->attrCount;
+        attributes[i] = new DataAttrInfo[attrCount[i]];
+        if ((rc = smManager->GetAttrInfo(relations[i], attrCount[i], (char*) attributes[i]))) {
+            return rc;
+        }
+    }
 
-    // Test for ProjectOp
-    // shared_ptr<QL_Op> childOp;
-    // childOp.reset(new QL_FileScanOp(smManager, rmManager, relations[0], false, NULL, NO_OP, NULL));
+    // Check for duplicate relations
+    for (int i=0; i<nRelations; i++) {
+        for (int j=0; j<nRelations; j++) {
+            if (j != i && strcmp(rcRecords[i]->relName, rcRecords[j]->relName) == 0) {
+                for (int k=0; k<nRelations; k++) {
+                    delete rcRecords[k];
+                    delete[] attributes[k];
+                }
+                return QL_INVALID_FROM_CLAUSE;
+            }
+        }
+    }
 
-    // int attrCount;
-    // childOp->GetAttributeCount(attrCount);
+    // Validate the select attributes
+    RelAttr* changedSelAttrs;
+    if (nSelAttrs == 1 && strcmp(selAttrs[0].attrName, "*") == 0) {
+        // In case of *, select all attributes
+        nSelAttrs = 0;
+        for (int i=0; i<nRelations; i++) {
+            nSelAttrs += rcRecords[i]->attrCount;
+        }
+        changedSelAttrs = new RelAttr[nSelAttrs];
+        int index = 0;
+        for (int i=0; i<nRelations; i++) {
+            for (int j=0; j<rcRecords[i]->attrCount; j++) {
+                changedSelAttrs[index].relName = rcRecords[i]->relName;
+                changedSelAttrs[index].attrName = attributes[i][j].attrName;
+                index++;
+            }
+        }
+    }
+    else {
+        changedSelAttrs = (RelAttr*) selAttrs;
+        SM_AttrcatRecord* attributeData = new SM_AttrcatRecord;
+        for (int i=0; i<nSelAttrs; i++) {
+            // If relName is not specified, check if unique
+            if (selAttrs[i].relName == NULL) {
+                // Check all the relations in the relations array
+                int found = 1;
+                for (int j=0; j<nRelations; j++) {
+                    rc = smManager->GetAttrInfo(relations[j], selAttrs[i].attrName, attributeData);
+                    if (found == 0 && rc == 0) {
+                        delete attributeData;
+                        for (int k=0; k<nRelations; k++) {
+                            delete rcRecords[k];
+                            delete[] attributes[k];
+                        }
+                        return QL_INVALID_ATTRIBUTE;
+                    }
+                    found = found && rc;
+                }
+                if (found) {
+                    delete attributeData;
+                    for (int j=0; j<nRelations; j++) {
+                        delete rcRecords[j];
+                        delete[] attributes[j];
+                    }
+                    return QL_INVALID_ATTRIBUTE;
+                }
+            }
 
-    // DataAttrInfo* attributes = new DataAttrInfo[attrCount];
-    // childOp->GetAttributeInfo(attributes);
+            // Else check if the attribute exists in the given relName
+            else {
+                if ((rc = smManager->GetAttrInfo(selAttrs[i].relName, selAttrs[i].attrName, attributeData))) {
+                    delete attributeData;
+                    for (int j=0; j<nRelations; j++) {
+                        delete rcRecords[j];
+                        delete[] attributes[j];
+                    }
+                    return rc;
+                }
+            }
+        }
+        delete attributeData;
+    }
 
-    // RelAttr* relAttrs = new RelAttr[attrCount];
-    // for (int i=0; i<attrCount; i++) {
-    //     relAttrs[i].relName = attributes[i].relName;
-    //     relAttrs[i].attrName = attributes[i].attrName;
-    // }
+    // Validate the conditions
+    Condition changedConditions[nConditions];
+    for (int i=0; i<nConditions; i++) {
+        changedConditions[i] = conditions[i];
+    }
+    if ((rc = ValidateConditionsMultipleRelations(rcRecords, (char**) attributes, nRelations, nConditions, changedConditions))) {
+        for (int i=0; i<nRelations; i++) {
+            delete rcRecords[i];
+            delete[] attributes[i];
+        }
+        return rc;
+    }
 
-    // shared_ptr<QL_Op> rootOp;
-    // rootOp.reset(new QL_ProjectOp(smManager, childOp, attrCount, relAttrs));
+    // Form the physical operator tree
 
-    // int finalAttrCount;
-    // rootOp->GetAttributeCount(finalAttrCount);
-    // DataAttrInfo* finalAttributes = new DataAttrInfo[finalAttrCount];
-    // rootOp->GetAttributeInfo(finalAttributes);
-    // int tupleLength = 0;
-    // for (int i=0; i<finalAttrCount; i++) {
-    //     tupleLength += finalAttributes[i].attrLength;
-    // }
+    // Scan ops - FileScans on the relations
+    shared_ptr<QL_Op> scanOps[nRelations];
+    for (int i=0; i<nRelations; i++) {
+        scanOps[i].reset(new QL_FileScanOp(smManager, rmManager, relations[i], false, NULL, NO_OP, NULL));
+    }
+    shared_ptr<QL_Op> lastOp = scanOps[0];
 
-    // Printer p(finalAttributes, finalAttrCount);
-    // p.PrintHeader(cout);
+    // CrossProductOps on the scan ops
+    if (nRelations > 1) {
+        shared_ptr<QL_Op> cpOps[nRelations-1];
+        for (int i=0; i<nRelations-1; i++) {
+            cpOps[i].reset(new QL_CrossProductOp(smManager, lastOp, scanOps[i+1]));
+            lastOp = cpOps[i];
+        }
+    }
 
-    // char* recordData = new char[tupleLength];
-    // rootOp->Open();
-    // while((rc = rootOp->GetNext(recordData)) != QL_EOF) {
-    //     p.Print(cout, recordData);
-    // }
-    // rootOp->Close();
+    // FilterOps
+    if (nConditions > 0) {
+        shared_ptr<QL_Op> filterOps[nConditions];
+        for (int i=0; i<nConditions; i++) {
+            filterOps[i].reset(new QL_FilterOp(smManager, lastOp, changedConditions[i]));
+            lastOp = filterOps[i];
+        }
+    }
 
-    // p.PrintFooter(cout);
+    // Root node - ProjectOp
+    shared_ptr<QL_Op> rootOp;
+    rootOp.reset(new QL_ProjectOp(smManager, lastOp, nSelAttrs, changedSelAttrs));
 
-    // cout << "\nPhysical Query Plan:" << endl;
-    // rootOp->Print(0);
-    // cout << "[" << endl;
-    // childOp->Print(1);
-    // cout << "]" << endl;
+    int finalAttrCount;
+    rootOp->GetAttributeCount(finalAttrCount);
+    DataAttrInfo* finalAttributes = new DataAttrInfo[finalAttrCount];
+    rootOp->GetAttributeInfo(finalAttributes);
+    int tupleLength = 0;
+    for (int i=0; i<finalAttrCount; i++) {
+        tupleLength += finalAttributes[i].attrLength;
+    }
 
-    // delete[] recordData;
-    // delete[] relAttrs;
-    // delete[] attributes;
-    // delete[] finalAttributes;
-    // End test for ProjectOp
+    Printer p(finalAttributes, finalAttrCount);
+    p.PrintHeader(cout);
 
-    // Test for FilterOp
-    // shared_ptr<QL_Op> childOp;
-    // childOp.reset(new QL_FileScanOp(smManager, rmManager, relations[0], false, NULL, NO_OP, NULL));
+    // Get the tuples from the root node
+    char* recordData = new char[tupleLength];
+    rootOp->Open();
+    while((rc = rootOp->GetNext(recordData)) != QL_EOF) {
+        p.Print(cout, recordData);
+    }
+    rootOp->Close();
 
-    // Condition filterCond = conditions[0];
+    p.PrintFooter(cout);
 
-    // shared_ptr<QL_Op> rootOp;
-    // rootOp.reset(new QL_FilterOp(smManager, childOp, filterCond));
-
-    // int attrCount;
-    // rootOp->GetAttributeCount(attrCount);
-    // DataAttrInfo* attributes = new DataAttrInfo[attrCount];
-    // rootOp->GetAttributeInfo(attributes);
-    // int tupleLength = 0;
-    // for (int i=0; i<attrCount; i++) {
-    //     tupleLength += attributes[i].attrLength;
-    // }
-
-    // Printer p(attributes, attrCount);
-    // p.PrintHeader(cout);
-
-    // char* recordData = new char[tupleLength];
-    // rootOp->Open();
-    // while((rc = rootOp->GetNext(recordData)) != QL_EOF) {
-    //     p.Print(cout, recordData);
-    // }
-    // rootOp->Close();
-
-    // p.PrintFooter(cout);
-
-    // cout << "\nPhysical Query Plan:" << endl;
-    // rootOp->Print(0);
-
-    // delete[] recordData;
-    // delete[] attributes;
-    // End test for FilterOp
-
-    // Test for CrossProductOp
-    // shared_ptr<QL_Op> leftOp;
-    // leftOp.reset(new QL_FileScanOp(smManager, rmManager, relations[0], false, NULL, NO_OP, NULL));
-
-    // shared_ptr<QL_Op> rightOp;
-    // rightOp.reset(new QL_FileScanOp(smManager, rmManager, relations[1], false, NULL, NO_OP, NULL));
-
-    // shared_ptr<QL_Op> rootOp;
-    // rootOp.reset(new QL_CrossProductOp(smManager, leftOp, rightOp));
-
-    // int attrCount;
-    // rootOp->GetAttributeCount(attrCount);
-    // DataAttrInfo* attributes = new DataAttrInfo[attrCount];
-    // rootOp->GetAttributeInfo(attributes);
-    // int tupleLength = 0;
-    // for (int i=0; i<attrCount; i++) {
-    //     tupleLength += attributes[i].attrLength;
-    // }
-
-    // Printer p(attributes, attrCount);
-    // p.PrintHeader(cout);
-
-    // char* recordData = new char[tupleLength];
-    // rootOp->Open();
-    // while((rc = rootOp->GetNext(recordData)) != QL_EOF) {
-    //     p.Print(cout, recordData);
-    // }
-    // rootOp->Close();
-
-    // p.PrintFooter(cout);
-
-    // cout << "\nPhysical Query Plan:" << endl;
-    // rootOp->Print(0);
-
-    // delete[] recordData;
-    // delete[] attributes;
-    // End test for CrossProductOp
-
-    // Test for NLJoinOp
-    // shared_ptr<QL_Op> leftOp;
-    // leftOp.reset(new QL_FileScanOp(smManager, rmManager, relations[0], false, NULL, NO_OP, NULL));
-
-    // shared_ptr<QL_Op> rightOp;
-    // rightOp.reset(new QL_FileScanOp(smManager, rmManager, relations[1], false, NULL, NO_OP, NULL));
-
-    // shared_ptr<QL_Op> rootOp;
-    // rootOp.reset(new QL_NLJoinOp(smManager, leftOp, rightOp, conditions[0]));
-
-    // int attrCount;
-    // rootOp->GetAttributeCount(attrCount);
-    // DataAttrInfo* attributes = new DataAttrInfo[attrCount];
-    // rootOp->GetAttributeInfo(attributes);
-    // int tupleLength = 0;
-    // for (int i=0; i<attrCount; i++) {
-    //     tupleLength += attributes[i].attrLength;
-    // }
-
-    // Printer p(attributes, attrCount);
-    // p.PrintHeader(cout);
-
-    // char* recordData = new char[tupleLength];
-    // rootOp->Open();
-    // while((rc = rootOp->GetNext(recordData)) != QL_EOF) {
-    //     p.Print(cout, recordData);
-    // }
-    // rootOp->Close();
-
-    // p.PrintFooter(cout);
-
-    // cout << "\nPhysical Query Plan:" << endl;
-    // rootOp->Print(0);
-
-    // delete[] recordData;
-    // delete[] attributes;
-    // End test for NLJoinOp
+    // Print the physical query plan
+    cout << "\nPhysical Query Plan:" << endl;
+    rootOp->Print(0);
 
     // Print the command
     if (smManager->getPrintFlag()) {
@@ -234,6 +240,18 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
         cout << "   nCondtions = " << nConditions << "\n";
         for (i = 0; i < nConditions; i++)
             cout << "   conditions[" << i << "]:" << conditions[i] << "\n";
+    }
+
+    // Clean up
+    delete[] recordData;
+    delete[] finalAttributes;
+
+    for (int i=0; i<nRelations; i++) {
+        delete rcRecords[i];
+        delete[] attributes[i];
+    }
+    if (strcmp(selAttrs[0].attrName, "*") == 0) {
+        delete[] changedSelAttrs;
     }
 
     // Return OK
@@ -1363,6 +1381,143 @@ RC QL_Manager::CheckConditionsSingleRelation(char* recordData, bool& match, char
     // Clean up
     delete lhsData;
     delete rhsData;
+
+    return OK_RC;
+}
+
+// Method: ValidateConditionsMultipleRelations(SM_RelcatRecord* rcRecords[], char* attributeData[], int nRelations, int nConditions, Condition conditions[])
+// Validate the conditions for multiple relations
+RC QL_Manager::ValidateConditionsMultipleRelations(SM_RelcatRecord* rcRecords[], char* attributeData[], int nRelations, int nConditions, Condition conditions[]) {
+    DataAttrInfo** attributes = (DataAttrInfo**) attributeData;
+    for (int i=0; i<nConditions; i++) {
+        Condition currentCondition = conditions[i];
+
+        // Check whether LHS is a valid attribute
+        char* lhsRelName = (currentCondition.lhsAttr).relName;
+        int relationNumber = -1;
+        bool found = false;
+        if (lhsRelName == NULL) {
+            found = true;
+        }
+        else {
+            for (int j=0; j<nRelations; j++) {
+                if (lhsRelName == NULL || strcmp(lhsRelName, rcRecords[j]->relName) == 0) {
+                    relationNumber = j;
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (!found) {
+            return QL_INVALID_CONDITION;
+        }
+
+        char* lhsAttrName = (currentCondition.lhsAttr).attrName;
+        AttrType lhsType;
+        found = false;
+
+        // If no relation name specified
+        if (lhsRelName == NULL) {
+            for (int k=0; k<nRelations; k++) {
+                for (int j=0; j<rcRecords[k]->attrCount; j++) {
+                    if (strcmp(attributes[k][j].attrName, lhsAttrName) == 0) {
+                        lhsType = attributes[k][j].attrType;
+                        (conditions[i].lhsAttr).relName = rcRecords[k]->relName;
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) break;
+            }
+        }
+
+        // Else if relation name is specified
+        else {
+            for (int j=0; j<rcRecords[relationNumber]->attrCount; j++) {
+                if (strcmp(attributes[relationNumber][j].attrName, lhsAttrName) == 0) {
+                    lhsType = attributes[relationNumber][j].attrType;
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if (!found) {
+            return QL_INVALID_CONDITION;
+        }
+
+        // Check if rhs is of correct type
+        if (currentCondition.bRhsIsAttr) {
+            char* rhsRelName = (currentCondition.rhsAttr).relName;
+
+            // Check the relation name
+            relationNumber = -1;
+            found = false;
+            if (lhsRelName == NULL) {
+                found = true;
+            }
+            else {
+                for (int j=0; j<nRelations; j++) {
+                    if (strcmp(rhsRelName, rcRecords[j]->relName) == 0) {
+                        relationNumber = j;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                return QL_INVALID_CONDITION;
+            }
+
+            // Check the attribute name
+            char* rhsAttrName = (currentCondition.rhsAttr).attrName;
+            found = false;
+            AttrType rhsType;
+
+            // If no relation name specified
+            if (rhsRelName == NULL) {
+                for (int k=0; k<nRelations; k++) {
+                    for (int j=0; j<rcRecords[k]->attrCount; j++) {
+                        if (strcmp(attributes[k][j].attrName, rhsAttrName) == 0) {
+                            rhsType = attributes[k][j].attrType;
+                            (conditions[i].rhsAttr).relName = rcRecords[k]->relName;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found) break;
+                }
+            }
+
+            // Else if relation name is specified
+            else {
+                for (int j=0; j<rcRecords[relationNumber]->attrCount; j++) {
+                    if (strcmp(attributes[relationNumber][j].attrName, rhsAttrName) == 0) {
+                        rhsType = attributes[relationNumber][j].attrType;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found || lhsType != rhsType) {
+                return QL_INVALID_CONDITION;
+            }
+        }
+        else {
+            AttrType rhsType = (currentCondition.rhsValue).type;
+            if (rhsType != lhsType) {
+                if (lhsType == INT && rhsType == STRING) {
+                    (conditions[i].rhsValue).type = INT;
+                }
+                else if (lhsType == FLOAT && rhsType == STRING) {
+                    (conditions[i].rhsValue).type = FLOAT;
+                }
+                else {
+                    return QL_INVALID_CONDITION;
+                }
+            }
+        }
+    }
 
     return OK_RC;
 }

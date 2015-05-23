@@ -26,7 +26,10 @@ static char *QL_WarnMsg[] = {
   (char*)"invalid update attribute",
   (char*)"physical operator is open",
   (char*)"physical operator is closed",
-  (char*)"end of file"
+  (char*)"end of file",
+  (char*)"invalid select attributes",
+  (char*)"invalid from clause in select",
+  (char*)"invalid attribute"
 };
 
 static char *QL_ErrorMsg[] = {
