@@ -117,11 +117,11 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
         SM_AttrcatRecord* attributeData = new SM_AttrcatRecord;
         for (int i=0; i<nSelAttrs; i++) {
             // If relName is not specified, check if unique
-            if (selAttrs[i].relName == NULL) {
+            if (changedSelAttrs[i].relName == NULL) {
                 // Check all the relations in the relations array
                 int found = 1;
                 for (int j=0; j<nRelations; j++) {
-                    rc = smManager->GetAttrInfo(relations[j], selAttrs[i].attrName, attributeData);
+                    rc = smManager->GetAttrInfo(relations[j], changedSelAttrs[i].attrName, attributeData);
                     if (found == 0 && rc == 0) {
                         delete attributeData;
                         for (int k=0; k<nRelations; k++) {
@@ -129,6 +129,9 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
                             delete[] attributes[k];
                         }
                         return QL_INVALID_ATTRIBUTE;
+                    }
+                    else if (rc == 0) {
+                        changedSelAttrs[i].relName = (char*) relations[j];
                     }
                     found = found && rc;
                 }
@@ -1506,11 +1509,29 @@ RC QL_Manager::ValidateConditionsMultipleRelations(SM_RelcatRecord* rcRecords[],
         else {
             AttrType rhsType = (currentCondition.rhsValue).type;
             if (rhsType != lhsType) {
+                // String to int type conversion
                 if (lhsType == INT && rhsType == STRING) {
                     (conditions[i].rhsValue).type = INT;
+                    int value = atoi(static_cast<char*>((currentCondition.rhsValue).data));
+                    memcpy((conditions[i].rhsValue).data, &value, sizeof(value));
                 }
+                // String to float type conversion
                 else if (lhsType == FLOAT && rhsType == STRING) {
                     (conditions[i].rhsValue).type = FLOAT;
+                    float value = atof(static_cast<char*>((currentCondition.rhsValue).data));
+                    memcpy((conditions[i].rhsValue).data, &value, sizeof(value));
+                }
+                // Float to int type conversion
+                else if (lhsType == INT && rhsType == FLOAT) {
+                    (conditions[i].rhsValue).type = INT;
+                    int value = (int) (*static_cast<float*>((currentCondition.rhsValue).data));
+                    memcpy((conditions[i].rhsValue).data, &value, sizeof(value));
+                }
+                // Int to float type conversion
+                else if (lhsType == FLOAT && rhsType == INT) {
+                    (conditions[i].rhsValue).type = FLOAT;
+                    float value = (float) (*static_cast<int*>((currentCondition.rhsValue).data));
+                    memcpy((conditions[i].rhsValue).data, &value, sizeof(value));
                 }
                 else {
                     return QL_INVALID_CONDITION;

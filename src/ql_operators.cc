@@ -413,7 +413,7 @@ QL_ProjectOp::QL_ProjectOp(SM_Manager* smManager, shared_ptr<QL_Op> childOp, int
     // Copy the relAttrs array
     this->relAttrs = new RelAttr[count];
     for (int i=0; i<count; i++) {
-        if (relAttrs[i].relName != NULL) this->relAttrs[i].relName = relAttrs[i].relName;
+        this->relAttrs[i].relName = relAttrs[i].relName;
         this->relAttrs[i].attrName = relAttrs[i].attrName;
     }
 
@@ -423,7 +423,8 @@ QL_ProjectOp::QL_ProjectOp(SM_Manager* smManager, shared_ptr<QL_Op> childOp, int
     int currentOffset = 0;
     for (int i=0; i<count; i++) {
         smManager->GetAttrInfo(relAttrs[i].relName, relAttrs[i].attrName, acRecord);
-        if (relAttrs[i].relName != NULL) strcpy(attributes[i].relName, relAttrs[i].relName);
+        if (relAttrs[i].relName == NULL) attributes[i].relName[0] = '\0';
+        else strcpy(attributes[i].relName, relAttrs[i].relName);
         strcpy(attributes[i].attrName, relAttrs[i].attrName);
         attributes[i].offset = currentOffset;
         attributes[i].attrType = acRecord->attrType;
@@ -934,6 +935,8 @@ RC QL_CrossProductOp::GetNext(char* recordData) {
     if ((rc = rightOp->GetNext(rightData)) == QL_EOF) {
         // Get next tuple from left child
         if ((rc = leftOp->GetNext(leftData))) {
+            delete[] leftAttributes;
+            delete[] rightAttributes;
             return rc;
         }
 
@@ -945,6 +948,8 @@ RC QL_CrossProductOp::GetNext(char* recordData) {
             return rc;
         }
         if ((rc = rightOp->GetNext(rightData))) {
+            delete[] leftAttributes;
+            delete[] rightAttributes;
             return rc;
         }
     }
