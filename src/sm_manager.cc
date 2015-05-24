@@ -30,6 +30,7 @@ SM_Manager::SM_Manager(IX_Manager &ixm, RM_Manager &rmm) {
 
     // Initialize the system parameters
     printCommands = FALSE;
+    optimizeQuery = TRUE;
 }
 
 // Destructor
@@ -1105,11 +1106,22 @@ RC SM_Manager::Set(const char *paramName, const char *value) {
             return SM_INVALID_VALUE;
         }
     }
-    else if (strcmp(paramName, "bQueryPlans") == 0) {
+    else if (strcmp(paramName, "optimizeQuery") == 0) {
         if (strcmp(value, "TRUE") == 0) {
-            bQueryPlans = 1;
+            optimizeQuery = TRUE;
         }
         else if (strcmp(value, "FALSE") == 0) {
+            optimizeQuery = FALSE;
+        }
+        else {
+            return SM_INVALID_VALUE;
+        }
+    }
+    else if (strcmp(paramName, "bQueryPlans") == 0) {
+        if (strcmp(value, "1") == 0) {
+            bQueryPlans = 1;
+        }
+        else if (strcmp(value, "0") == 0) {
             bQueryPlans = 0;
         }
         else {
@@ -1328,4 +1340,9 @@ int SM_Manager::getPrintFlag() {
 // Method to get the isOpen flag
 int SM_Manager::getOpenFlag() {
     return isOpen;
+}
+
+// Method to get the optimizeQuery flag
+int SM_Manager::getOptimizeFlag() {
+    return optimizeQuery;
 }

@@ -91,6 +91,7 @@ public:
 
     int getPrintFlag();             // Method to get the printCommands flag
     int getOpenFlag();              // Method to get the isOpen flag
+    int getOptimizeFlag();              // Method to get the optimizeQuery flag
 
 private:
     RM_Manager* rmManager;          // RM_Manager object
@@ -101,6 +102,7 @@ private:
     int isOpen;                     // Flag whether the database is open
 
     int printCommands;              // System parameter specifying printing level
+    int optimizeQuery;              // System parameter specifying optimization
 };
 
 //

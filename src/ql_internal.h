@@ -60,7 +60,7 @@ private:
     char relName[MAXNAME+1];
     char attrName[MAXNAME+1];
     CompOp op;
-    const Value* v;
+    Value* v;
     int tupleLength;
     int attrCount;
     DataAttrInfo* attributes;
@@ -94,7 +94,7 @@ private:
     char attrName[MAXNAME+1];
     bool cond;
     CompOp op;
-    const Value* v;
+    Value* v;
     int tupleLength;
     int attrCount;
     DataAttrInfo* attributes;

@@ -34,7 +34,9 @@ QL_IndexScanOp::QL_IndexScanOp(SM_Manager* smManager, IX_Manager* ixManager, RM_
     memset(this->attrName, 0, MAXNAME+1);
     strcpy(this->attrName, attrName);
     this->op = op;
-    this->v = v;
+    this->v = new Value;
+    (this->v)->type = v->type;
+    (this->v)->data = v->data;
 
     // Get the relation information
     SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
@@ -56,6 +58,7 @@ QL_IndexScanOp::QL_IndexScanOp(SM_Manager* smManager, IX_Manager* ixManager, RM_
 QL_IndexScanOp::~QL_IndexScanOp() {
     // Delete the attrributes array
     delete[] attributes;
+    delete v;
 }
 
 // Open the operator
@@ -224,7 +227,9 @@ QL_FileScanOp::QL_FileScanOp(SM_Manager* smManager, RM_Manager* rmManager, const
         memset(this->attrName, 0, MAXNAME+1);
         strcpy(this->attrName, attrName);
         this->op = op;
-        this->v = v;
+        this->v = new Value;
+        (this->v)->type = v->type;
+        (this->v)->data = v->data;
     }
 
     // Get the relation information
@@ -247,6 +252,9 @@ QL_FileScanOp::QL_FileScanOp(SM_Manager* smManager, RM_Manager* rmManager, const
 QL_FileScanOp::~QL_FileScanOp() {
     // Delete the attributes array
     delete[] attributes;
+    if (cond) {
+        delete v;
+    }
 }
 
 // Open the operator

@@ -181,20 +181,64 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
         3) FilterOps on top
         4) ProjectOp as the root
     **/
+    shared_ptr<QL_Op> lastOp;
+    if (!smManager->getOptimizeFlag()) {
+        // Scan ops - FileScans on the relations
+        shared_ptr<QL_Op> scanOps[nRelations];
+        for (int i=0; i<nRelations; i++) {
+            scanOps[i].reset(new QL_FileScanOp(smManager, rmManager, relations[i], false, NULL, NO_OP, NULL));
+        }
+        lastOp = scanOps[0];
 
-    // Scan ops - FileScans on the relations
-    shared_ptr<QL_Op> scanOps[nRelations];
-    for (int i=0; i<nRelations; i++) {
-        scanOps[i].reset(new QL_FileScanOp(smManager, rmManager, relations[i], false, NULL, NO_OP, NULL));
+        // CrossProductOps on the scan ops
+        if (nRelations > 1) {
+            shared_ptr<QL_Op> cpOps[nRelations-1];
+            for (int i=0; i<nRelations-1; i++) {
+                cpOps[i].reset(new QL_CrossProductOp(smManager, lastOp, scanOps[i+1]));
+                lastOp = cpOps[i];
+            }
+        }
     }
-    shared_ptr<QL_Op> lastOp = scanOps[0];
 
-    // CrossProductOps on the scan ops
-    if (nRelations > 1) {
-        shared_ptr<QL_Op> cpOps[nRelations-1];
-        for (int i=0; i<nRelations-1; i++) {
-            cpOps[i].reset(new QL_CrossProductOp(smManager, lastOp, scanOps[i+1]));
-            lastOp = cpOps[i];
+    /** Optimizations -
+        1) IndexScanOp at leaf nodes in place of FileScanOp
+        2) NLJoinOp in place of CrossProductOp
+    **/
+    else {
+        // Scan ops - FileScans or IndexScans on the relations
+        shared_ptr<QL_Op> scanOps[nRelations];
+        for (int i=0; i<nRelations; i++) {
+            // Check the conditions if an index scan can be done
+            bool indexScan = false;
+            DataAttrInfo* attributeData = new DataAttrInfo;
+            for (int j=0; j<nConditions; j++) {
+                Condition cond = changedConditions[j];
+                if (strcmp((cond.lhsAttr).relName, relations[i]) == 0 && !cond.bRhsIsAttr) {
+                    if ((rc = GetAttrInfoFromArray((char*) attributes[i], rcRecords[i]->attrCount, rcRecords[i]->relName, (cond.lhsAttr).attrName, (char*) attributeData))) {
+                        return rc;
+                    }
+                    if (attributeData->indexNo != -1) {
+                        scanOps[i].reset(new QL_IndexScanOp(smManager, ixManager, rmManager, relations[i], (cond.lhsAttr).attrName, cond.op, &cond.rhsValue));
+                        RemoveCondition(changedConditions, nConditions, j);
+                        indexScan = true;
+                        break;
+                    }
+                }
+            }
+            if (!indexScan) {
+                scanOps[i].reset(new QL_FileScanOp(smManager, rmManager, relations[i], false, NULL, NO_OP, NULL));
+            }
+            delete attributeData;
+        }
+        lastOp = scanOps[0];
+
+        // CrossProductOps on the scan ops
+        if (nRelations > 1) {
+            shared_ptr<QL_Op> cpOps[nRelations-1];
+            for (int i=0; i<nRelations-1; i++) {
+                cpOps[i].reset(new QL_CrossProductOp(smManager, lastOp, scanOps[i+1]));
+                lastOp = cpOps[i];
+            }
         }
     }
 
@@ -1548,4 +1592,13 @@ RC QL_Manager::ValidateConditionsMultipleRelations(SM_RelcatRecord* rcRecords[],
     }
 
     return OK_RC;
+}
+
+// Method: RemoveCondition(Condition conditions[], int nConditions, int index)
+// Remove a condition from the conditions array
+void QL_Manager::RemoveCondition(Condition conditions[], int &nConditions, int index) {
+    for (int i=index; i<nConditions-1; i++) {
+        conditions[i] = conditions[i+1];
+    }
+    nConditions--;
 }

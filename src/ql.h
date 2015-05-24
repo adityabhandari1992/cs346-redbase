@@ -55,6 +55,7 @@ private:
     RC ValidateConditionsSingleRelation(const char* relName, int attrCount, char* attributeData, int nConditions, const Condition conditions[]);
     RC CheckConditionsSingleRelation(char* recordData, bool& match, char* attributeData, int attrCount, int nConditions, const Condition conditions[]);
     RC ValidateConditionsMultipleRelations(SM_RelcatRecord* rcRecords[], char* attributeData[], int nRelations, int nConditions, Condition conditions[]);
+    void RemoveCondition(Condition conditions[], int &nConditions, int index);
 };
 
 //
