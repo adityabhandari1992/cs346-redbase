@@ -1,3 +1,5 @@
+Set bQueryPlans = "1";
+
 Select T.id From T;
 
 Select * From T;

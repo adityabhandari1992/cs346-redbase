@@ -200,7 +200,7 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
         }
     }
 
-    /** Optimizations -
+    /** Optimizations when possible -
         1) IndexScanOp at leaf nodes in place of FileScanOp
         2) NLJoinOp in place of CrossProductOp
     **/
@@ -232,12 +232,49 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
         }
         lastOp = scanOps[0];
 
-        // CrossProductOps on the scan ops
+        // Join ops - CrossProductOps or NLJoinOps on the scan ops
         if (nRelations > 1) {
-            shared_ptr<QL_Op> cpOps[nRelations-1];
+            shared_ptr<QL_Op> joinOps[nRelations-1];
             for (int i=0; i<nRelations-1; i++) {
-                cpOps[i].reset(new QL_CrossProductOp(smManager, lastOp, scanOps[i+1]));
-                lastOp = cpOps[i];
+                // Get the attributes of the last op
+                int lastOpAttrCount;
+                lastOp->GetAttributeCount(lastOpAttrCount);
+                DataAttrInfo* lastOpAttributes = new DataAttrInfo[lastOpAttrCount];
+                lastOp->GetAttributeInfo(lastOpAttributes);
+                DataAttrInfo* attributeData = new DataAttrInfo;
+
+                // Check whether condition exists to perform a join
+                bool conditionFound = false;
+                for (int j=0; j<nConditions; j++) {
+                    Condition cond = changedConditions[j];
+                    if (cond.bRhsIsAttr) {
+                        if (strcmp((cond.lhsAttr).relName, relations[i+1]) == 0) {
+                            if (!(rc = GetAttrInfoFromArray((char*) lastOpAttributes, lastOpAttrCount, (cond.rhsAttr).relName, (cond.rhsAttr).attrName, (char*) attributeData))) {
+                                joinOps[i].reset(new QL_NLJoinOp(smManager, scanOps[i+1], lastOp, cond));
+                                RemoveCondition(changedConditions, nConditions, j);
+                                conditionFound = true;
+                                break;
+                            }
+                        }
+                        else if (strcmp((cond.rhsAttr).relName, relations[i+1]) == 0) {
+                            if (!(rc = GetAttrInfoFromArray((char*) lastOpAttributes, lastOpAttrCount, (cond.lhsAttr).relName, (cond.lhsAttr).attrName, (char*) attributeData))) {
+                                joinOps[i].reset(new QL_NLJoinOp(smManager, lastOp, scanOps[i+1], cond));
+                                RemoveCondition(changedConditions, nConditions, j);
+                                conditionFound = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (!conditionFound) {
+                    joinOps[i].reset(new QL_CrossProductOp(smManager, lastOp, scanOps[i+1]));
+                }
+
+                lastOp = joinOps[i];
+
+                delete[] lastOpAttributes;
+                delete attributeData;
             }
         }
     }
@@ -278,8 +315,10 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
     p.PrintFooter(cout);
 
     // Print the physical query plan
-    cout << "\nPhysical Query Plan:" << endl;
-    rootOp->Print(0);
+    if (bQueryPlans) {
+        cout << "\nPhysical Query Plan:" << endl;
+        rootOp->Print(0);
+    }
 
     // Print the command
     if (smManager->getPrintFlag()) {
