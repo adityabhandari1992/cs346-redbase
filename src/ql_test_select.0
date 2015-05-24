@@ -1,0 +1,15 @@
+Select T.id From T;
+
+Select * From T;
+
+Select * From T, S Where id = num;
+
+Select * From T, S Where T.name = "Adi" And T.id = S.num;
+
+Select name From T Where id = 2;
+
+Select name From T Where id = "2";
+
+Select T.id, T.name From T, T2 Where T.id > 2;
+
+Select T.id, T.name From T, T2 Where T.id > 2 And T.id = T2.id;

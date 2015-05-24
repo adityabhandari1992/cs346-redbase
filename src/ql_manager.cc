@@ -173,7 +173,14 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
         return rc;
     }
 
-    // Form the physical operator tree
+    // Form the physical operator tree (physical query plan)
+
+    /** No optimizations
+        1) FileScanOps as leaf nodes
+        2) CrossProductOps on the leaf ndoes
+        3) FilterOps on top
+        4) ProjectOp as the root
+    **/
 
     // Scan ops - FileScans on the relations
     shared_ptr<QL_Op> scanOps[nRelations];
