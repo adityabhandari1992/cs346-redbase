@@ -107,7 +107,8 @@ the SELECT query. The default value of the parameter is TRUE.
 
 The physical operator tree is constructed for the SELECT query from the leaves up. In the non-
 optimized version, the leaves are only FileScanOp, whereas in the optimized version, the
-FileScanOp is converted to an IndexScanOp if a corresponding condition exists on an indexed attribute for the relation in the WHERE clause. The scan operators are fed to the
+FileScanOp is converted to an IndexScanOp if a corresponding condition exists on an indexed
+attribute for the relation in the WHERE clause. The scan operators are fed to the
 CrossProductOp (non-optimized version) / NLJoinOp (optimized version in case a corresponding
 condition exists on the relations in the WHERE clause). Further up are the FilterOp operators
 and finally the root operator is ProjectOp.
