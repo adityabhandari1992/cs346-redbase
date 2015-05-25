@@ -9,6 +9,7 @@ Aditya Bhandari (adityasb@stanford.edu)
 Assistance taken:
 1) Jaeho Shin (TA) :
     - Clarification about physical query plans
+    - Help with designing and implementing the QL physical operators
 
 2) Data files in the shared folder on corn used for testing
 
@@ -17,11 +18,136 @@ Assistance taken:
 
 ** DESIGN **
 
-* Data Structures *
+* Physical Operators *
+
+The different types of physical operators needed for processing the database queries are
+implemented in the files "ql_internal.h" and "ql_operators.cc".
+
+The base abstract class is called "QL_Op" and its derived classes define the different types of
+physical operators as enlisted below. The classes have the following public interface:
+1) Constructor and Destructor
+
+2) RC Open()
+    - Open the physical operator for use
+
+3) RC Close()
+    - Close the operator
+
+4) RC GetNext(char* recordData)
+    - Get the next result tuple from the operator
+
+5) RC GetNext(char* recordData, RID &rid)
+    - ONLY FOR IndexScanOp and FileScanOp
+    - Get the next result tuple data and RID from the scan operator
+
+6) void Print(int indentationLevel)
+    - Pretty print the operator details for the physical query plan
+
+7) void GetAttributeCount(int &attrCount)
+    - Get the attribute count in the tuples returned by the operator
+
+8) void GetAttributeInfo(DataAttrInfo* attributes)
+    - Get the attribute information about the tuples returned from the operator
+
+The different physical operators are:
+1) FileScanOp - RM file scan for a specified relation
+    - The condition for the file scan is optional
+    - Always at the leaf nodes of the physical query plan / operator tree
+    - Open() and Close() methods open and close a RM file scan respectively
+    - The GetNext() method gets the next record from the open RM file scan
+
+2) IndexScanOp - Index scan for a specified relation
+    - Always at the leaf nodes of the physical query plan / operator tree
+    - Open() and Close() methods open and close an index scan respectively
+    - The GetNext() method gets the next record from the open index scan
+
+3) FilterOp - Filter the tuples from a child operator according to a specified condition
+    - Always an internal node in the physical query plan / operator tree
+    - Open() and Close() methods open and close the child operator respectively
+    - The GetNext() method gets the next tuple from the child operator and checks the required
+      condition on the tuple
+
+4) ProjectOp - Project the tuples from a child operator on the specified attributes
+    - Always an internal node in the physical query plan / operator tree
+    - Open() and Close() methods open and close the child operator respectively
+    - The GetNext() method gets the next tuple from the child operator and projects it on the
+      required attributes
+
+5) CrossProductOp - Compute the cross product of the tuples from children operators
+    - Always an internal node in the physical query plan / operator tree
+    - Open() and Close() methods open and close the left/right children operators respectively
+    - The GetNext() method runs a loop over the tuples from the right child operator for every
+      tuple from the left child operator and joins the tuples to form the resultant tuple
+
+6) NLJoinOp - Compute the natural join of the tuples from the children operators according
+              to a specified condition
+    - Always an internal node in the physical query plan / operator tree
+    - Open() and Close() methods open and close the left/right children operators respectively
+    - The GetNext() method runs a loop over the tuples from the right child operator for every
+      tuple from the left child operator and joins the tuples, if the specified condition is
+      satisfied, to form the resultant tuple
+
+-------------------
+
+* SELECT Query *
+
+The SELECT query is implemented with the help of the physical operators explained above. The
+physical query plan is first computed and the operator tree is formed. Then, the tuples are
+retrieved using the GetNext() method on the root operator. The physical query plan is printed if
+needed.
+
+The parameters to the query are first checked for correctness. When the select attributes and
+conditions are being checked, the relation name is prepended to the attribute name if the
+relation name is NULL. This is done so that the operators can work easily using these
+attributes consisting of relation and attribute names.
+
+A system parameter called 'optimizeQuery' maintains whether optimizations should be applied to
+the SELECT query. The default value of the parameter is TRUE.
+(It can be toggled using the command : Set optimizeQuery = "TRUE" / "FALSE")
+
+The physical operator tree is constructed for the SELECT query from the leaves up. In the non-
+optimized version, the leaves are only FileScanOp, whereas in the optimized version, the
+FileScanOp is converted to an IndexScanOp if a corresponding condition exists on an indexed attribute for the relation in the WHERE clause. The scan operators are fed to the
+CrossProductOp (non-optimized version) / NLJoinOp (optimized version in case a corresponding
+condition exists on the relations in the WHERE clause). Further up are the FilterOp operators
+and finally the root operator is ProjectOp.
+
+-------------------
+
+* DELETE / UPDATE Query *
+
+The provided parameters to the query are first checked for correctness.
+The type of scan operator to use is then decided based on the conditions provided in the WHERE
+clause. If a suitable condition exists on an indexed attribute of the relation, an IndexScanOp
+is used to retrieve the required tuples, whereas a FileScanOp is used instead (with a suitable
+condition from the WHERE clause, or a full scan in the absence of such a condition).
+(IndexScanOp is not used on the attribute that is to be updated in the UPDATE query.)
+The tuple retrieved from the scan operator is then checked whether it satisfies all the required
+conditions specified in the WHERE clause. If it does, then the tuple is deleted/updated
+according to the type of the query.
+
+-------------------
+
+* INSERT Query *
+
+The provided parameters to the query are first checked for correctness. The given tuple is
+then inserted in the relation in the same way as the Load command in the SM component.
 
 -------------------
 
 * Physical Query Plan *
+
+The physical query plan is printed for the SELECT, DELETE and UPDATE queries when the
+bQueryPlans variable is set to TRUE or 1.
+(It can be toggled using the command : Set bQueryPlans = "1" / "0")
+
+The physical query plan is printed recursively for the SELECT query. The Print() method
+is called on the root operator of the physical operator tree, which prints its operator name
+and recursively calls the Print() method on the children operators, if any. The indentation in
+the printing is maintained via the 'indentationLevel' parameter to the Print() method.
+
+For the DELETE and UPDATE queries, the type of scan (file or index) is printed enclosed in a
+dummy operator called DeleteOp and UpdateOp respectively.
 
 --------------------------------------------
 --------------------------------------------
@@ -33,7 +159,9 @@ as comment headers in the code files itself.
 
 The code files are:
     - ql.h
+    - ql_internal.h
     - ql_manager.cc
+    - ql_operators.cc
     - ql_error.cc
 
 --------------------------------------------
@@ -41,5 +169,8 @@ The code files are:
 
 ** TESTING **
 
+The testing was done using different scripts for the different queries. Both the invalid and
+valid queries were thoroughly tested. The physical query plan generated was checked manually
+for the different test cases (covering all the optimized and non-optimized cases).
 
 --------------------------------------------xx EOF xx----------------------------------------
