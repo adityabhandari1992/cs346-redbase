@@ -150,7 +150,7 @@ and \texttt{attrcat} relations, and \texttt{n} \textit{data} nodes for storing t
 relations.
 
 \item Create a new relation: \texttt{create table relName(attrName1 Type1, ..., attrNameN TypeN)
-\\<{\it optional} -distributed attrName Type value1, ..., value(n-1)>}\\
+\\<{\it optional} distribute attrName (value1, ..., value(n-1))>}\\
 \\The \texttt{create table} command will have additional optional parameters to specify whether
 the relation should be distributed. If yes, the attribute to be used for range partitioning should
 be specified along with the values for the range partitioning vector.
