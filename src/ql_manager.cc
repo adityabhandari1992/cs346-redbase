@@ -15,6 +15,7 @@
 #include "redbase.h"
 #include "ql.h"
 #include "ql_internal.h"
+#include "ex.h"
 #include "sm.h"
 #include "ix.h"
 #include "rm.h"

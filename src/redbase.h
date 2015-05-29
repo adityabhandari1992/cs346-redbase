@@ -38,6 +38,8 @@ typedef int RC;
 #define END_SM_ERR    (-400)
 #define START_QL_ERR  (-401)
 #define END_QL_ERR    (-500)
+#define START_EX_ERR  (-501)
+#define END_EX_ERR    (-600)
 
 #define START_PF_WARN  1
 #define END_PF_WARN    100
@@ -49,6 +51,8 @@ typedef int RC;
 #define END_SM_WARN    400
 #define START_QL_WARN  401
 #define END_QL_WARN    500
+#define START_EX_WARN  501
+#define END_EX_WARN    600
 
 // ALL_PAGES is defined and used by the ForcePages method defined in RM
 // and PF layers

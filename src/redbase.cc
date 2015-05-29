@@ -16,6 +16,7 @@
 #include "rm.h"
 #include "sm.h"
 #include "ql.h"
+#include "ex.h"
 
 using namespace std;
 
