@@ -18,21 +18,33 @@
 // Data structures
 
 // SM_RelcatRecord - Records stored in the relcat relation
-/* Stores the follwing:
+/* Stores the following:
     1) relName - name of the relation - char*
     2) tupleLength - length of the tuples - integer
     3) attrCount - number of attributes - integer
     4) indexCount - number of indexes - integer
+    EX - 5) distributed - whether the relation is distributed - integer
+         6) attrName - attribute used for range partitioning - char*
+         7) attrType - attribute type - AttrType
+         8) attrLength - attribute length - int
+         7) partitionVector - partition vector - void* partitionVector
 */
 struct SM_RelcatRecord {
     char relName[MAXNAME+1];
     int tupleLength;
     int attrCount;
     int indexCount;
+
+    // EX - for distributed databases
+    int distributed;
+    char attrName[MAXNAME+1];
+    AttrType attrType;
+    int attrLength;
+    void* partitionVector;
 };
 
 // SM_AttrcatRecord - Records stored in the attrcat relation
-/* Stores the follwing:
+/* Stores the following:
     1) relName - name of the relation - char*
     2) attrName - name of the attribute - char*
     3) offset - offset of the attribute - integer
@@ -49,9 +61,20 @@ struct SM_AttrcatRecord {
     int indexNo;
 };
 
+// EX_DbInfo - Database information stored for each database
+/* Stores the following:
+    1) distributed - whether the database is distributed - integer
+    2) numberNodes - number of nodes - integer
+*/
+struct EX_DBInfo {
+    int distributed;
+    int numberNodes;
+};
+
 // Constants
-#define SM_RELCAT_ATTR_COUNT    4
+#define SM_RELCAT_ATTR_COUNT    9
 #define SM_ATTRCAT_ATTR_COUNT   6
+#define EX_DBCAT_ATTR_COUNT     2
 
 //
 // SM_Manager: provides data management
@@ -91,7 +114,9 @@ public:
 
     int getPrintFlag();             // Method to get the printCommands flag
     int getOpenFlag();              // Method to get the isOpen flag
-    int getOptimizeFlag();              // Method to get the optimizeQuery flag
+    int getDistributedFlag();       // Method to get the distributed flag
+    int getNumberNodes();           // Method to get the number of nodes
+    int getOptimizeFlag();          // Method to get the optimizeQuery flag
 
 private:
     RM_Manager* rmManager;          // RM_Manager object
@@ -100,6 +125,8 @@ private:
     RM_FileHandle relcatFH;         // RM file handle for relcat
     RM_FileHandle attrcatFH;        // RM file handle for attrcat
     int isOpen;                     // Flag whether the database is open
+    int distributed;                // Flag whether the database is distributed
+    int numberNodes;                // Number of nodes in the database
 
     int printCommands;              // System parameter specifying printing level
     int optimizeQuery;              // System parameter specifying optimization

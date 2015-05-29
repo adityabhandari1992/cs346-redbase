@@ -63,12 +63,52 @@ RC SM_Manager::OpenDb(const char *dbName) {
         return SM_INVALID_DATABASE_NAME;
     }
 
-    // Open the system catalogs
+    // Check whether the database is distributed
     int rc;
-    if ((rc = rmManager->OpenFile("relcat", relcatFH))) {
+    RM_FileHandle dbInfoFH;
+    RM_FileScan dbInfoFS;
+    RM_Record rec;
+    char* recordData;
+
+    // Open the file and get data
+    if ((rc = rmManager->OpenFile("dbinfo", dbInfoFH))) {
         return rc;
     }
-    if ((rc = rmManager->OpenFile("attrcat", attrcatFH))) {
+    if ((rc = dbInfoFS.OpenScan(dbInfoFH, INT, 4, 0, NO_OP, NULL))) {
+        return rc;
+    }
+    if ((rc = dbInfoFS.GetNextRec(rec))) {
+        return rc;
+    }
+    if ((rc = rec.GetData(recordData))) {
+        return rc;
+    }
+    EX_DBInfo* dbInfo = (EX_DBInfo*) recordData;
+    this->distributed = dbInfo->distributed;
+    this->numberNodes = dbInfo->numberNodes;
+
+    // Close the file
+    if ((rc = dbInfoFS.CloseScan())) {
+        return rc;
+    }
+    if ((rc = rmManager->CloseFile(dbInfoFH))) {
+        return rc;
+    }
+
+    // Open the system catalogs
+    char relcatFileName[255] = "";
+    char attrcatFileName[255] = "";
+    if (distributed) {
+        strcat(relcatFileName, "master/");
+        strcat(attrcatFileName, "master/");
+    }
+    strcat(relcatFileName, "relcat");
+    strcat(attrcatFileName, "attrcat");
+
+    if ((rc = rmManager->OpenFile(relcatFileName, relcatFH))) {
+        return rc;
+    }
+    if ((rc = rmManager->OpenFile(attrcatFileName, attrcatFH))) {
         return rc;
     }
 
@@ -85,8 +125,7 @@ RC SM_Manager::OpenDb(const char *dbName) {
 /* Steps:
     1) Check that the database is not closed
     2) Close the system catalogs
-    3) Change to the up directory
-    4) Update flag
+    3) Update flag
 */
 RC SM_Manager::CloseDb() {
     // Check if closed
@@ -103,11 +142,6 @@ RC SM_Manager::CloseDb() {
         return rc;
     }
 
-    // Change to the up directory
-    if (chdir("../") == -1) {
-        return SM_INVALID_DATABASE_CLOSE;
-    }
-
     // Update flag
     isOpen = FALSE;
 
@@ -116,6 +150,7 @@ RC SM_Manager::CloseDb() {
 }
 
 
+// TODO
 // Method: CreateTable(const char *relName, int attrCount, AttrInfo *attributes)
 // Create relation relName, given number of attributes and attribute data
 /* Steps:
@@ -231,6 +266,7 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
 }
 
 
+// TODO
 // Method: DropTable(const char *relName)
 // Destroy a relation
 /* Steps:
@@ -346,6 +382,7 @@ RC SM_Manager::DropTable(const char *relName) {
 }
 
 
+// TODO
 // Method: CreateIndex(const char *relName, const char *attrName)
 // Create an index for relName.attrName
 /* Steps:
@@ -533,6 +570,7 @@ RC SM_Manager::CreateIndex(const char *relName, const char *attrName) {
 }
 
 
+// TODO
 // Method: DropIndex(const char *relName, const char *attrName)
 // Destroy index on relName.attrName
 /* Steps:
@@ -649,6 +687,7 @@ RC SM_Manager::DropIndex(const char *relName, const char *attrName) {
 }
 
 
+// TODO
 // Method: Load(const char *relName, const char *fileName)
 // Load relName from fileName
 /* Steps:
@@ -987,6 +1026,7 @@ RC SM_Manager::Help(const char *relName) {
 }
 
 
+// TODO
 // Method: Print(const char *relName)
 // Print relName contents
 /* Steps:
@@ -1042,7 +1082,7 @@ RC SM_Manager::Print(const char *relName) {
     // Open the relation RM file
     RM_FileHandle rmFH;
     if ((rc = rmManager->OpenFile(relName, rmFH))) {
-        return rc;
+        return SM_TABLE_DOES_NOT_EXIST;
     }
 
     // Start the relcat file scan
@@ -1340,6 +1380,16 @@ int SM_Manager::getPrintFlag() {
 // Method to get the isOpen flag
 int SM_Manager::getOpenFlag() {
     return isOpen;
+}
+
+// Method to get the distributed flag
+int SM_Manager::getDistributedFlag() {
+    return distributed;
+}
+
+// Method to get the number of nodes
+int SM_Manager::getNumberNodes() {
+    return numberNodes;
 }
 
 // Method to get the optimizeQuery flag
