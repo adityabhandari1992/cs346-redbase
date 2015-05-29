@@ -16,6 +16,7 @@
 #include "rm.h"
 #include "sm.h"
 #include "redbase.h"
+#include "ex.h"
 
 using namespace std;
 
@@ -86,13 +87,8 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    // EX - Create subdirectories for the master and data nodes, if specified
+    // EX - Create subdirectories for the data nodes, if specified
     if (numberNodes > 1) {
-        strcpy(commandCopy, command);
-        if (system(strcat(commandCopy,"master")) != 0) {
-            cerr << argv[0] << " cannot create master node for the distributed database " << dbname << "\n";
-            exit(1);
-        }
         for (int i=1; i<=numberNodes; i++) {
             string dataNode = "data." + to_string(i);
             strcpy(commandCopy, command);
@@ -130,20 +126,12 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
         return rc;
     }
-    delete dbInfo;
-
-    // EX - Change to the master subdirectory
-    if (numberNodes > 1) {
-        if (chdir("master") < 0) {
-            cerr << argv[0] << " chdir error to master node directory\n";
-            exit(1);
-        }
-    }
 
     // Create the system catalogs
-    // Create RM files for relcat and attrcat
     const char* relcatFileName = "relcat";
     const char* attrcatFileName = "attrcat";
+
+    // Create RM files for relcat and attrcat
     if ((rc = rmManager.CreateFile(relcatFileName, sizeof(SM_RelcatRecord)))) {
         RM_PrintError(rc);
         return rc;
@@ -175,9 +163,6 @@ int main(int argc, char *argv[])
     // EX - distributed database
     rcRecord->distributed = FALSE;
     strcpy(rcRecord->attrName, "NA");
-    rcRecord->attrType = (AttrType) 0;
-    rcRecord->attrLength = 0;
-    rcRecord->partitionVector = NULL;
     if ((rc = relcatFH.InsertRec((char*) rcRecord, rid))) {
         RM_PrintError(rc);
         return rc;
@@ -191,14 +176,10 @@ int main(int argc, char *argv[])
     // EX - distributed database
     rcRecord->distributed = FALSE;
     strcpy(rcRecord->attrName, "NA");
-    rcRecord->attrType = (AttrType) 0;
-    rcRecord->attrLength = 0;
-    rcRecord->partitionVector = NULL;
     if ((rc = relcatFH.InsertRec((char*) rcRecord, rid))) {
         RM_PrintError(rc);
         return rc;
     }
-    delete rcRecord;
 
     // Insert relcat attributes in attrcat
     SM_AttrcatRecord* acRecord = new SM_AttrcatRecord;
@@ -215,7 +196,6 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
         return rc;
     }
-
     currentOffset += MAXNAME+1;
     while (currentOffset % 4 != 0) currentOffset++;
 
@@ -228,7 +208,6 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
         return rc;
     }
-
     currentOffset += 4;
 
     strcpy(acRecord->attrName, "attrCount");
@@ -240,7 +219,6 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
         return rc;
     }
-
     currentOffset += 4;
 
     strcpy(acRecord->attrName, "indexCount");
@@ -252,7 +230,6 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
         return rc;
     }
-
     currentOffset += 4;
 
     strcpy(acRecord->attrName, "distributed");
@@ -264,52 +241,12 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
         return rc;
     }
-
     currentOffset += 4;
 
     strcpy(acRecord->attrName, "attrName");
     acRecord->offset = currentOffset;
     acRecord->attrType = STRING;
     acRecord->attrLength = MAXNAME + 1;
-    acRecord->indexNo = -1;
-    if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
-        RM_PrintError(rc);
-        return rc;
-    }
-
-    currentOffset += MAXNAME+1;
-    while (currentOffset % 4 != 0) currentOffset++;
-
-    currentOffset += 4;
-
-    strcpy(acRecord->attrName, "attrType");
-    acRecord->offset = currentOffset;
-    acRecord->attrType = INT;
-    acRecord->attrLength = 4;
-    acRecord->indexNo = -1;
-    if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
-        RM_PrintError(rc);
-        return rc;
-    }
-
-    currentOffset += 4;
-
-    strcpy(acRecord->attrName, "attrLength");
-    acRecord->offset = currentOffset;
-    acRecord->attrType = INT;
-    acRecord->attrLength = 4;
-    acRecord->indexNo = -1;
-    if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
-        RM_PrintError(rc);
-        return rc;
-    }
-
-    currentOffset += 4;
-
-    strcpy(acRecord->attrName, "partitionVector");
-    acRecord->offset = currentOffset;
-    acRecord->attrType = INT;
-    acRecord->attrLength = 4;
     acRecord->indexNo = -1;
     if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
         RM_PrintError(rc);
@@ -329,7 +266,6 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
         return rc;
     }
-
     currentOffset += MAXNAME+1;
 
     strcpy(acRecord->attrName, "attrName");
@@ -341,7 +277,6 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
         return rc;
     }
-
     currentOffset += MAXNAME+1;
     while (currentOffset % 4 != 0) currentOffset++;
 
@@ -354,7 +289,6 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
         return rc;
     }
-
     currentOffset += 4;
 
     strcpy(acRecord->attrName, "attrType");
@@ -366,7 +300,6 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
         return rc;
     }
-
     currentOffset += 4;
 
     strcpy(acRecord->attrName, "attrLength");
@@ -378,7 +311,6 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
         return rc;
     }
-
     currentOffset += 4;
 
     strcpy(acRecord->attrName, "indexNo");
@@ -390,7 +322,6 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
         return rc;
     }
-    delete acRecord;
 
     // Close the files
     if ((rc = rmManager.CloseFile(relcatFH))) {
@@ -401,6 +332,250 @@ int main(int argc, char *argv[])
         RM_PrintError(rc);
         return rc;
     }
+
+    // EX - Add catalogs to the data nodes, if applicable
+    if (numberNodes > 1) {
+        for (int i=1; i<=numberNodes; i++) {
+            // Change to the data node
+            string dataNode = "data." + to_string(i);
+            if (chdir(dataNode.c_str()) < 0) {
+                cerr << argv[0] << " chdir error to data node directory\n";
+                exit(1);
+            }
+
+            // Store the database info in an RM file
+            if ((rc = rmManager.CreateFile(dbInfoFileName, sizeof(EX_DBInfo)))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            if ((rc = rmManager.OpenFile(dbInfoFileName, dbInfoFH))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+
+            dbInfo->distributed = FALSE;
+            dbInfo->numberNodes = 1;
+            if ((rc = dbInfoFH.InsertRec((char*) dbInfo, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            if ((rc = rmManager.CloseFile(dbInfoFH))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+
+            // Create RM files for relcat and attrcat
+            if ((rc = rmManager.CreateFile(relcatFileName, sizeof(SM_RelcatRecord)))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            if ((rc = rmManager.CreateFile(attrcatFileName, sizeof(SM_AttrcatRecord)))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+
+            // Open the files
+            if ((rc = rmManager.OpenFile(relcatFileName, relcatFH))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            if ((rc = rmManager.OpenFile(attrcatFileName, attrcatFH))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+
+            // Insert relcat record in relcat
+            SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
+            memset(rcRecord, 0, sizeof(SM_RelcatRecord));
+            strcpy(rcRecord->relName, "relcat");
+            rcRecord->tupleLength = sizeof(SM_RelcatRecord);
+            rcRecord->attrCount = SM_RELCAT_ATTR_COUNT;
+            rcRecord->indexCount = 0;
+            // EX - distributed database
+            rcRecord->distributed = FALSE;
+            strcpy(rcRecord->attrName, "NA");
+            if ((rc = relcatFH.InsertRec((char*) rcRecord, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+
+            // Insert attrcat record in relcat
+            strcpy(rcRecord->relName, "attrcat");
+            rcRecord->tupleLength = sizeof(SM_AttrcatRecord);
+            rcRecord->attrCount = SM_ATTRCAT_ATTR_COUNT;
+            rcRecord->indexCount = 0;
+            // EX - distributed database
+            rcRecord->distributed = FALSE;
+            strcpy(rcRecord->attrName, "NA");
+            if ((rc = relcatFH.InsertRec((char*) rcRecord, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+
+            // Insert relcat attributes in attrcat
+            SM_AttrcatRecord* acRecord = new SM_AttrcatRecord;
+            memset(acRecord, 0, sizeof(SM_AttrcatRecord));
+            int currentOffset = 0;
+            strcpy(acRecord->relName, "relcat");
+
+            strcpy(acRecord->attrName, "relName");
+            acRecord->offset = currentOffset;
+            acRecord->attrType = STRING;
+            acRecord->attrLength = MAXNAME+1;
+            acRecord->indexNo = -1;
+            if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            currentOffset += MAXNAME+1;
+            while (currentOffset % 4 != 0) currentOffset++;
+
+            strcpy(acRecord->attrName, "tupleLength");
+            acRecord->offset = currentOffset;
+            acRecord->attrType = INT;
+            acRecord->attrLength = 4;
+            acRecord->indexNo = -1;
+            if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            currentOffset += 4;
+
+            strcpy(acRecord->attrName, "attrCount");
+            acRecord->offset = currentOffset;
+            acRecord->attrType = INT;
+            acRecord->attrLength = 4;
+            acRecord->indexNo = -1;
+            if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            currentOffset += 4;
+
+            strcpy(acRecord->attrName, "indexCount");
+            acRecord->offset = currentOffset;
+            acRecord->attrType = INT;
+            acRecord->attrLength = 4;
+            acRecord->indexNo = -1;
+            if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            currentOffset += 4;
+
+            strcpy(acRecord->attrName, "distributed");
+            acRecord->offset = currentOffset;
+            acRecord->attrType = INT;
+            acRecord->attrLength = 4;
+            acRecord->indexNo = -1;
+            if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            currentOffset += 4;
+
+            strcpy(acRecord->attrName, "attrName");
+            acRecord->offset = currentOffset;
+            acRecord->attrType = STRING;
+            acRecord->attrLength = MAXNAME + 1;
+            acRecord->indexNo = -1;
+            if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+
+            // Insert attrcat attributes in attrcat
+            currentOffset = 0;
+            strcpy(acRecord->relName, "attrcat");
+
+            strcpy(acRecord->attrName, "relName");
+            acRecord->offset = currentOffset;
+            acRecord->attrType = STRING;
+            acRecord->attrLength = MAXNAME + 1;
+            acRecord->indexNo = -1;
+            if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            currentOffset += MAXNAME+1;
+
+            strcpy(acRecord->attrName, "attrName");
+            acRecord->offset = currentOffset;
+            acRecord->attrType = STRING;
+            acRecord->attrLength = MAXNAME + 1;
+            acRecord->indexNo = -1;
+            if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            currentOffset += MAXNAME+1;
+            while (currentOffset % 4 != 0) currentOffset++;
+
+            strcpy(acRecord->attrName, "offset");
+            acRecord->offset = currentOffset;
+            acRecord->attrType = INT;
+            acRecord->attrLength = 4;
+            acRecord->indexNo = -1;
+            if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            currentOffset += 4;
+
+            strcpy(acRecord->attrName, "attrType");
+            acRecord->offset = currentOffset;
+            acRecord->attrType = INT;
+            acRecord->attrLength = 4;
+            acRecord->indexNo = -1;
+            if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            currentOffset += 4;
+
+            strcpy(acRecord->attrName, "attrLength");
+            acRecord->offset = currentOffset;
+            acRecord->attrType = INT;
+            acRecord->attrLength = 4;
+            acRecord->indexNo = -1;
+            if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            currentOffset += 4;
+
+            strcpy(acRecord->attrName, "indexNo");
+            acRecord->offset = currentOffset;
+            acRecord->attrType = INT;
+            acRecord->attrLength = 4;
+            acRecord->indexNo = -1;
+            if ((rc = attrcatFH.InsertRec((char*) acRecord, rid))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+
+            // Close the files
+            if ((rc = rmManager.CloseFile(relcatFH))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+            if ((rc = rmManager.CloseFile(attrcatFH))) {
+                RM_PrintError(rc);
+                return rc;
+            }
+
+            // Change to up directory
+            if (chdir("../") < 0) {
+                cerr << argv[0] << " chdir error from data node directory\n";
+                exit(1);
+            }
+        }
+    }
+
+    // Clean up
+    delete rcRecord;
+    delete acRecord;
+    delete dbInfo;
 
     return 0;
 }
