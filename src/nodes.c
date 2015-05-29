@@ -82,12 +82,13 @@ NODE *newnode(NODEKIND kind)
  * create_table_node: allocates, initializes, and returns a pointer to a new
  * create table node having the indicated values.
  */
-NODE *create_table_node(char *relname, NODE *attrlist)
+NODE *create_table_node(char *relname, NODE *attrlist, NODE *distribute_data)
 {
     NODE *n = newnode(N_CREATETABLE);
 
     n -> u.CREATETABLE.relname = relname;
     n -> u.CREATETABLE.attrlist = attrlist;
+    n -> u.CREATETABLE.distribute_data = distribute_data;
     return n;
 }
 
@@ -223,7 +224,7 @@ NODE *delete_node(char *relname, NODE *conditionlist)
  * update_node: allocates, initializes, and returns a pointer to a new
  * update node having the indicated values.
  */
-NODE *update_node(char *relname, NODE *relattr, NODE *relorvalue, 
+NODE *update_node(char *relname, NODE *relattr, NODE *relorvalue,
 		  NODE *conditionlist)
 {
     NODE *n = newnode(N_UPDATE);
@@ -259,9 +260,9 @@ NODE *condition_node(NODE *lhsRelattr, CompOp op, NODE *rhsRelattrOrValue)
 
     n->u.CONDITION.lhsRelattr = lhsRelattr;
     n->u.CONDITION.op = op;
-    n->u.CONDITION.rhsRelattr = 
+    n->u.CONDITION.rhsRelattr =
       rhsRelattrOrValue->u.RELATTR_OR_VALUE.relattr;
-    n->u.CONDITION.rhsValue = 
+    n->u.CONDITION.rhsValue =
       rhsRelattrOrValue->u.RELATTR_OR_VALUE.value;
     return n;
 }
@@ -290,7 +291,7 @@ NODE *value_node(AttrType type, void *value)
 }
 
 /*
- * relattr_or_valuenode: allocates, initializes, and returns a pointer to 
+ * relattr_or_valuenode: allocates, initializes, and returns a pointer to
  * a new relattr_or_value node having the indicated values.
  */
 NODE *relattr_or_value_node(NODE *relattr, NODE *value)
@@ -352,4 +353,18 @@ NODE *prepend(NODE *n, NODE *list)
     newlist -> u.LIST.curr = n;
     newlist -> u.LIST.next = list;
     return newlist;
+}
+
+// EX - distribute_node
+/*
+ * creates a distribute table node with attribute name, attribute type
+ * and list of values for the partition vector
+ */
+NODE *distribute_node(char* attrName, NODE* value_list)
+{
+    NODE *n = newnode(N_DISTRIBUTE);
+
+    n->u.DISTRIBUTE.attrName = attrName;
+    n->u.DISTRIBUTE.value_list = value_list;
+    return n;
 }

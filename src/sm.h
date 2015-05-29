@@ -90,7 +90,11 @@ public:
 
     RC CreateTable(const char *relName,           // create relation relName
                    int        attrCount,          //   number of attributes
-                   AttrInfo   *attributes);       //   attribute data
+                   AttrInfo   *attributes,        //   attribute data
+                   // EX
+                   const char* attrName,          // attribute name for partition
+                   int nValues,                   // number of values in the partition vector
+                   const Value values[]);         // partition vector
     RC CreateIndex(const char *relName,           // create an index for
                    const char *attrName);         //   relName.attrName
     RC DropTable  (const char *relName);          // destroy a relation

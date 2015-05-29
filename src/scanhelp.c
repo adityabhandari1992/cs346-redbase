@@ -3,9 +3,9 @@
  *
  * Authors: Jan Jannink
  *          Jason McHugh
- *          
+ *
  * originally by: Mark McAuliffe, University of Wisconsin - Madison, 1991
- * 
+ *
  * 1997 Changes: "print", "buffer", "reset" and "io" added.
  * 1998 Changes: "resize", "queryplans", "on" and "off" added.
  *
@@ -125,7 +125,12 @@ static int get_id(char *s)
       return yylval.ival = RW_DELETE;
    if(!strcmp(string, "update"))
       return yylval.ival = RW_UPDATE;
-   
+
+   /* EX lexemes */
+   if (!strcmp(string, "distribute")) {
+      return yylval.ival = RW_DISTRIBUTED;
+   }
+
    /* IO Statistics lexemes */
    if(!strcmp(string, "reset"))
       return yylval.ival = RW_RESET;

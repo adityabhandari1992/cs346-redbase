@@ -63,7 +63,8 @@ typedef enum{
     N_VALUE,
     N_RELATION,
     N_STATISTICS,
-    N_LIST
+    N_LIST,
+    N_DISTRIBUTE
 } NODEKIND;
 
 /*
@@ -78,6 +79,7 @@ typedef struct node{
       struct{
          char *relname;
          struct node *attrlist;
+         struct node *distribute_data;
       } CREATETABLE;
 
       /* create index node */
@@ -192,6 +194,12 @@ typedef struct node{
          struct node *curr;
          struct node *next;
       } LIST;
+
+      /* distribute node */
+      struct{
+        char* attrName;
+        struct node *value_list;
+      } DISTRIBUTE;
    } u;
 } NODE;
 
@@ -200,7 +208,7 @@ typedef struct node{
  * function prototypes
  */
 NODE *newnode(NODEKIND kind);
-NODE *create_table_node(char *relname, NODE *attrlist);
+NODE *create_table_node(char *relname, NODE *attrlist, NODE* distribute_data);
 NODE *create_index_node(char *relname, char *attrname);
 NODE *drop_index_node(char *relname, char *attrname);
 NODE *drop_table_node(char *relname);
@@ -221,6 +229,8 @@ NODE *attrtype_node(char *attrname, char *type);
 NODE *relation_node(char *relname);
 NODE *list_node(NODE *n);
 NODE *prepend(NODE *n, NODE *list);
+// EX
+NODE *distribute_node(char* attrName, NODE* value_list);
 
 void reset_scanner(void);
 void reset_charptr(void);

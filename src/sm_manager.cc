@@ -160,7 +160,9 @@ RC SM_Manager::CloseDb() {
     4) Create a RM file for the relation
     5) Flush the system catalogs
 */
-RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attributes) {
+RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attributes,
+                           // EX
+                           const char* attrName, int nValues, const Value values[]) {
     // Check that the database is open
     if (!isOpen) {
         return SM_DATABASE_CLOSED;
@@ -1026,7 +1028,6 @@ RC SM_Manager::Help(const char *relName) {
 }
 
 
-// TODO
 // Method: Print(const char *relName)
 // Print relName contents
 /* Steps:
@@ -1035,6 +1036,7 @@ RC SM_Manager::Help(const char *relName) {
     3) Print the header
     4) Open the RM file
     5) Start a RM file scan and print each tuple
+        - If distributed, get data from all nodes and then print UNION
     6) Print the footer
     7) Close the scan and file and clean up
 */
@@ -1079,42 +1081,67 @@ RC SM_Manager::Print(const char *relName) {
     // Print the header
     p.PrintHeader(cout);
 
-    // Open the relation RM file
-    RM_FileHandle rmFH;
-    if ((rc = rmManager->OpenFile(relName, rmFH))) {
-        return SM_TABLE_DOES_NOT_EXIST;
+    // EX - Check if the database is distributed
+    if (distributed) {
+        if (chdir("master") < 0) {
+            cerr << "Inconsistent database information\n";
+            exit(1);
+        }
     }
 
-    // Start the relcat file scan
-    RM_FileScan rmFS;
-    if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, NO_OP, NULL))) {
-        return rc;
-    }
+    // Non-distributed relation
+    if (!rcRecord->distributed) {
+        // Open the relation RM file
+        RM_FileHandle rmFH;
+        if ((rc = rmManager->OpenFile(relName, rmFH))) {
+            return SM_TABLE_DOES_NOT_EXIST;
+        }
 
-    // Print each tuple
-    while (rc != RM_EOF) {
-        rc = rmFS.GetNextRec(rec);
-
-        if (rc != 0 && rc != RM_EOF) {
+        // Start the relcat file scan
+        RM_FileScan rmFS;
+        if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, NO_OP, NULL))) {
             return rc;
         }
 
-        if (rc != RM_EOF) {
-            rec.GetData(recordData);
-            p.Print(cout, recordData);
+        // Print each tuple
+        while (rc != RM_EOF) {
+            rc = rmFS.GetNextRec(rec);
+
+            if (rc != 0 && rc != RM_EOF) {
+                return rc;
+            }
+
+            if (rc != RM_EOF) {
+                rec.GetData(recordData);
+                p.Print(cout, recordData);
+            }
         }
+
+        // Close the scan and file and clean up
+        if ((rc = rmFS.CloseScan())) {
+            return rc;
+        }
+        if ((rc = rmManager->CloseFile(rmFH))) {
+            return rc;
+        }
+    }
+
+    // EX - Distributed case
+    else {
+        // TODO
     }
 
     // Print the footer
     p.PrintFooter(cout);
 
-    // Close the scan and file and clean up
-    if ((rc = rmFS.CloseScan())) {
-        return rc;
+    // EX - Change back to original directory
+    if (distributed) {
+        if (chdir("../") < 0) {
+            cerr << "Inconsistent database information\n";
+            exit(1);
+        }
     }
-    if ((rc = rmManager->CloseFile(rmFH))) {
-        return rc;
-    }
+
     delete rcRecord;
     delete[] attributes;
 

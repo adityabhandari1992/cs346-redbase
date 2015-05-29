@@ -110,6 +110,7 @@ QL_Manager *pQlm;          // QL component manager
       RW_QUERY_PLAN
       RW_ON
       RW_OFF
+      RW_DISTRIBUTED
 
 %token   <ival>   T_INT
 
@@ -156,6 +157,7 @@ QL_Manager *pQlm;          // QL component manager
       buffer
       statistics
       queryplans
+      opt_distributed
 %%
 
 start
@@ -290,9 +292,9 @@ statistics
    ;
 
 createtable
-   : RW_CREATE RW_TABLE T_STRING '(' non_mt_attrtype_list ')'
+   : RW_CREATE RW_TABLE T_STRING '(' non_mt_attrtype_list ')' opt_distributed
    {
-      $$ = create_table_node($3, $5);
+      $$ = create_table_node($3, $5, $7);
    }
    ;
 
@@ -549,6 +551,17 @@ op
    | T_NE
    {
       $$ = NE_OP;
+   }
+   ;
+
+opt_distributed
+   : RW_DISTRIBUTED T_STRING '(' non_mt_value_list ')'
+   {
+      $$ = distribute_node($2, $4);
+   }
+   | nothing
+   {
+      $$ = NULL;
    }
    ;
 

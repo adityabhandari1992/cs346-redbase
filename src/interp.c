@@ -32,6 +32,7 @@ extern QL_Manager *pQlm;
 #define E_DUPLICATEATTR     -8
 #define E_TOOLONG           -9
 #define E_STRINGTOOLONG     -10
+#define E_INVATTRNAME       -11
 
 /*
  * file pointer to which error messages are printed
@@ -49,6 +50,8 @@ static int mk_relations(NODE *list, int max, char *relations[]);
 static int mk_conditions(NODE *list, int max, Condition conditions[]);
 static int mk_values(NODE *list, int max, Value values[]);
 static void mk_value(NODE *node, Value &value);
+// EX
+static int mk_partition_vector(NODE* value_list, int max, Value partition_vector[]);
 static void print_error(char *errmsg, RC errval);
 static void echo_query(NODE *n);
 static void print_attrtypes(NODE *n);
@@ -79,6 +82,7 @@ RC interp(NODE *n)
          {
             int nattrs;
             AttrInfo attrInfos[MAXATTRS];
+            Value partition_vector[MAXATTRS];
 
             /* Make sure relation name isn't too long */
             if(strlen(n -> u.CREATETABLE.relname) > MAXNAME){
@@ -87,18 +91,45 @@ RC interp(NODE *n)
             }
 
             /* Make a list of AttrInfos suitable for sending to Create */
-            nattrs = mk_attr_infos(n -> u.CREATETABLE.attrlist, MAXATTRS, 
+            nattrs = mk_attr_infos(n -> u.CREATETABLE.attrlist, MAXATTRS,
                   attrInfos);
             if(nattrs < 0){
                print_error((char*)"create", nattrs);
                break;
             }
 
+            /* Make sure the attrName is valid */
+            bool found = false;
+            char* attrName = NULL;
+            int nValues = 0;
+
+            if (n -> u.CREATETABLE.distribute_data != NULL) {
+               attrName = (n -> u.CREATETABLE.distribute_data)-> u.DISTRIBUTE.attrName;
+               for (int i=0; i<nattrs; i++) {
+                  if (!strcmp(attrInfos[i].attrName, attrName)) {
+                     found = true;
+                     break;
+                  }
+               }
+               if (!found) {
+                  print_error((char*)"create", E_INVATTRNAME);
+                  break;
+               }
+
+               /* Get the partition vector data */
+               int nValues;
+               nValues = mk_partition_vector((n -> u.CREATETABLE.distribute_data)-> u.DISTRIBUTE.value_list, MAXATTRS, partition_vector);
+               if(nValues < 0){
+                  print_error((char*)"create", nValues);
+                  break;
+               }
+            }
+
             /* Make the call to create */
-            errval = pSmm->CreateTable(n->u.CREATETABLE.relname, nattrs, 
-                  attrInfos);
+            errval = pSmm->CreateTable(n->u.CREATETABLE.relname, nattrs,
+                  attrInfos, attrName, nValues, partition_vector);
             break;
-         }   
+         }
 
       case N_CREATEINDEX:            /* for CreateIndex() */
 
@@ -179,7 +210,7 @@ RC interp(NODE *n)
                   nRelations, relations,
                   nConditions, conditions);
             break;
-         }   
+         }
 
       case N_INSERT:            /* for Insert() */
          {
@@ -197,7 +228,7 @@ RC interp(NODE *n)
             errval = pQlm->Insert(n->u.INSERT.relname,
                   nValues, values);
             break;
-         }   
+         }
 
       case N_DELETE:            /* for Delete() */
          {
@@ -216,7 +247,7 @@ RC interp(NODE *n)
             errval = pQlm->Delete(n->u.DELETE.relname,
                   nConditions, conditions);
             break;
-         }   
+         }
 
       case N_UPDATE:            /* for Update() */
          {
@@ -252,10 +283,10 @@ RC interp(NODE *n)
             }
 
             /* Make the call to update */
-            errval = pQlm->Update(n->u.UPDATE.relname, relAttr, bIsValue, 
+            errval = pQlm->Update(n->u.UPDATE.relname, relAttr, bIsValue,
                   rhsRelAttr, rhsValue, nConditions, conditions);
             break;
-         }   
+         }
 
       default:   // should never get here
          break;
@@ -386,16 +417,16 @@ static int mk_conditions(NODE *list, int max, Condition conditions[])
          return E_TOOMANY;
 
       current = list -> u.LIST.curr;
-      conditions[i].lhsAttr.relName = 
+      conditions[i].lhsAttr.relName =
          current->u.CONDITION.lhsRelattr->u.RELATTR.relname;
-      conditions[i].lhsAttr.attrName = 
+      conditions[i].lhsAttr.attrName =
          current->u.CONDITION.lhsRelattr->u.RELATTR.attrname;
       conditions[i].op = current->u.CONDITION.op;
       if (current->u.CONDITION.rhsRelattr) {
          conditions[i].bRhsIsAttr = TRUE;
-         conditions[i].rhsAttr.relName = 
+         conditions[i].rhsAttr.relName =
             current->u.CONDITION.rhsRelattr->u.RELATTR.relname;
-         conditions[i].rhsAttr.attrName = 
+         conditions[i].rhsAttr.attrName =
             current->u.CONDITION.rhsRelattr->u.RELATTR.attrname;
       }
       else {
@@ -447,6 +478,22 @@ static void mk_value(NODE *node, Value &value)
          value.data = (void *)node->u.VALUE.sval;
          break;
    }
+}
+
+/*
+ * mk_partition_vector: forms the partition vector for the distributed table
+ */
+static int mk_partition_vector(NODE* value_list, int max, Value partition_vector[]) {
+   int i;
+   for (i=0; value_list!=NULL; ++i, value_list = value_list -> u.LIST.next) {
+      if (i == max) {
+         return E_TOOMANY;
+      }
+
+      mk_value(value_list -> u.LIST.curr, partition_vector[i]);
+   }
+
+   return i;
 }
 
 /*
@@ -564,6 +611,9 @@ static void print_error(char *errmsg, RC errval)
          break;
       case E_STRINGTOOLONG:
          fprintf(stderr, "string attribute too long\n");
+         break;
+      case E_INVATTRNAME:
+         fprintf(stderr, "attribute name for distribute is not valid\n");
          break;
       default:
          fprintf(ERRFP, "unrecognized errval: %d\n", errval);
@@ -704,7 +754,7 @@ static void print_relattr(NODE *n)
    if (n->u.RELATTR.relname)
       printf("%s.",n->u.RELATTR.relname);
    printf("%s",n->u.RELATTR.attrname);
-}  
+}
 
 static void print_value(NODE *n)
 {
