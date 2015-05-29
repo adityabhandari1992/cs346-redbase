@@ -28,6 +28,7 @@
 #include "ix.h"     // for IX_PrintError
 #include "sm.h"
 #include "ql.h"
+#include "ex.h"
 
 using namespace std;
 
@@ -589,6 +590,8 @@ void PrintError(RC rc)
       SM_PrintError(rc);
    else if (abs(rc) <= END_QL_WARN)
       QL_PrintError(rc);
+   else if (abs(rc) <= END_EX_WARN)
+      EX_PrintError(rc);
    else
       cerr << "Error code out of range: " << rc << "\n";
 }

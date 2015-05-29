@@ -132,7 +132,7 @@ extern int yydebug;
 typedef union YYSTYPE YYSTYPE;
 union YYSTYPE
 {
-#line 71 "parse.y" /* yacc.c:1909  */
+#line 72 "parse.y" /* yacc.c:1909  */
 
     int ival;
     CompOp cval;

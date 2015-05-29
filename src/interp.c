@@ -102,8 +102,10 @@ RC interp(NODE *n)
             bool found = false;
             char* attrName = NULL;
             int nValues = 0;
+            int isDistributed = 0;
 
             if (n -> u.CREATETABLE.distribute_data != NULL) {
+               isDistributed = 1;
                attrName = (n -> u.CREATETABLE.distribute_data)-> u.DISTRIBUTE.attrName;
                for (int i=0; i<nattrs; i++) {
                   if (!strcmp(attrInfos[i].attrName, attrName)) {
@@ -117,7 +119,6 @@ RC interp(NODE *n)
                }
 
                /* Get the partition vector data */
-               int nValues;
                nValues = mk_partition_vector((n -> u.CREATETABLE.distribute_data)-> u.DISTRIBUTE.value_list, MAXATTRS, partition_vector);
                if(nValues < 0){
                   print_error((char*)"create", nValues);
@@ -126,8 +127,8 @@ RC interp(NODE *n)
             }
 
             /* Make the call to create */
-            errval = pSmm->CreateTable(n->u.CREATETABLE.relname, nattrs,
-                  attrInfos, attrName, nValues, partition_vector);
+            errval = pSmm->CreateTable(n->u.CREATETABLE.relname, nattrs, attrInfos,
+                              isDistributed, attrName, nValues, partition_vector);
             break;
          }
 
