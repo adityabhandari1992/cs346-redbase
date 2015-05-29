@@ -25,9 +25,6 @@
     4) indexCount - number of indexes - integer
     EX - 5) distributed - whether the relation is distributed - integer
          6) attrName - attribute used for range partitioning - char*
-         7) attrType - attribute type - AttrType
-         8) attrLength - attribute length - int
-         7) partitionVector - partition vector - void* partitionVector
 */
 struct SM_RelcatRecord {
     char relName[MAXNAME+1];
@@ -38,9 +35,6 @@ struct SM_RelcatRecord {
     // EX - for distributed databases
     int distributed;
     char attrName[MAXNAME+1];
-    AttrType attrType;
-    int attrLength;
-    void* partitionVector;
 };
 
 // SM_AttrcatRecord - Records stored in the attrcat relation
@@ -61,20 +55,9 @@ struct SM_AttrcatRecord {
     int indexNo;
 };
 
-// EX_DbInfo - Database information stored for each database
-/* Stores the following:
-    1) distributed - whether the database is distributed - integer
-    2) numberNodes - number of nodes - integer
-*/
-struct EX_DBInfo {
-    int distributed;
-    int numberNodes;
-};
-
 // Constants
-#define SM_RELCAT_ATTR_COUNT    9
+#define SM_RELCAT_ATTR_COUNT    6
 #define SM_ATTRCAT_ATTR_COUNT   6
-#define EX_DBCAT_ATTR_COUNT     2
 
 //
 // SM_Manager: provides data management
@@ -92,7 +75,8 @@ public:
                    int        attrCount,          //   number of attributes
                    AttrInfo   *attributes,        //   attribute data
                    // EX
-                   const char* attrName,          // attribute name for partition
+                   int isDistributed,             // distributed flag
+                   const char* partitionAttrName, // attribute name for partition
                    int nValues,                   // number of values in the partition vector
                    const Value values[]);         // partition vector
     RC CreateIndex(const char *relName,           // create an index for

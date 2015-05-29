@@ -15,6 +15,7 @@
 #include "sm.h"
 #include "ix.h"
 #include "rm.h"
+#include "ex.h"
 #include "printer.h"
 #include "parser.h"
 using namespace std;
@@ -96,19 +97,10 @@ RC SM_Manager::OpenDb(const char *dbName) {
     }
 
     // Open the system catalogs
-    char relcatFileName[255] = "";
-    char attrcatFileName[255] = "";
-    if (distributed) {
-        strcat(relcatFileName, "master/");
-        strcat(attrcatFileName, "master/");
-    }
-    strcat(relcatFileName, "relcat");
-    strcat(attrcatFileName, "attrcat");
-
-    if ((rc = rmManager->OpenFile(relcatFileName, relcatFH))) {
+    if ((rc = rmManager->OpenFile("relcat", relcatFH))) {
         return rc;
     }
-    if ((rc = rmManager->OpenFile(attrcatFileName, attrcatFH))) {
+    if ((rc = rmManager->OpenFile("attrcat", attrcatFH))) {
         return rc;
     }
 
@@ -142,6 +134,11 @@ RC SM_Manager::CloseDb() {
         return rc;
     }
 
+    // Change to the up directory
+    if (chdir("../") == -1) {
+        return SM_INVALID_DATABASE_CLOSE;
+    }
+
     // Update flag
     isOpen = FALSE;
 
@@ -150,19 +147,20 @@ RC SM_Manager::CloseDb() {
 }
 
 
-// TODO
-// Method: CreateTable(const char *relName, int attrCount, AttrInfo *attributes)
+// Method: CreateTable(const char *relName, int attrCount, AttrInfo *attributes,
+//                     int isDistributed, const char* partitionAttrName, int nValues, const Value values[])
 // Create relation relName, given number of attributes and attribute data
 /* Steps:
     1) Check that the database is open
     2) Check whether the table already exists
     3) Update the system catalogs
     4) Create a RM file for the relation
+        - EX - Create RM files in all data nodes for the relation
     5) Flush the system catalogs
 */
 RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attributes,
                            // EX
-                           const char* attrName, int nValues, const Value values[]) {
+                           int isDistributed, const char* partitionAttrName, int nValues, const Value values[]) {
     // Check that the database is open
     if (!isOpen) {
         return SM_DATABASE_CLOSED;
@@ -177,6 +175,41 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
     }
     if (attributes == NULL) {
         return SM_NULL_ATTRIBUTES;
+    }
+
+    // EX - Check the distributed case parameters
+    int distributedRelation = isDistributed;
+    AttrType partitionAttrType = (AttrType) 0;
+    if (distributedRelation) {
+        // Check that the attribute is not null
+        if (partitionAttrName == NULL) {
+            return EX_INVALID_ATTRIBUTE;
+        }
+
+        // Check the number of values
+        if (nValues != numberNodes-1) {
+            return EX_INCORRECT_VALUE_COUNT;
+        }
+
+        // Check the attribute name
+        bool found = false;
+        for (int i=0; i<attrCount; i++) {
+            if (strcmp(attributes[i].attrName, partitionAttrName) == 0) {
+                found = true;
+                partitionAttrType = attributes[i].attrType;
+                break;
+            }
+        }
+        if (!found) {
+            return EX_INVALID_ATTRIBUTE;
+        }
+
+        // Check the type of each value
+        for (int i=0; i<nValues; i++) {
+            if (values[i].type != partitionAttrType) {
+                return EX_INVALID_VALUE;
+            }
+        }
     }
 
     // Check whether the table already exists
@@ -229,6 +262,13 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
     rcRecord->tupleLength = tupleLength;
     rcRecord->attrCount = attrCount;
     rcRecord->indexCount = 0;
+    rcRecord->distributed = distributedRelation;
+    if (distributedRelation) {
+        strcpy(rcRecord->attrName, partitionAttrName);
+    }
+    else {
+        strcpy(rcRecord->attrName, "NA");
+    }
     if ((rc = relcatFH.InsertRec((char*) rcRecord, rid))) {
         return rc;
     }
@@ -250,9 +290,144 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
     }
     delete acRecord;
 
-    // Create a RM file
-    if ((rc = rmManager->CreateFile(relName, tupleLength))) {
-        return rc;
+    // For a non distributed relation
+    if (!distributedRelation) {
+        // Create a RM file
+        if ((rc = rmManager->CreateFile(relName, tupleLength))) {
+            return rc;
+        }
+    }
+
+    // EX - For a distributed relation
+    else {
+        // Store the partition vector in an RM file
+        char partitionVectorFileName[255];
+        strcpy(partitionVectorFileName, relName);
+        strcat(partitionVectorFileName, "_partitions_");
+        strcat(partitionVectorFileName, partitionAttrName);
+
+        RM_FileHandle partitionVectorFH;
+        if (partitionAttrType == INT) {
+            // Create and open the RM file
+            if ((rc = rmManager->CreateFile(partitionVectorFileName, sizeof(EX_IntPartitionVectorRecord)))) {
+                return rc;
+            }
+            if ((rc = rmManager->OpenFile(partitionVectorFileName, partitionVectorFH))) {
+                return rc;
+            }
+
+            // Store the partition vector values
+            EX_IntPartitionVectorRecord* pV = new EX_IntPartitionVectorRecord;
+            int previous = 0;
+            for (int i=1; i<=numberNodes; i++) {
+                // Get the value
+                int current = *static_cast<int*>(values[i-1].data);
+
+                pV->node = i;
+                pV->startValue = previous;
+                if (i != numberNodes) pV->endValue = current;
+                else pV->endValue = MAX_INT;
+                if ((rc = partitionVectorFH.InsertRec((char*) pV, rid))) {
+                    return rc;
+                }
+                previous = current;
+            }
+
+            // Close the file
+            if ((rc = rmManager->CloseFile(partitionVectorFH))) {
+                return rc;
+            }
+            delete pV;
+        }
+
+        else if (partitionAttrType == FLOAT) {
+            // Create and open the RM file
+            if ((rc = rmManager->CreateFile(partitionVectorFileName, sizeof(EX_FloatPartitionVectorRecord)))) {
+                return rc;
+            }
+            if ((rc = rmManager->OpenFile(partitionVectorFileName, partitionVectorFH))) {
+                return rc;
+            }
+
+            // Store the partition vector values
+            EX_FloatPartitionVectorRecord* pV = new EX_FloatPartitionVectorRecord;
+            float previous = 0.0;
+            for (int i=1; i<=numberNodes; i++) {
+                // Get the value
+                float current = *static_cast<float*>(values[i-1].data);
+
+                pV->node = i;
+                pV->startValue = previous;
+                if (i != numberNodes) pV->endValue = current;
+                else pV->endValue = MAX_FLOAT;
+                if ((rc = partitionVectorFH.InsertRec((char*) pV, rid))) {
+                    return rc;
+                }
+                previous = current;
+            }
+
+            // Close the file
+            if ((rc = rmManager->CloseFile(partitionVectorFH))) {
+                return rc;
+            }
+            delete pV;
+        }
+
+        else {
+            // Create and open the RM file
+            if ((rc = rmManager->CreateFile(partitionVectorFileName, sizeof(EX_StringPartitionVectorRecord)))) {
+                return rc;
+            }
+            if ((rc = rmManager->OpenFile(partitionVectorFileName, partitionVectorFH))) {
+                return rc;
+            }
+
+            // Store the partition vector values
+            EX_StringPartitionVectorRecord* pV = new EX_StringPartitionVectorRecord;
+            char previous[MAXSTRINGLEN+1] = "";
+            for (int i=1; i<=numberNodes; i++) {
+                // Get the value
+                char* current = static_cast<char*>(values[i-1].data);
+
+                pV->node = i;
+                strcpy(pV->startValue, previous);
+                if (i != numberNodes) strcpy(pV->endValue, current);
+                else strcpy(pV->endValue, MAX_STRING);
+                if ((rc = partitionVectorFH.InsertRec((char*) pV, rid))) {
+                    return rc;
+                }
+                strcpy(previous, current);
+            }
+
+            // Close the file
+            if ((rc = rmManager->CloseFile(partitionVectorFH))) {
+                return rc;
+            }
+            delete pV;
+        }
+
+        // Create table in all the data nodes
+        for (int i=1; i<numberNodes; i++) {
+            string dataNode = "data." + to_string(i);
+            SM_Manager smm(*ixManager, *rmManager);
+
+            // Open the database
+            if ((rc = smm.OpenDb(dataNode.c_str()))) {
+                SM_PrintError(rc);
+                return rc;
+            }
+
+            // Create the table
+            if ((rc = smm.CreateTable(relName, attrCount, attributes, FALSE, NULL, 0, NULL))) {
+                return rc;
+            }
+
+            // Close the database
+            if ((rc = smm.CloseDb())) {
+                SM_PrintError(rc);
+                return rc;
+            }
+        }
     }
 
     // Flush the system catalogs
@@ -1028,6 +1203,7 @@ RC SM_Manager::Help(const char *relName) {
 }
 
 
+// TODO
 // Method: Print(const char *relName)
 // Print relName contents
 /* Steps:
@@ -1081,15 +1257,7 @@ RC SM_Manager::Print(const char *relName) {
     // Print the header
     p.PrintHeader(cout);
 
-    // EX - Check if the database is distributed
-    if (distributed) {
-        if (chdir("master") < 0) {
-            cerr << "Inconsistent database information\n";
-            exit(1);
-        }
-    }
-
-    // Non-distributed relation
+    // EX - Non-distributed relation
     if (!rcRecord->distributed) {
         // Open the relation RM file
         RM_FileHandle rmFH;
@@ -1133,14 +1301,6 @@ RC SM_Manager::Print(const char *relName) {
 
     // Print the footer
     p.PrintFooter(cout);
-
-    // EX - Change back to original directory
-    if (distributed) {
-        if (chdir("../") < 0) {
-            cerr << "Inconsistent database information\n";
-            exit(1);
-        }
-    }
 
     delete rcRecord;
     delete[] attributes;

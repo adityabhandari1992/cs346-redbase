@@ -27,8 +27,50 @@ struct EX_DBInfo {
     int numberNodes;
 };
 
+// EX_IntPartitionVectorRecord - Record for int partition vector entries
+/* Stores the following:
+    1) node - node number - integer
+    2) startValue - start value for partition - integer
+    3) endValue - end value for partition - integer
+*/
+struct EX_IntPartitionVectorRecord {
+    int node;
+    int startValue;
+    int endValue;
+};
+
+// EX_FloatPartitionVectorRecord - Record for float partition vector entries
+/* Stores the following:
+    1) node - node number - integer
+    2) startValue - start value for partition - float
+    3) endValue - end value for partition - float
+*/
+struct EX_FloatPartitionVectorRecord {
+    int node;
+    float startValue;
+    float endValue;
+};
+
+// EX_StringPartitionVectorRecord - Record for string partition vector entries
+/* Stores the following:
+    1) node - node number - integer
+    2) startValue - start value for partition - char*
+    3) endValue - end value for partition - char*
+*/
+struct EX_StringPartitionVectorRecord {
+    int node;
+    char startValue[MAXSTRINGLEN+1];
+    char endValue[MAXSTRINGLEN+1];
+};
+
 // Constants
-#define EX_DBINFO_ATTR_COUNT    2
+#define EX_DBINFO_ATTR_COUNT            2
+#define EX_PARTITION_VECTOR_ATTR_COUNT  3
+
+// Maximum values for keys
+#define MAX_INT     99999999
+#define MAX_FLOAT   99999999.0
+#define MAX_STRING  "zzzzzzzz"
 
 //
 // Print-error function
