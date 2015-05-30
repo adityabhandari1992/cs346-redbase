@@ -407,13 +407,13 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
         }
 
         // Create table in all the data nodes
+        // TODO - Handle this in communication layer
         for (int i=1; i<numberNodes; i++) {
             string dataNode = "data." + to_string(i);
             SM_Manager smm(*ixManager, *rmManager);
 
             // Open the database
             if ((rc = smm.OpenDb(dataNode.c_str()))) {
-                SM_PrintError(rc);
                 return rc;
             }
 
@@ -424,7 +424,6 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
 
             // Close the database
             if ((rc = smm.CloseDb())) {
-                SM_PrintError(rc);
                 return rc;
             }
         }
@@ -443,7 +442,6 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
 }
 
 
-// TODO
 // Method: DropTable(const char *relName)
 // Destroy a relation
 /* Steps:
@@ -493,6 +491,16 @@ RC SM_Manager::DropTable(const char *relName) {
         return rc;
     }
 
+    // Get the record data
+    char* recordData;
+    if ((rc = rec.GetData(recordData))) {
+        return rc;
+    }
+    SM_RelcatRecord* rcRecord = (SM_RelcatRecord*) recordData;
+    int distributedRelation = rcRecord->distributed;
+    char partitionAttrName[MAXNAME+1];
+    strcpy(partitionAttrName, rcRecord->attrName);
+
     // Get the RID of the record
     RID rid;
     if ((rc = rec.GetRid(rid))) {
@@ -523,7 +531,6 @@ RC SM_Manager::DropTable(const char *relName) {
         }
 
         // Check if index exists
-        char* recordData;
         if ((rc = rec.GetData(recordData))) {
             return rc;
         }
@@ -549,9 +556,46 @@ RC SM_Manager::DropTable(const char *relName) {
         return rc;
     }
 
-    // Destroy the RM file for the relation
-    if ((rc = rmManager->DestroyFile(relName))) {
-        return rc;
+    // Non distributed case
+    if (!distributedRelation) {
+        // Destroy the RM file for the relation
+        if ((rc = rmManager->DestroyFile(relName))) {
+            return rc;
+        }
+    }
+
+    // EX - Distributed case
+    else {
+        // Delete the partition vector file
+        char partitionVectorFileName[255];
+        strcpy(partitionVectorFileName, relName);
+        strcat(partitionVectorFileName, "_partitions_");
+        strcat(partitionVectorFileName, partitionAttrName);
+        if ((rc = rmManager->DestroyFile(partitionVectorFileName))) {
+            return rc;
+        }
+
+        // Drop the table from the data nodes
+        // TODO - Handle this in the communication layer
+        for (int i=1; i<numberNodes; i++) {
+            string dataNode = "data." + to_string(i);
+            SM_Manager smm(*ixManager, *rmManager);
+
+            // Open the data node
+            if ((rc = smm.OpenDb(dataNode.c_str()))) {
+                return rc;
+            }
+
+            // Drop the table
+            if ((rc = smm.DropTable(relName))) {
+                return rc;
+            }
+
+            // Close the data node
+            if ((rc = smm.CloseDb())) {
+                return rc;
+            }
+        }
     }
 
     // Return OK
