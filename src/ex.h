@@ -83,6 +83,8 @@ public:
     RC CreateTableInDataNode(const char* relName, int attrCount, AttrInfo* attributes, int node);
     RC DropTableInDataNode(const char* relName, int node);
     RC PrintInDataNode(Printer &p, const char* relName, int node);
+    RC CreateIndexInDataNode(const char* relName, const char* attrName, int node);
+    RC DropIndexInDataNode(const char* relName, const char* attrName, int node);
 
 private:
     RM_Manager* rmManager;

@@ -137,3 +137,51 @@ RC EX_CommLayer::PrintInDataNode(Printer &p, const char* relName, int node) {
 
     return OK_RC;
 }
+
+// Method: CreateIndexInDataNode(const char* relName, const char* attrName, int node)
+// Create an index in the data node
+RC EX_CommLayer::CreateIndexInDataNode(const char* relName, const char* attrName, int node) {
+    int rc;
+    string dataNode = "data." + to_string(node);
+
+    // Open the data node
+    if ((rc = smManager->OpenDb(dataNode.c_str()))) {
+        return rc;
+    }
+
+    // Create the index
+    if ((rc = smManager->CreateIndex(relName, attrName))) {
+        return rc;
+    }
+
+    // Close the data node
+    if ((rc = smManager->CloseDb())) {
+        return rc;
+    }
+
+    return OK_RC;
+}
+
+// Method: DropIndexInDataNode(const char* relName, const char* attrName, int node)
+// Create an index in the data node
+RC EX_CommLayer::DropIndexInDataNode(const char* relName, const char* attrName, int node) {
+    int rc;
+    string dataNode = "data." + to_string(node);
+
+    // Open the data node
+    if ((rc = smManager->OpenDb(dataNode.c_str()))) {
+        return rc;
+    }
+
+    // Drop the index
+    if ((rc = smManager->DropIndex(relName, attrName))) {
+        return rc;
+    }
+
+    // Close the data node
+    if ((rc = smManager->CloseDb())) {
+        return rc;
+    }
+
+    return OK_RC;
+}

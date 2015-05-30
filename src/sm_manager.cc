@@ -575,7 +575,6 @@ RC SM_Manager::DropTable(const char *relName) {
 }
 
 
-// TODO
 // Method: CreateIndex(const char *relName, const char *attrName)
 // Create an index for relName.attrName
 /* Steps:
@@ -605,6 +604,14 @@ RC SM_Manager::CreateIndex(const char *relName, const char *attrName) {
 
     // Check whether the index exists
     int rc;
+    SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
+    memset(rcRecord, 0, sizeof(SM_RelcatRecord));
+    if ((rc = GetRelInfo(relName, rcRecord))) {
+        delete rcRecord;
+        return rc;
+    }
+    int distributed = rcRecord->distributed;
+
     SM_AttrcatRecord* attrRecord = new SM_AttrcatRecord;
     memset(attrRecord, 0, sizeof(SM_AttrcatRecord));
     if ((rc = GetAttrInfo(relName, attrName, attrRecord))) {
@@ -617,145 +624,159 @@ RC SM_Manager::CreateIndex(const char *relName, const char *attrName) {
     int offset = attrRecord->offset;
     AttrType attrType = attrRecord->attrType;
     int attrLength = attrRecord->attrLength;
+    delete rcRecord;
     delete attrRecord;
 
-    // Update relcat
-    RM_FileScan relcatFS;
-    RM_Record rec;
-    char relationName[MAXNAME+1];
-    strcpy(relationName, relName);
-    if ((rc = relcatFS.OpenScan(relcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
-        return rc;
-    }
-    if ((rc = relcatFS.GetNextRec(rec))) {
-        if (rc == RM_EOF) {
-            return SM_TABLE_DOES_NOT_EXIST;
+    // EX - Distributed relation case
+    if (distributed) {
+        EX_CommLayer commLayer(rmManager, ixManager);
+        for (int i=1; i<=numberNodes; i++) {
+            if ((rc = commLayer.CreateIndexInDataNode(relName, attrName, i))) {
+                return rc;
+            }
         }
-        else return rc;
-    }
-    char* recordData;
-    if ((rc = rec.GetData(recordData))) {
-        return rc;
-    }
-    SM_RelcatRecord* rcRecord = (SM_RelcatRecord*) recordData;
-    rcRecord->indexCount++;
-    if ((rc = relcatFH.UpdateRec(rec))) {
-        return rc;
-    }
-    if ((rc = relcatFS.CloseScan())) {
-        return rc;
     }
 
-    // Update attrcat
-    RM_FileScan attrcatFS;
-    if ((rc = attrcatFS.OpenScan(attrcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
-        return rc;
-    }
-    int position = 0;
-    while (rc != RM_EOF) {
-        rc = attrcatFS.GetNextRec(rec);
-        if (rc != 0 && rc != RM_EOF) {
+    // Non distributed relation case
+    else {
+        // Update relcat
+        RM_FileScan relcatFS;
+        RM_Record rec;
+        char relationName[MAXNAME+1];
+        strcpy(relationName, relName);
+        if ((rc = relcatFS.OpenScan(relcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
+            return rc;
+        }
+        if ((rc = relcatFS.GetNextRec(rec))) {
+            if (rc == RM_EOF) {
+                return SM_TABLE_DOES_NOT_EXIST;
+            }
+            else return rc;
+        }
+        char* recordData;
+        if ((rc = rec.GetData(recordData))) {
+            return rc;
+        }
+        SM_RelcatRecord* rcRecord = (SM_RelcatRecord*) recordData;
+        rcRecord->indexCount++;
+        if ((rc = relcatFH.UpdateRec(rec))) {
+            return rc;
+        }
+        if ((rc = relcatFS.CloseScan())) {
             return rc;
         }
 
-        if (rc != RM_EOF) {
-            if ((rc = rec.GetData(recordData))) {
+        // Update attrcat
+        RM_FileScan attrcatFS;
+        if ((rc = attrcatFS.OpenScan(attrcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
+            return rc;
+        }
+        int position = 0;
+        while (rc != RM_EOF) {
+            rc = attrcatFS.GetNextRec(rec);
+            if (rc != 0 && rc != RM_EOF) {
                 return rc;
             }
-            SM_AttrcatRecord* acRecord = (SM_AttrcatRecord*) recordData;
 
-            // Check for the required attribute
-            if (strcmp(acRecord->attrName, attrName) == 0) {
-                acRecord->indexNo = position;
-                if ((rc = attrcatFH.UpdateRec(rec))) {
+            if (rc != RM_EOF) {
+                if ((rc = rec.GetData(recordData))) {
                     return rc;
                 }
-                break;
+                SM_AttrcatRecord* acRecord = (SM_AttrcatRecord*) recordData;
+
+                // Check for the required attribute
+                if (strcmp(acRecord->attrName, attrName) == 0) {
+                    acRecord->indexNo = position;
+                    if ((rc = attrcatFH.UpdateRec(rec))) {
+                        return rc;
+                    }
+                    break;
+                }
             }
+            position++;
         }
-        position++;
-    }
-    if ((rc = attrcatFS.CloseScan())) {
-        return rc;
-    }
-
-    // Flush the system catalogs
-    if ((rc = relcatFH.ForcePages())) {
-        return rc;
-    }
-    if ((rc = attrcatFH.ForcePages())) {
-        return rc;
-    }
-
-    // Create and open the index file
-    if ((rc = ixManager->CreateIndex(relName, position, attrType, attrLength))) {
-        return rc;
-    }
-    IX_IndexHandle ixIH;
-    if ((rc = ixManager->OpenIndex(relName, position, ixIH))) {
-        return rc;
-    }
-
-    // Scan all the tuples in the relation
-    RM_FileHandle rmFH;
-    RM_FileScan rmFS;
-    RID rid;
-    if ((rc = rmManager->OpenFile(relName, rmFH))) {
-        return rc;
-    }
-    if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, NO_OP, NULL))) {
-        return rc;
-    }
-    while (rc != RM_EOF) {
-        rc = rmFS.GetNextRec(rec);
-        if (rc != 0 && rc != RM_EOF) {
+        if ((rc = attrcatFS.CloseScan())) {
             return rc;
         }
 
-        // Get the record data and rid
-        if (rc != RM_EOF) {
-            if ((rc = rec.GetData(recordData))) {
-                return rc;
-            }
-            if ((rc = rec.GetRid(rid))) {
+        // Flush the system catalogs
+        if ((rc = relcatFH.ForcePages())) {
+            return rc;
+        }
+        if ((rc = attrcatFH.ForcePages())) {
+            return rc;
+        }
+
+        // Create and open the index file
+        if ((rc = ixManager->CreateIndex(relName, position, attrType, attrLength))) {
+            return rc;
+        }
+        IX_IndexHandle ixIH;
+        if ((rc = ixManager->OpenIndex(relName, position, ixIH))) {
+            return rc;
+        }
+
+        // Scan all the tuples in the relation
+        RM_FileHandle rmFH;
+        RM_FileScan rmFS;
+        RID rid;
+        if ((rc = rmManager->OpenFile(relName, rmFH))) {
+            return rc;
+        }
+        if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, NO_OP, NULL))) {
+            return rc;
+        }
+        while (rc != RM_EOF) {
+            rc = rmFS.GetNextRec(rec);
+            if (rc != 0 && rc != RM_EOF) {
                 return rc;
             }
 
-            // Insert the attribute value in the index
-            if (attrType == INT) {
-                int value;
-                memcpy(&value, recordData+offset, sizeof(value));
-                if ((rc = ixIH.InsertEntry(&value, rid))) {
+            // Get the record data and rid
+            if (rc != RM_EOF) {
+                if ((rc = rec.GetData(recordData))) {
                     return rc;
                 }
-            }
-            else if (attrType == FLOAT) {
-                float value;
-                memcpy(&value, recordData+offset, sizeof(value));
-                if ((rc = ixIH.InsertEntry(&value, rid))) {
+                if ((rc = rec.GetRid(rid))) {
                     return rc;
                 }
-            }
-            else {
-                char* value = new char[attrLength];
-                strcpy(value, recordData+offset);
-                if ((rc = ixIH.InsertEntry(value, rid))) {
-                    return rc;
+
+                // Insert the attribute value in the index
+                if (attrType == INT) {
+                    int value;
+                    memcpy(&value, recordData+offset, sizeof(value));
+                    if ((rc = ixIH.InsertEntry(&value, rid))) {
+                        return rc;
+                    }
                 }
-                delete[] value;
+                else if (attrType == FLOAT) {
+                    float value;
+                    memcpy(&value, recordData+offset, sizeof(value));
+                    if ((rc = ixIH.InsertEntry(&value, rid))) {
+                        return rc;
+                    }
+                }
+                else {
+                    char* value = new char[attrLength];
+                    strcpy(value, recordData+offset);
+                    if ((rc = ixIH.InsertEntry(value, rid))) {
+                        return rc;
+                    }
+                    delete[] value;
+                }
             }
         }
-    }
-    if ((rc = rmFS.CloseScan())) {
-        return rc;
-    }
+        if ((rc = rmFS.CloseScan())) {
+            return rc;
+        }
 
-    // Close the files
-    if ((rc = rmManager->CloseFile(rmFH))) {
-        return rc;
-    }
-    if ((rc = ixManager->CloseIndex(ixIH))) {
-        return rc;
+        // Close the files
+        if ((rc = rmManager->CloseFile(rmFH))) {
+            return rc;
+        }
+        if ((rc = ixManager->CloseIndex(ixIH))) {
+            return rc;
+        }
     }
 
     // Return OK;
@@ -763,7 +784,6 @@ RC SM_Manager::CreateIndex(const char *relName, const char *attrName) {
 }
 
 
-// TODO
 // Method: DropIndex(const char *relName, const char *attrName)
 // Destroy index on relName.attrName
 /* Steps:
@@ -791,6 +811,14 @@ RC SM_Manager::DropIndex(const char *relName, const char *attrName) {
 
     // Check whether the index exists
     int rc;
+    SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
+    memset(rcRecord, 0, sizeof(SM_RelcatRecord));
+    if ((rc = GetRelInfo(relName, rcRecord))) {
+        delete rcRecord;
+        return rc;
+    }
+    int distributed = rcRecord->distributed;
+
     SM_AttrcatRecord* attrRecord = new SM_AttrcatRecord;
     memset(attrRecord, 0, sizeof(SM_AttrcatRecord));
     if ((rc = GetAttrInfo(relName, attrName, attrRecord))) {
@@ -800,79 +828,93 @@ RC SM_Manager::DropIndex(const char *relName, const char *attrName) {
         delete attrRecord;
         return SM_INDEX_DOES_NOT_EXIST;
     }
+    delete rcRecord;
     delete attrRecord;
 
-    // Update relcat
-    RM_FileScan relcatFS;
-    RM_Record rec;
-    char relationName[MAXNAME+1];
-    strcpy(relationName, relName);
-    if ((rc = relcatFS.OpenScan(relcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
-        return rc;
-    }
-    if ((rc = relcatFS.GetNextRec(rec))) {
-        if (rc == RM_EOF) {
-            return SM_TABLE_DOES_NOT_EXIST;
+    // EX - Distributed relation case
+    if (distributed) {
+        EX_CommLayer commLayer(rmManager, ixManager);
+        for (int i=1; i<=numberNodes; i++) {
+            if ((rc = commLayer.DropIndexInDataNode(relName, attrName, i))) {
+                return rc;
+            }
         }
-        else return rc;
-    }
-    char* recordData;
-    if ((rc = rec.GetData(recordData))) {
-        return rc;
-    }
-    SM_RelcatRecord* rcRecord = (SM_RelcatRecord*) recordData;
-    rcRecord->indexCount--;
-    if ((rc = relcatFH.UpdateRec(rec))) {
-        return rc;
-    }
-    if ((rc = relcatFS.CloseScan())) {
-        return rc;
     }
 
-    // Update attrcat
-    RM_FileScan attrcatFS;
-    int position = -1;
-    if ((rc = attrcatFS.OpenScan(attrcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
-        return rc;
-    }
-    while (rc != RM_EOF) {
-        rc = attrcatFS.GetNextRec(rec);
-        if (rc != 0 && rc != RM_EOF) {
+    // Non distributed relation case
+    else {
+        // Update relcat
+        RM_FileScan relcatFS;
+        RM_Record rec;
+        char relationName[MAXNAME+1];
+        strcpy(relationName, relName);
+        if ((rc = relcatFS.OpenScan(relcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
+            return rc;
+        }
+        if ((rc = relcatFS.GetNextRec(rec))) {
+            if (rc == RM_EOF) {
+                return SM_TABLE_DOES_NOT_EXIST;
+            }
+            else return rc;
+        }
+        char* recordData;
+        if ((rc = rec.GetData(recordData))) {
+            return rc;
+        }
+        SM_RelcatRecord* rcRecord = (SM_RelcatRecord*) recordData;
+        rcRecord->indexCount--;
+        if ((rc = relcatFH.UpdateRec(rec))) {
+            return rc;
+        }
+        if ((rc = relcatFS.CloseScan())) {
             return rc;
         }
 
-        if (rc != RM_EOF) {
-            if ((rc = rec.GetData(recordData))) {
+        // Update attrcat
+        RM_FileScan attrcatFS;
+        int position = -1;
+        if ((rc = attrcatFS.OpenScan(attrcatFH, STRING, MAXNAME, 0, EQ_OP, relationName))) {
+            return rc;
+        }
+        while (rc != RM_EOF) {
+            rc = attrcatFS.GetNextRec(rec);
+            if (rc != 0 && rc != RM_EOF) {
                 return rc;
             }
-            SM_AttrcatRecord* acRecord = (SM_AttrcatRecord*) recordData;
 
-            // Check for the required attribute
-            if (strcmp(acRecord->attrName, attrName) == 0) {
-                position = acRecord->indexNo;
-                acRecord->indexNo = -1;
-                if ((rc = attrcatFH.UpdateRec(rec))) {
+            if (rc != RM_EOF) {
+                if ((rc = rec.GetData(recordData))) {
                     return rc;
                 }
-                break;
+                SM_AttrcatRecord* acRecord = (SM_AttrcatRecord*) recordData;
+
+                // Check for the required attribute
+                if (strcmp(acRecord->attrName, attrName) == 0) {
+                    position = acRecord->indexNo;
+                    acRecord->indexNo = -1;
+                    if ((rc = attrcatFH.UpdateRec(rec))) {
+                        return rc;
+                    }
+                    break;
+                }
             }
         }
-    }
-    if ((rc = attrcatFS.CloseScan())) {
-        return rc;
-    }
+        if ((rc = attrcatFS.CloseScan())) {
+            return rc;
+        }
 
-    // Flush the system catalogs
-    if ((rc = relcatFH.ForcePages())) {
-        return rc;
-    }
-    if ((rc = attrcatFH.ForcePages())) {
-        return rc;
-    }
+        // Flush the system catalogs
+        if ((rc = relcatFH.ForcePages())) {
+            return rc;
+        }
+        if ((rc = attrcatFH.ForcePages())) {
+            return rc;
+        }
 
-    // Destroy the index file
-    if ((rc = ixManager->DestroyIndex(relName, position))) {
-        return rc;
+        // Destroy the index file
+        if ((rc = ixManager->DestroyIndex(relName, position))) {
+            return rc;
+        }
     }
 
     // Return OK
@@ -1219,7 +1261,6 @@ RC SM_Manager::Help(const char *relName) {
 }
 
 
-// TODO
 // Method: Print(const char *relName)
 // Print relName contents
 /* Steps:
