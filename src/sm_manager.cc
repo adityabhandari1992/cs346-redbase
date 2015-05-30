@@ -408,7 +408,7 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
 
         // Create table in all the data nodes
         EX_CommLayer commLayer(rmManager, ixManager);
-        for (int i=1; i<numberNodes; i++) {
+        for (int i=1; i<=numberNodes; i++) {
             if ((rc = commLayer.CreateTableInDataNode(relName, attrCount, attributes, i))) {
                 return rc;
             }
@@ -563,7 +563,7 @@ RC SM_Manager::DropTable(const char *relName) {
 
         // Drop the table from the data nodes
         EX_CommLayer commLayer(rmManager, ixManager);
-        for (int i=1; i<numberNodes; i++) {
+        for (int i=1; i<=numberNodes; i++) {
             if ((rc = commLayer.DropTableInDataNode(relName, i))) {
                 return rc;
             }
@@ -1260,6 +1260,7 @@ RC SM_Manager::Print(const char *relName) {
         delete rcRecord;
         return rc;
     }
+    int distributedRelation = rcRecord->distributed;
 
     int attrCount = rcRecord->attrCount;
     DataAttrInfo* attributes = new DataAttrInfo[attrCount];
@@ -1274,7 +1275,7 @@ RC SM_Manager::Print(const char *relName) {
     p.PrintHeader(cout);
 
     // EX - Non-distributed relation
-    if (!rcRecord->distributed) {
+    if (!distributedRelation) {
         // Open the relation RM file
         RM_FileHandle rmFH;
         if ((rc = rmManager->OpenFile(relName, rmFH))) {
@@ -1312,7 +1313,12 @@ RC SM_Manager::Print(const char *relName) {
 
     // EX - Distributed case
     else {
-        // TODO
+        EX_CommLayer commLayer(rmManager, ixManager);
+        for (int i=1; i<=numberNodes; i++) {
+            if ((rc = commLayer.PrintInDataNode(p, relName, i))) {
+                return rc;
+            }
+        }
     }
 
     // Print the footer
@@ -1565,6 +1571,8 @@ RC SM_Manager::GetRelInfo(const char* relName, SM_RelcatRecord* relationData) {
     relationData->tupleLength = rcRecord->tupleLength;
     relationData->attrCount = rcRecord->attrCount;
     relationData->indexCount = rcRecord->indexCount;
+    relationData->distributed = rcRecord->distributed;
+    strcpy(relationData->attrName, rcRecord->attrName);
 
     // Close the scan
     if ((rc = relcatFS.CloseScan())) {

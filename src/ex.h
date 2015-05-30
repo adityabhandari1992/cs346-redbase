@@ -10,6 +10,7 @@
 #include <string.h>
 #include "redbase.h"
 #include "parser.h"
+#include "printer.h"
 #include "rm.h"
 #include "ix.h"
 #include "sm.h"
@@ -81,6 +82,7 @@ public:
 
     RC CreateTableInDataNode(const char* relName, int attrCount, AttrInfo* attributes, int node);
     RC DropTableInDataNode(const char* relName, int node);
+    RC PrintInDataNode(Printer &p, const char* relName, int node);
 
 private:
     RM_Manager* rmManager;
@@ -99,6 +101,7 @@ void EX_PrintError(RC rc);
 #define EX_INCORRECT_VALUE_COUNT            (START_EX_WARN + 0) // Incorrect number of values
 #define EX_INVALID_ATTRIBUTE                (START_EX_WARN + 1) // Invalid attribute name
 #define EX_INVALID_VALUE                    (START_EX_WARN + 2) // Invalid value
+#define EX_INVALID_DATA_NODE                (START_EX_WARN + 3) // Invalid data node
 #define EX_LASTWARN                         EX_INVALID_VALUE
 
 // Errors

@@ -82,3 +82,58 @@ RC EX_CommLayer::DropTableInDataNode(const char* relName, int node) {
 
     return OK_RC;
 }
+
+// Method: PrintInDataNode(const char* relName, int node)
+// Print the tuples for a relation in the data node
+RC EX_CommLayer::PrintInDataNode(Printer &p, const char* relName, int node) {
+    int rc;
+    RM_Record rec;
+    char* recordData;
+    string dataNode = "data." + to_string(node);
+
+    // Open the data node
+    if (chdir(dataNode.c_str()) < 0) {
+        return EX_INVALID_DATA_NODE;
+    }
+
+    // Open the relation RM file
+    RM_FileHandle rmFH;
+    if ((rc = rmManager->OpenFile(relName, rmFH))) {
+        return SM_TABLE_DOES_NOT_EXIST;
+    }
+
+    // Start the relcat file scan
+    RM_FileScan rmFS;
+    if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, NO_OP, NULL))) {
+        return rc;
+    }
+
+    // Print each tuple
+    while (rc != RM_EOF) {
+        rc = rmFS.GetNextRec(rec);
+
+        if (rc != 0 && rc != RM_EOF) {
+            return rc;
+        }
+
+        if (rc != RM_EOF) {
+            rec.GetData(recordData);
+            p.Print(cout, recordData);
+        }
+    }
+
+    // Close the scan and file and clean up
+    if ((rc = rmFS.CloseScan())) {
+        return rc;
+    }
+    if ((rc = rmManager->CloseFile(rmFH))) {
+        return rc;
+    }
+
+    // Close the data node
+    if (chdir("../") < 0) {
+        return EX_INVALID_DATA_NODE;
+    }
+
+    return OK_RC;
+}

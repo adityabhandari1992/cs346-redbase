@@ -13,9 +13,10 @@
 using namespace std;
 
 static char *EX_WarnMsg[] = {
-  (char*)"incorrect number of values",
+  (char*)"incorrect number of data values",
   (char*)"invalid attribute name",
-  (char*)"invalid value in partition vector"
+  (char*)"invalid value in partition vector",
+  (char*)"invalid data node"
 };
 
 static char *EX_ErrorMsg[] = {
