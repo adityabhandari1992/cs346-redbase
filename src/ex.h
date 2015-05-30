@@ -85,6 +85,7 @@ public:
     RC PrintInDataNode(Printer &p, const char* relName, int node);
     RC CreateIndexInDataNode(const char* relName, const char* attrName, int node);
     RC DropIndexInDataNode(const char* relName, const char* attrName, int node);
+    RC InsertInDataNode(const char* relName, int nValues, const Value values[], int node);
 
 private:
     RM_Manager* rmManager;
@@ -94,9 +95,10 @@ private:
 };
 
 
-//
+// Helper methods for EX part
+RC GetDataNodeForTuple(RM_Manager* rmManager, const Value key, const char* relName, const char* attrName, int &node);
+
 // Print-error function
-//
 void EX_PrintError(RC rc);
 
 // Warnings
@@ -104,7 +106,8 @@ void EX_PrintError(RC rc);
 #define EX_INVALID_ATTRIBUTE                (START_EX_WARN + 1) // Invalid attribute name
 #define EX_INVALID_VALUE                    (START_EX_WARN + 2) // Invalid value
 #define EX_INVALID_DATA_NODE                (START_EX_WARN + 3) // Invalid data node
-#define EX_LASTWARN                         EX_INVALID_VALUE
+#define EX_INCONSISTENT_PV                  (START_EX_WARN + 4) // Inconsistent partition vector
+#define EX_LASTWARN                         EX_INCONSISTENT_PV
 
 // Errors
 #define EX_UNIX                             (START_EX_ERR - 0) // Unix error

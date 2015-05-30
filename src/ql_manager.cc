@@ -404,6 +404,10 @@ RC QL_Manager::Insert(const char *relName,
     int tupleLength = rcRecord->tupleLength;
     int attrCount = rcRecord->attrCount;
     int indexCount = rcRecord->indexCount;
+    int distributedRelation = rcRecord->distributed;
+    char partitionAttrName[MAXNAME+1];
+    strcpy(partitionAttrName, rcRecord->attrName);
+
     DataAttrInfo* attributes = new DataAttrInfo[attrCount];
     if ((rc = smManager->GetAttrInfo(relName, attrCount, (char*) attributes))) {
         return rc;
@@ -422,107 +426,143 @@ RC QL_Manager::Insert(const char *relName,
         }
     }
 
-    // Open the RM file
-    RM_FileHandle rmFH;
-    RID rid;
-    if ((rc = rmManager->OpenFile(relName, rmFH))) {
-        return rc;
+    // EX - Distributed relation case
+    if (distributedRelation) {
+        // Find the key for the partition vector
+        Value key;
+        bool found = false;
+        for (int i=0; i<nValues; i++) {
+            if (strcmp(attributes[i].attrName, partitionAttrName) == 0) {
+                found = true;
+                key = values[i];
+                break;
+            }
+        }
+        if (!found) {
+            return QL_ATTRIBUTE_NOT_FOUND;
+        }
+
+        // Find the correct node to insert
+        int numberNodes = smManager->getNumberNodes();
+        int dataNode = 0;
+        if ((rc = GetDataNodeForTuple(rmManager, key, relName, partitionAttrName, dataNode))) {
+            return rc;
+        }
+        if (dataNode <= 0 || dataNode > numberNodes) {
+            return EX_INCONSISTENT_PV;
+        }
+
+        // Insert into the corresponding data node
+        EX_CommLayer commLayer(rmManager, ixManager);
+        if ((rc = commLayer.InsertInDataNode(relName, nValues, values, dataNode))) {
+            return rc;
+        }
     }
 
-    // Open the indexes
-    IX_IndexHandle* ixIH = new IX_IndexHandle[attrCount];
-    if (indexCount > 0) {
+    // Non-distributed relation case
+    else {
+        // Open the RM file
+        RM_FileHandle rmFH;
+        RID rid;
+        if ((rc = rmManager->OpenFile(relName, rmFH))) {
+            return rc;
+        }
+
+        // Open the indexes
+        IX_IndexHandle* ixIH = new IX_IndexHandle[attrCount];
+        if (indexCount > 0) {
+            int currentIndex = 0;
+            for (int i=0; i<attrCount; i++) {
+                int indexNo = attributes[i].indexNo;
+                if (indexNo != -1) {
+                    if (currentIndex == indexCount) {
+                        return QL_INCORRECT_INDEX_COUNT;
+                    }
+                    if ((rc = ixManager->OpenIndex(relName, indexNo, ixIH[currentIndex]))) {
+                        return rc;
+                    }
+                    currentIndex++;
+                }
+            }
+        }
+
+        // Insert the tuple in the relation
+        for (int i=0; i<attrCount; i++) {
+            Value currentValue = values[i];
+            if (attributes[i].attrType == INT) {
+                int value = *static_cast<int*>(currentValue.data);
+                memcpy(tupleData+attributes[i].offset, &value, attributes[i].attrLength);
+            }
+            else if (attributes[i].attrType == FLOAT) {
+                float value = *static_cast<float*>(currentValue.data);
+                memcpy(tupleData+attributes[i].offset, &value, attributes[i].attrLength);
+            }
+            else {
+                char value[attributes[i].attrLength];
+                memset(value, 0, attributes[i].attrLength);
+                char* valueChar = static_cast<char*>(currentValue.data);
+                strcpy(value, valueChar);
+                memcpy(tupleData+attributes[i].offset, valueChar, attributes[i].attrLength);
+            }
+        }
+        if ((rc = rmFH.InsertRec(tupleData, rid))) {
+            return rc;
+        }
+
+        // Insert the entries in the indexes
         int currentIndex = 0;
         for (int i=0; i<attrCount; i++) {
-            int indexNo = attributes[i].indexNo;
-            if (indexNo != -1) {
-                if (currentIndex == indexCount) {
-                    return QL_INCORRECT_INDEX_COUNT;
+            Value currentValue = values[i];
+            if (attributes[i].indexNo != -1) {
+                if (attributes[i].attrType == INT) {
+                    int value = *static_cast<int*>(currentValue.data);
+                    if ((rc = ixIH[currentIndex].InsertEntry(&value, rid))) {
+                        return rc;
+                    }
                 }
-                if ((rc = ixManager->OpenIndex(relName, indexNo, ixIH[currentIndex]))) {
-                    return rc;
+                else if (attributes[i].attrType == FLOAT) {
+                    float value = *static_cast<float*>(currentValue.data);
+                    if ((rc = ixIH[currentIndex].InsertEntry(&value, rid))) {
+                        return rc;
+                    }
+                }
+                else {
+                    char* value = static_cast<char*>(currentValue.data);
+                    if ((rc = ixIH[currentIndex].InsertEntry(value, rid))) {
+                        return rc;
+                    }
                 }
                 currentIndex++;
             }
         }
-    }
 
-    // Insert the tuple in the relation
-    for (int i=0; i<attrCount; i++) {
-        Value currentValue = values[i];
-        if (attributes[i].attrType == INT) {
-            int value = *static_cast<int*>(currentValue.data);
-            memcpy(tupleData+attributes[i].offset, &value, attributes[i].attrLength);
-        }
-        else if (attributes[i].attrType == FLOAT) {
-            float value = *static_cast<float*>(currentValue.data);
-            memcpy(tupleData+attributes[i].offset, &value, attributes[i].attrLength);
-        }
-        else {
-            char value[attributes[i].attrLength];
-            memset(value, 0, attributes[i].attrLength);
-            char* valueChar = static_cast<char*>(currentValue.data);
-            strcpy(value, valueChar);
-            memcpy(tupleData+attributes[i].offset, valueChar, attributes[i].attrLength);
-        }
-    }
-    if ((rc = rmFH.InsertRec(tupleData, rid))) {
-        return rc;
-    }
+        // Print the inserted tuple
+        cout << "Inserted tuple:" << endl;
+        Printer p(attributes, attrCount);
+        p.PrintHeader(cout);
+        p.Print(cout, tupleData);
+        p.PrintFooter(cout);
 
-    // Insert the entries in the indexes
-    int currentIndex = 0;
-    for (int i=0; i<attrCount; i++) {
-        Value currentValue = values[i];
-        if (attributes[i].indexNo != -1) {
-            if (attributes[i].attrType == INT) {
-                int value = *static_cast<int*>(currentValue.data);
-                if ((rc = ixIH[currentIndex].InsertEntry(&value, rid))) {
+        // Close the RM file
+        if ((rc = rmManager->CloseFile(rmFH))) {
+            return rc;
+        }
+
+        // Close the indexes
+        if (indexCount > 0) {
+            for (int i=0; i<indexCount; i++) {
+                if ((rc = ixManager->CloseIndex(ixIH[i]))) {
                     return rc;
                 }
             }
-            else if (attributes[i].attrType == FLOAT) {
-                float value = *static_cast<float*>(currentValue.data);
-                if ((rc = ixIH[currentIndex].InsertEntry(&value, rid))) {
-                    return rc;
-                }
-            }
-            else {
-                char* value = static_cast<char*>(currentValue.data);
-                if ((rc = ixIH[currentIndex].InsertEntry(value, rid))) {
-                    return rc;
-                }
-            }
-            currentIndex++;
         }
-    }
-
-    // Print the inserted tuple
-    cout << "Inserted tuple:" << endl;
-    Printer p(attributes, attrCount);
-    p.PrintHeader(cout);
-    p.Print(cout, tupleData);
-    p.PrintFooter(cout);
-
-    // Close the RM file
-    if ((rc = rmManager->CloseFile(rmFH))) {
-        return rc;
-    }
-
-    // Close the indexes
-    if (indexCount > 0) {
-        for (int i=0; i<indexCount; i++) {
-            if ((rc = ixManager->CloseIndex(ixIH[i]))) {
-                return rc;
-            }
-        }
+        delete[] ixIH;
     }
 
     // Clean up
     delete rcRecord;
     delete[] attributes;
     delete[] tupleData;
-    delete[] ixIH;
 
     // Return OK
     return OK_RC;

@@ -32,6 +32,7 @@ SM_Manager::SM_Manager(IX_Manager &ixm, RM_Manager &rmm) {
     // Initialize the system parameters
     printCommands = FALSE;
     optimizeQuery = TRUE;
+    partitionedPrint = FALSE;
 }
 
 // Destructor
@@ -1315,8 +1316,23 @@ RC SM_Manager::Print(const char *relName) {
     // Print the header
     p.PrintHeader(cout);
 
-    // EX - Non-distributed relation
-    if (!distributedRelation) {
+    // EX - Distributed case
+    if (distributedRelation) {
+        EX_CommLayer commLayer(rmManager, ixManager);
+        for (int i=1; i<=numberNodes; i++) {
+            if ((rc = commLayer.PrintInDataNode(p, relName, i))) {
+                return rc;
+            }
+
+            // Show partitioned print
+            if (i != numberNodes && partitionedPrint) {
+                cout << "......." << endl;
+            }
+        }
+    }
+
+    // Non-distributed relation case
+    else {
         // Open the relation RM file
         RM_FileHandle rmFH;
         if ((rc = rmManager->OpenFile(relName, rmFH))) {
@@ -1349,16 +1365,6 @@ RC SM_Manager::Print(const char *relName) {
         }
         if ((rc = rmManager->CloseFile(rmFH))) {
             return rc;
-        }
-    }
-
-    // EX - Distributed case
-    else {
-        EX_CommLayer commLayer(rmManager, ixManager);
-        for (int i=1; i<=numberNodes; i++) {
-            if ((rc = commLayer.PrintInDataNode(p, relName, i))) {
-                return rc;
-            }
         }
     }
 
@@ -1402,6 +1408,17 @@ RC SM_Manager::Set(const char *paramName, const char *value) {
         }
         else if (strcmp(value, "FALSE") == 0) {
             optimizeQuery = FALSE;
+        }
+        else {
+            return SM_INVALID_VALUE;
+        }
+    }
+    else if (strcmp(paramName, "partitionedPrint") == 0) {
+        if (strcmp(value, "TRUE") == 0) {
+            partitionedPrint = TRUE;
+        }
+        else if (strcmp(value, "FALSE") == 0) {
+            partitionedPrint = FALSE;
         }
         else {
             return SM_INVALID_VALUE;
@@ -1647,4 +1664,9 @@ int SM_Manager::getNumberNodes() {
 // Method to get the optimizeQuery flag
 int SM_Manager::getOptimizeFlag() {
     return optimizeQuery;
+}
+
+// Method to get the partitionedPrint flag
+int SM_Manager::getPartitionedPrintFlag() {
+    return partitionedPrint;
 }

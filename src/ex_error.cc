@@ -16,7 +16,8 @@ static char *EX_WarnMsg[] = {
   (char*)"incorrect number of data values",
   (char*)"invalid attribute name",
   (char*)"invalid value in partition vector",
-  (char*)"invalid data node"
+  (char*)"invalid data node",
+  (char*)"inconsistent partition vector"
 };
 
 static char *EX_ErrorMsg[] = {

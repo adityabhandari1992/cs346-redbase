@@ -18,6 +18,9 @@
 #include "parser.h"
 using namespace std;
 
+
+/***** EX_CommLayer class */
+
 // Constructor
 EX_CommLayer::EX_CommLayer(RM_Manager* rmm, IX_Manager* ixm) {
     // Set the class members
@@ -180,6 +183,109 @@ RC EX_CommLayer::DropIndexInDataNode(const char* relName, const char* attrName, 
 
     // Close the data node
     if ((rc = smManager->CloseDb())) {
+        return rc;
+    }
+
+    return OK_RC;
+}
+
+// Method: InsertInDataNode(const char* relName, int nValues, const Value values[], int node)
+// Insert a tuple in the data node
+RC EX_CommLayer::InsertInDataNode(const char* relName, int nValues, const Value values[], int node) {
+    int rc;
+    string dataNode = "data." + to_string(node);
+
+    // Open the data node
+    if ((rc = smManager->OpenDb(dataNode.c_str()))) {
+        return rc;
+    }
+
+    // Insert the tuple
+    if ((rc = qlManager->Insert(relName, nValues, values))) {
+        return rc;
+    }
+
+    // Close the data node
+    if ((rc = smManager->CloseDb())) {
+        return rc;
+    }
+
+    return OK_RC;
+}
+
+
+/***** Helper methods for EX part *****/
+
+// Method: GetDataNodeForTuple(RM_Manager* rmManager, const Value key, const char* relName, const char* attrName, int &node)
+// Get the data node number for the required tuple based on the partition vector
+RC GetDataNodeForTuple(RM_Manager* rmManager, const Value key, const char* relName, const char* attrName, int &node) {
+    // Get the type
+    AttrType attrType = key.type;
+
+    // Open the RM file
+    char partitionVectorFileName[255];
+    strcpy(partitionVectorFileName, relName);
+    strcat(partitionVectorFileName, "_partitions_");
+    strcat(partitionVectorFileName, attrName);
+
+    int rc;
+    RM_FileHandle rmFH;
+    if ((rc = rmManager->OpenFile(partitionVectorFileName, rmFH))) {
+        return rc;
+    }
+
+    // Scan the file for the required value
+    RM_FileScan rmFS;
+    RM_Record rec;
+    char* recordData;
+    if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, NO_OP, NULL))) {
+        return rc;
+    }
+    while ((rc = rmFS.GetNextRec(rec)) != RM_EOF) {
+        // Get the record data
+        if ((rc = rec.GetData(recordData))) {
+            return rc;
+        }
+
+        // Check for each type
+        if (attrType == INT) {
+            int givenValue = *static_cast<int*>(key.data);
+            EX_IntPartitionVectorRecord* pV = (EX_IntPartitionVectorRecord*) recordData;
+            if (givenValue >= pV->startValue && givenValue < pV->endValue) {
+                node = pV->node;
+                break;
+            }
+        }
+
+        else if (attrType == FLOAT) {
+            float givenValue = *static_cast<float*>(key.data);
+            EX_FloatPartitionVectorRecord* pV = (EX_FloatPartitionVectorRecord*) recordData;
+            if (givenValue >= pV->startValue && givenValue < pV->endValue) {
+                node = pV->node;
+                break;
+            }
+        }
+
+        else {
+            char* givenValue = static_cast<char*>(key.data);
+            EX_StringPartitionVectorRecord* pV = (EX_StringPartitionVectorRecord*) recordData;
+            if (strcmp(givenValue, pV->startValue) >= 0 && strcmp(givenValue, pV->endValue) < 0) {
+                node = pV->node;
+                break;
+            }
+        }
+    }
+
+    // Check if the value was found
+    if (rc == RM_EOF) {
+        return EX_INCONSISTENT_PV;
+    }
+
+    // Close the scan and file
+    if ((rc = rmFS.CloseScan())) {
+        return rc;
+    }
+    if ((rc = rmManager->CloseFile(rmFH))) {
         return rc;
     }
 

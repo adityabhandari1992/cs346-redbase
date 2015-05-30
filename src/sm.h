@@ -108,6 +108,7 @@ public:
     int getDistributedFlag();       // Method to get the distributed flag
     int getNumberNodes();           // Method to get the number of nodes
     int getOptimizeFlag();          // Method to get the optimizeQuery flag
+    int getPartitionedPrintFlag();  // Method to get the partitionedPrint flag
 
 private:
     RM_Manager* rmManager;          // RM_Manager object
@@ -121,6 +122,7 @@ private:
 
     int printCommands;              // System parameter specifying printing level
     int optimizeQuery;              // System parameter specifying optimization
+    int partitionedPrint;           // System parameter specifying printing style
 };
 
 //
