@@ -407,23 +407,9 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
         }
 
         // Create table in all the data nodes
-        // TODO - Handle this in communication layer
+        EX_CommLayer commLayer(rmManager, ixManager);
         for (int i=1; i<numberNodes; i++) {
-            string dataNode = "data." + to_string(i);
-            SM_Manager smm(*ixManager, *rmManager);
-
-            // Open the database
-            if ((rc = smm.OpenDb(dataNode.c_str()))) {
-                return rc;
-            }
-
-            // Create the table
-            if ((rc = smm.CreateTable(relName, attrCount, attributes, FALSE, NULL, 0, NULL))) {
-                return rc;
-            }
-
-            // Close the database
-            if ((rc = smm.CloseDb())) {
+            if ((rc = commLayer.CreateTableInDataNode(relName, attrCount, attributes, i))) {
                 return rc;
             }
         }
@@ -576,23 +562,9 @@ RC SM_Manager::DropTable(const char *relName) {
         }
 
         // Drop the table from the data nodes
-        // TODO - Handle this in the communication layer
+        EX_CommLayer commLayer(rmManager, ixManager);
         for (int i=1; i<numberNodes; i++) {
-            string dataNode = "data." + to_string(i);
-            SM_Manager smm(*ixManager, *rmManager);
-
-            // Open the data node
-            if ((rc = smm.OpenDb(dataNode.c_str()))) {
-                return rc;
-            }
-
-            // Drop the table
-            if ((rc = smm.DropTable(relName))) {
-                return rc;
-            }
-
-            // Close the data node
-            if ((rc = smm.CloseDb())) {
+            if ((rc = commLayer.DropTableInDataNode(relName, i))) {
                 return rc;
             }
         }

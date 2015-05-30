@@ -14,6 +14,7 @@
 #include "parser.h"
 #include "rm.h"
 #include "ix.h"
+#include "ex.h"
 
 // Data structures
 
@@ -58,6 +59,8 @@ struct SM_AttrcatRecord {
 // Constants
 #define SM_RELCAT_ATTR_COUNT    6
 #define SM_ATTRCAT_ATTR_COUNT   6
+
+class EX_CommLayer;
 
 //
 // SM_Manager: provides data management

@@ -13,7 +13,6 @@
 #include "rm.h"
 #include "ix.h"
 #include "sm.h"
-#include "ql.h"
 
 // Data structures
 
@@ -71,6 +70,25 @@ struct EX_StringPartitionVectorRecord {
 #define MAX_INT     99999999
 #define MAX_FLOAT   99999999.0
 #define MAX_STRING  "zzzzzzzz"
+
+
+// EX_CommLayer class
+// Class to simulate the communication layer for the distributed redbase
+class EX_CommLayer {
+public:
+    EX_CommLayer(RM_Manager* rmm, IX_Manager* ixm);
+    ~EX_CommLayer();
+
+    RC CreateTableInDataNode(const char* relName, int attrCount, AttrInfo* attributes, int node);
+    RC DropTableInDataNode(const char* relName, int node);
+
+private:
+    RM_Manager* rmManager;
+    IX_Manager* ixManager;
+    SM_Manager* smManager;
+    QL_Manager* qlManager;
+};
+
 
 //
 // Print-error function

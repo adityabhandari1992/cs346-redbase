@@ -15,6 +15,7 @@
 #include "rm.h"
 #include "ix.h"
 #include "sm.h"
+#include "ex.h"
 
 //
 // QL_Manager: query language (DML)
