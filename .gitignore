@@ -7,5 +7,6 @@ src/*_test_out
 *.log
 *.out
 src/testDB/*
+src/db*/*
 build/*
-
+src/findLines.sh
