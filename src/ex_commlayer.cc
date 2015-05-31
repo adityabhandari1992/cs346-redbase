@@ -389,6 +389,34 @@ RC EX_CommLayer::DeleteInDataNode(const char* relName, int nConditions, const Co
 }
 
 
+// Method: UpdateInDataNode(const char* relName, const RelAttr &updAttr, const int bIsValue, const RelAttr &rhsRelAttr,
+//                          const Value &rhsValue, int nConditions, const Condition conditions[], int node)
+// Pass an update query to the data node
+RC EX_CommLayer::UpdateInDataNode(const char* relName, const RelAttr &updAttr, const int bIsValue, const RelAttr &rhsRelAttr,
+                                  const Value &rhsValue, int nConditions, const Condition conditions[], int node) {
+    int rc;
+    string dataNode = "data." + to_string(node);
+
+    // Open the data node
+    if ((rc = smManager->OpenDb(dataNode.c_str()))) {
+        return rc;
+    }
+
+    // Execute the delete query
+    cout << "\n* In data node number " << node << " *" << endl;
+    if ((rc = qlManager->Update(relName, updAttr, bIsValue, rhsRelAttr, rhsValue, nConditions, conditions))) {
+        return rc;
+    }
+
+    // Close the data node
+    if ((rc = smManager->CloseDb())) {
+        return rc;
+    }
+
+    return OK_RC;
+}
+
+
 /***** Helper methods for EX part *****/
 
 // Method: GetDataNodeForTuple(RM_Manager* rmManager, const Value key, const char* relName,

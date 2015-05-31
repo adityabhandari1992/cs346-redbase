@@ -662,7 +662,7 @@ RC QL_Manager::Delete(const char *relName,
         int numberNodes = smManager->getNumberNodes();
         EX_CommLayer commLayer(rmManager, ixManager);
         if (condExists) {
-            // Find the nodes to delete
+            // Find the nodes to pass the query
             for (int i=1; i<=numberNodes; i++) {
                 bool valid = false;
                 if ((rc = CheckDataNodeForCondition(rmManager, relName, partitionAttrName, conditions[conditionNumber], i, valid))) {
@@ -1005,6 +1005,10 @@ RC QL_Manager::Update(const char *relName,
         return rc;
     }
     int attrCount = rcRecord->attrCount;
+    int distributedRelation = rcRecord->distributed;
+    char partitionAttrName[MAXNAME+1];
+    strcpy(partitionAttrName, rcRecord->attrName);
+
     DataAttrInfo* attributes = new DataAttrInfo[attrCount];
     if ((rc = smManager->GetAttrInfo(relName, attrCount, (char*) attributes))) {
         return rc;
@@ -1090,330 +1094,380 @@ RC QL_Manager::Update(const char *relName,
             cout << "   conditions[" << i << "]:" << conditions[i] << "\n";
     }
 
-    // Find whether index exists on some condition
-    bool indexExists = false;
-    int indexCondition = -1;
-    for (int i=0; i<nConditions; i++) {
-        if (indexExists) break;
-        Condition currentCondition = conditions[i];
-        char* lhs = (currentCondition.lhsAttr).attrName;
-        int rhsIsAttr = currentCondition.bRhsIsAttr;
-        if (!rhsIsAttr) {
-            for (int j=0; j<attrCount; j++) {
-                if (strcmp(attributes[j].attrName, lhs) == 0) {
-                    // Do not consider an index on the update attribute
-                    if (strcmp(attributes[j].attrName, updAttrName) != 0 && attributes[j].indexNo != -1) {
-                        indexExists = true;
-                        indexCondition = i;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    // Prepare the printer class
-    cout << "Updated tuples:" << endl;
-    Printer p(attributes, attrCount);
-    p.PrintHeader(cout);
-
-    // Create a QL_Op object
-    shared_ptr<QL_Op> scanOp;
-
-    // If index exists
-    if (indexExists) {
-        // Get the index attribute information
-        char* lhsRelName = (conditions[indexCondition].lhsAttr).relName;
-        char* lhsAttrName = (conditions[indexCondition].lhsAttr).attrName;
-        CompOp op = conditions[indexCondition].op;
-        DataAttrInfo* attributeData = new DataAttrInfo;
-        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhsRelName, lhsAttrName, (char*) attributeData))) {
-            return rc;
-        }
-
-        // Open the RM file
-        RM_FileHandle rmFH;
-        RID rid;
-        RM_Record rec;
-        char* recordData;
-        if ((rc = rmManager->OpenFile(relName, rmFH))) {
-            return rc;
-        }
-
-        // Open the IndexScan operator
-        scanOp.reset(new QL_IndexScanOp(smManager, ixManager, rmManager, relName, attributeData->attrName, op, &conditions[indexCondition].rhsValue));
-        if ((rc = scanOp->Open())) {
-            return rc;
-        }
-
-        // Open the update attribute index if it exists
-        IX_IndexHandle updAttrIH;
-        DataAttrInfo* updAttrData = new DataAttrInfo;
-        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, updAttrRelName, updAttrName, (char*) updAttrData))) {
-            return rc;
-        }
-        if (updAttrData->indexNo != -1) {
-            if ((rc = ixManager->OpenIndex(relName, updAttrData->indexNo, updAttrIH))) {
-                return rc;
-            }
-        }
-
-        // Find the entries to update
-        while ((rc = scanOp->GetNext(rid)) != QL_EOF) {
-            // Return if some error
-            if (rc) {
-                return rc;
-            }
-
-            // Get the record from the file
-            if ((rc = rmFH.GetRec(rid, rec))) {
-                return rc;
-            }
-            if ((rc = rec.GetData(recordData))) {
-                return rc;
-            }
-
-            // Check the conditions
-            bool match = true;
-            if ((rc = CheckConditionsSingleRelation(recordData, match, (char*) attributes, attrCount, nConditions, conditions))) {
-                return rc;
-            }
-
-            // If all the conditions are satisfied
-            if (match) {
-                // Delete the index entry if it exists
-                if (updAttrData->indexNo != -1) {
-                    if ((rc = updAttrIH.DeleteEntry(recordData + updAttrData->offset, rid))) {
-                        return rc;
-                    }
-                }
-
-                // Update the record data
-                // If RHS is a value
-                if (bIsValue) {
-                    if (updAttrType == INT) {
-                        int value = *static_cast<int*>(rhsValue.data);
-                        memcpy(recordData + updAttrData->offset, &value, sizeof(value));
-                    }
-                    else if (updAttrType == FLOAT) {
-                        float value = *static_cast<float*>(rhsValue.data);
-                        memcpy(recordData + updAttrData->offset, &value, sizeof(value));
-                    }
-                    else {
-                        char* value = static_cast<char*>(rhsValue.data);
-                        memcpy(recordData + updAttrData->offset, value, updAttrData->attrLength);
-                    }
-                }
-
-                // Else if RHS is an attribute
-                else {
-                    DataAttrInfo* rhsAttrData = new DataAttrInfo;
-                    if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, rhsRelAttr.relName, rhsRelAttr.attrName, (char*) rhsAttrData))) {
-                        return rc;
-                    }
-                    memcpy(recordData + updAttrData->offset, recordData + rhsAttrData->offset, updAttrData->attrLength);
-                    delete rhsAttrData;
-                }
-
-                // Update the record in the file
-                if ((rc = rmFH.UpdateRec(rec))) {
-                    return rc;
-                }
-
-                // Update entry in the index if it exists
-                if (updAttrData->indexNo != -1) {
-                    if ((rc = updAttrIH.InsertEntry(recordData + updAttrData->offset, rid))) {
-                        return rc;
-                    }
-                }
-
-                // Print the deleted tuple
-                p.Print(cout, recordData);
-            }
-        }
-
-        // Close the update attribute index if it exists
-        if (updAttrData->indexNo != -1) {
-            if ((rc = ixManager->CloseIndex(updAttrIH))) {
-                return rc;
-            }
-        }
-
-        // Clean up
-        delete attributeData;
-        delete updAttrData;
-
-        // Close the scan and file
-        if ((rc = scanOp->Close())) {
-            return rc;
-        }
-        if ((rc = rmManager->CloseFile(rmFH))) {
-            return rc;
-        }
-    }
-
-    // Else if no index
-    else {
-        // Open the RM file
-        RM_FileHandle rmFH;
-        RID rid;
-        RM_Record rec;
-        char* recordData;
-        if ((rc = rmManager->OpenFile(relName, rmFH))) {
-            return rc;
-        }
-
-        // Open a file scan on the first condition of the type R.A = v
-        bool conditionExists = false;
+    // EX - Distributed relation case
+    if (distributedRelation) {
+        // Check whether the partition attribute is used in a condition
+        bool condExists = false;
         int conditionNumber = -1;
         for (int i=0; i<nConditions; i++) {
             Condition currentCondition = conditions[i];
-            if (!currentCondition.bRhsIsAttr) {
-                conditionExists = true;
-                conditionNumber = i;
-                break;
+            char* lhs = (currentCondition.lhsAttr).attrName;
+            int rhsIsAttr = currentCondition.bRhsIsAttr;
+            if (!rhsIsAttr) {
+                if (strcmp(lhs, partitionAttrName) == 0) {
+                    condExists = true;
+                    conditionNumber = i;
+                    break;
+                }
             }
         }
 
-        // If such a condition exists
-        if (conditionExists) {
-            // Open a file scan on that condition
-            char* lhsRelName = (conditions[conditionNumber].lhsAttr).relName;
-            char* lhsAttrName = (conditions[conditionNumber].lhsAttr).attrName;
-            CompOp op = conditions[conditionNumber].op;
+        // If condition on partition attribute exists
+        int numberNodes = smManager->getNumberNodes();
+        EX_CommLayer commLayer(rmManager, ixManager);
+        if (condExists) {
+            // Find the nodes to pass the query
+            for (int i=1; i<=numberNodes; i++) {
+                bool valid = false;
+                if ((rc = CheckDataNodeForCondition(rmManager, relName, partitionAttrName, conditions[conditionNumber], i, valid))) {
+                    return rc;
+                }
+                if (valid) {
+                    // Pass the query to the node
+                    if ((rc = commLayer.UpdateInDataNode(relName, updAttr, bIsValue, rhsRelAttr, rhsValue, nConditions, conditions, i))) {
+                        return rc;
+                    }
+                }
+            }
+        }
 
+        // Else if no such condition
+        else {
+            // Pass the query to all data nodes
+            for (int i=1; i<=numberNodes; i++) {
+                if ((rc = commLayer.UpdateInDataNode(relName, updAttr, bIsValue, rhsRelAttr, rhsValue, nConditions, conditions, i))) {
+                    return rc;
+                }
+            }
+        }
+    }
+
+    else {
+        // Prepare the printer class
+        cout << "Updated tuples:" << endl;
+        Printer p(attributes, attrCount);
+        p.PrintHeader(cout);
+
+        // Find whether index exists on some condition
+        bool indexExists = false;
+        int indexCondition = -1;
+        for (int i=0; i<nConditions; i++) {
+            if (indexExists) break;
+            Condition currentCondition = conditions[i];
+            char* lhs = (currentCondition.lhsAttr).attrName;
+            int rhsIsAttr = currentCondition.bRhsIsAttr;
+            if (!rhsIsAttr) {
+                for (int j=0; j<attrCount; j++) {
+                    if (strcmp(attributes[j].attrName, lhs) == 0) {
+                        // Do not consider an index on the update attribute
+                        if (strcmp(attributes[j].attrName, updAttrName) != 0 && attributes[j].indexNo != -1) {
+                            indexExists = true;
+                            indexCondition = i;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Create a QL_Op object
+        shared_ptr<QL_Op> scanOp;
+
+        // If index exists
+        if (indexExists) {
+            // Get the index attribute information
+            char* lhsRelName = (conditions[indexCondition].lhsAttr).relName;
+            char* lhsAttrName = (conditions[indexCondition].lhsAttr).attrName;
+            CompOp op = conditions[indexCondition].op;
             DataAttrInfo* attributeData = new DataAttrInfo;
             if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhsRelName, lhsAttrName, (char*) attributeData))) {
                 return rc;
             }
 
-            // Open a conditional file scan
-            scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, true, attributeData->attrName, op, &conditions[conditionNumber].rhsValue));
+            // Open the RM file
+            RM_FileHandle rmFH;
+            RID rid;
+            RM_Record rec;
+            char* recordData;
+            if ((rc = rmManager->OpenFile(relName, rmFH))) {
+                return rc;
+            }
+
+            // Open the IndexScan operator
+            scanOp.reset(new QL_IndexScanOp(smManager, ixManager, rmManager, relName, attributeData->attrName, op, &conditions[indexCondition].rhsValue));
             if ((rc = scanOp->Open())) {
                 return rc;
             }
-            delete attributeData;
-        }
 
-        // Else if no such condition
-        else {
-            // Open a full file scan
-            scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, false, NULL, NO_OP, NULL));
-            if ((rc = scanOp->Open())) {
+            // Open the update attribute index if it exists
+            IX_IndexHandle updAttrIH;
+            DataAttrInfo* updAttrData = new DataAttrInfo;
+            if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, updAttrRelName, updAttrName, (char*) updAttrData))) {
                 return rc;
             }
-        }
-
-        // Open the update attribute index if it exists
-        IX_IndexHandle ixIH;
-        DataAttrInfo* updAttrData = new DataAttrInfo;
-        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, updAttrRelName, updAttrName, (char*) updAttrData))) {
-            return rc;
-        }
-        if (updAttrData->indexNo != -1) {
-            if ((rc = ixManager->OpenIndex(relName, updAttrData->indexNo, ixIH))) {
-                return rc;
-            }
-        }
-
-        // Get the next record to update
-        while ((rc = scanOp->GetNext(rid)) != QL_EOF) {
-            if ((rc = rmFH.GetRec(rid, rec))) {
-                return rc;
-            }
-
-            if ((rc = rec.GetData(recordData))) {
-                return rc;
-            }
-
-            // Check the conditions
-            bool match = true;
-            if ((rc = CheckConditionsSingleRelation(recordData, match, (char*) attributes, attrCount, nConditions, conditions))) {
-                return rc;
-            }
-
-            // If all conditions are satisfied
-            if (match) {
-                // Delete the index entry if it exists
-                if (updAttrData->indexNo != -1) {
-                    if ((rc = ixIH.DeleteEntry(recordData + updAttrData->offset, rid))) {
-                        return rc;
-                    }
+            if (updAttrData->indexNo != -1) {
+                if ((rc = ixManager->OpenIndex(relName, updAttrData->indexNo, updAttrIH))) {
+                    return rc;
                 }
+            }
 
-                // Update the record data
-                // If RHS is a value
-                if (bIsValue) {
-                    if (updAttrType == INT) {
-                        int value = *static_cast<int*>(rhsValue.data);
-                        memcpy(recordData + updAttrData->offset, &value, sizeof(value));
-                    }
-                    else if (updAttrType == FLOAT) {
-                        float value = *static_cast<float*>(rhsValue.data);
-                        memcpy(recordData + updAttrData->offset, &value, sizeof(value));
-                    }
-                    else {
-                        char* value = static_cast<char*>(rhsValue.data);
-                        memcpy(recordData + updAttrData->offset, value, updAttrData->attrLength);
-                    }
-                }
-
-                // Else if RHS is an attribute
-                else {
-                    DataAttrInfo* rhsAttrData = new DataAttrInfo;
-                    if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, rhsRelAttr.relName, rhsRelAttr.attrName, (char*) rhsAttrData))) {
-                        return rc;
-                    }
-                    memcpy(recordData + updAttrData->offset, recordData + rhsAttrData->offset, updAttrData->attrLength);
-                    delete rhsAttrData;
-                }
-
-                // Update the record in the file
-                if ((rc = rmFH.UpdateRec(rec))) {
+            // Find the entries to update
+            while ((rc = scanOp->GetNext(rid)) != QL_EOF) {
+                // Return if some error
+                if (rc) {
                     return rc;
                 }
 
-                // Update entry in the index if it exists
-                if (updAttrData->indexNo != -1) {
-                    if ((rc = ixIH.InsertEntry(recordData + updAttrData->offset, rid))) {
-                        return rc;
-                    }
+                // Get the record from the file
+                if ((rc = rmFH.GetRec(rid, rec))) {
+                    return rc;
+                }
+                if ((rc = rec.GetData(recordData))) {
+                    return rc;
                 }
 
-                // Print the updated tuple
-                p.Print(cout, recordData);
-            }
-        }
+                // Check the conditions
+                bool match = true;
+                if ((rc = CheckConditionsSingleRelation(recordData, match, (char*) attributes, attrCount, nConditions, conditions))) {
+                    return rc;
+                }
 
-        // Close the open index if any
-        if (updAttrData->indexNo != -1) {
-            if ((rc = ixManager->CloseIndex(ixIH))) {
+                // If all the conditions are satisfied
+                if (match) {
+                    // Delete the index entry if it exists
+                    if (updAttrData->indexNo != -1) {
+                        if ((rc = updAttrIH.DeleteEntry(recordData + updAttrData->offset, rid))) {
+                            return rc;
+                        }
+                    }
+
+                    // Update the record data
+                    // If RHS is a value
+                    if (bIsValue) {
+                        if (updAttrType == INT) {
+                            int value = *static_cast<int*>(rhsValue.data);
+                            memcpy(recordData + updAttrData->offset, &value, sizeof(value));
+                        }
+                        else if (updAttrType == FLOAT) {
+                            float value = *static_cast<float*>(rhsValue.data);
+                            memcpy(recordData + updAttrData->offset, &value, sizeof(value));
+                        }
+                        else {
+                            char* value = static_cast<char*>(rhsValue.data);
+                            memcpy(recordData + updAttrData->offset, value, updAttrData->attrLength);
+                        }
+                    }
+
+                    // Else if RHS is an attribute
+                    else {
+                        DataAttrInfo* rhsAttrData = new DataAttrInfo;
+                        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, rhsRelAttr.relName, rhsRelAttr.attrName, (char*) rhsAttrData))) {
+                            return rc;
+                        }
+                        memcpy(recordData + updAttrData->offset, recordData + rhsAttrData->offset, updAttrData->attrLength);
+                        delete rhsAttrData;
+                    }
+
+                    // Update the record in the file
+                    if ((rc = rmFH.UpdateRec(rec))) {
+                        return rc;
+                    }
+
+                    // Update entry in the index if it exists
+                    if (updAttrData->indexNo != -1) {
+                        if ((rc = updAttrIH.InsertEntry(recordData + updAttrData->offset, rid))) {
+                            return rc;
+                        }
+                    }
+
+                    // Print the deleted tuple
+                    p.Print(cout, recordData);
+                }
+            }
+
+            // Close the update attribute index if it exists
+            if (updAttrData->indexNo != -1) {
+                if ((rc = ixManager->CloseIndex(updAttrIH))) {
+                    return rc;
+                }
+            }
+
+            // Clean up
+            delete attributeData;
+            delete updAttrData;
+
+            // Close the scan and file
+            if ((rc = scanOp->Close())) {
+                return rc;
+            }
+            if ((rc = rmManager->CloseFile(rmFH))) {
                 return rc;
             }
         }
-        delete updAttrData;
 
-        // Close the file scan
-        if ((rc = scanOp->Close())) {
-            return rc;
+        // Else if no index
+        else {
+            // Open the RM file
+            RM_FileHandle rmFH;
+            RID rid;
+            RM_Record rec;
+            char* recordData;
+            if ((rc = rmManager->OpenFile(relName, rmFH))) {
+                return rc;
+            }
+
+            // Open a file scan on the first condition of the type R.A = v
+            bool conditionExists = false;
+            int conditionNumber = -1;
+            for (int i=0; i<nConditions; i++) {
+                Condition currentCondition = conditions[i];
+                if (!currentCondition.bRhsIsAttr) {
+                    conditionExists = true;
+                    conditionNumber = i;
+                    break;
+                }
+            }
+
+            // If such a condition exists
+            if (conditionExists) {
+                // Open a file scan on that condition
+                char* lhsRelName = (conditions[conditionNumber].lhsAttr).relName;
+                char* lhsAttrName = (conditions[conditionNumber].lhsAttr).attrName;
+                CompOp op = conditions[conditionNumber].op;
+
+                DataAttrInfo* attributeData = new DataAttrInfo;
+                if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhsRelName, lhsAttrName, (char*) attributeData))) {
+                    return rc;
+                }
+
+                // Open a conditional file scan
+                scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, true, attributeData->attrName, op, &conditions[conditionNumber].rhsValue));
+                if ((rc = scanOp->Open())) {
+                    return rc;
+                }
+                delete attributeData;
+            }
+
+            // Else if no such condition
+            else {
+                // Open a full file scan
+                scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, false, NULL, NO_OP, NULL));
+                if ((rc = scanOp->Open())) {
+                    return rc;
+                }
+            }
+
+            // Open the update attribute index if it exists
+            IX_IndexHandle ixIH;
+            DataAttrInfo* updAttrData = new DataAttrInfo;
+            if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, updAttrRelName, updAttrName, (char*) updAttrData))) {
+                return rc;
+            }
+            if (updAttrData->indexNo != -1) {
+                if ((rc = ixManager->OpenIndex(relName, updAttrData->indexNo, ixIH))) {
+                    return rc;
+                }
+            }
+
+            // Get the next record to update
+            while ((rc = scanOp->GetNext(rid)) != QL_EOF) {
+                if ((rc = rmFH.GetRec(rid, rec))) {
+                    return rc;
+                }
+
+                if ((rc = rec.GetData(recordData))) {
+                    return rc;
+                }
+
+                // Check the conditions
+                bool match = true;
+                if ((rc = CheckConditionsSingleRelation(recordData, match, (char*) attributes, attrCount, nConditions, conditions))) {
+                    return rc;
+                }
+
+                // If all conditions are satisfied
+                if (match) {
+                    // Delete the index entry if it exists
+                    if (updAttrData->indexNo != -1) {
+                        if ((rc = ixIH.DeleteEntry(recordData + updAttrData->offset, rid))) {
+                            return rc;
+                        }
+                    }
+
+                    // Update the record data
+                    // If RHS is a value
+                    if (bIsValue) {
+                        if (updAttrType == INT) {
+                            int value = *static_cast<int*>(rhsValue.data);
+                            memcpy(recordData + updAttrData->offset, &value, sizeof(value));
+                        }
+                        else if (updAttrType == FLOAT) {
+                            float value = *static_cast<float*>(rhsValue.data);
+                            memcpy(recordData + updAttrData->offset, &value, sizeof(value));
+                        }
+                        else {
+                            char* value = static_cast<char*>(rhsValue.data);
+                            memcpy(recordData + updAttrData->offset, value, updAttrData->attrLength);
+                        }
+                    }
+
+                    // Else if RHS is an attribute
+                    else {
+                        DataAttrInfo* rhsAttrData = new DataAttrInfo;
+                        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, rhsRelAttr.relName, rhsRelAttr.attrName, (char*) rhsAttrData))) {
+                            return rc;
+                        }
+                        memcpy(recordData + updAttrData->offset, recordData + rhsAttrData->offset, updAttrData->attrLength);
+                        delete rhsAttrData;
+                    }
+
+                    // Update the record in the file
+                    if ((rc = rmFH.UpdateRec(rec))) {
+                        return rc;
+                    }
+
+                    // Update entry in the index if it exists
+                    if (updAttrData->indexNo != -1) {
+                        if ((rc = ixIH.InsertEntry(recordData + updAttrData->offset, rid))) {
+                            return rc;
+                        }
+                    }
+
+                    // Print the updated tuple
+                    p.Print(cout, recordData);
+                }
+            }
+
+            // Close the open index if any
+            if (updAttrData->indexNo != -1) {
+                if ((rc = ixManager->CloseIndex(ixIH))) {
+                    return rc;
+                }
+            }
+            delete updAttrData;
+
+            // Close the file scan
+            if ((rc = scanOp->Close())) {
+                return rc;
+            }
+
+            // Close the RM file
+            if ((rc = rmManager->CloseFile(rmFH))) {
+                return rc;
+            }
         }
 
-        // Close the RM file
-        if ((rc = rmManager->CloseFile(rmFH))) {
-            return rc;
+        // Print the footer
+        p.PrintFooter(cout);
+
+        // Print the query plan
+        if (bQueryPlans) {
+            cout << "\nPhysical Query Plan :" << endl;
+            cout << "UpdateOp (" << relName << "." << updAttrName << ")" << endl;
+            cout << "[" << endl;
+            scanOp->Print(1);
+            cout << "]" << endl;
         }
-    }
-
-    // Print the footer
-    p.PrintFooter(cout);
-
-    // Print the query plan
-    if (bQueryPlans) {
-        cout << "\nPhysical Query Plan :" << endl;
-        cout << "UpdateOp (" << relName << "." << updAttrName << ")" << endl;
-        cout << "[" << endl;
-        scanOp->Print(1);
-        cout << "]" << endl;
     }
 
     // Clean up

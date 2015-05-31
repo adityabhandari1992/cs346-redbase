@@ -90,6 +90,8 @@ public:
     RC LoadInDataNode(const char* relName, vector<string> nodeTuples, int node);
     RC InsertInDataNode(const char* relName, int nValues, const Value values[], int node);
     RC DeleteInDataNode(const char* relName, int nConditions, const Condition conditions[], int node);
+    RC UpdateInDataNode(const char* relName, const RelAttr &updAttr, const int bIsValue, const RelAttr &rhsRelAttr,
+                        const Value &rhsValue, int nConditions, const Condition conditions[], int node);
 
 private:
     RM_Manager* rmManager;

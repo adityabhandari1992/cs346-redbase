@@ -5,9 +5,10 @@ create index T (id);
 load T ("../data/t.data");
 
 set partitionedPrint = "TRUE";
+set bQueryPlans = "1";
 
 print T;
 
-Delete From T Where id >= 2 And name > "H";
+Update T Set name = "Baby" Where name >= "Hem";
 
 print T;
