@@ -197,31 +197,6 @@ RC EX_CommLayer::DropIndexInDataNode(const char* relName, const char* attrName, 
 }
 
 
-// Method: InsertInDataNode(const char* relName, int nValues, const Value values[], int node)
-// Insert a tuple in the data node
-RC EX_CommLayer::InsertInDataNode(const char* relName, int nValues, const Value values[], int node) {
-    int rc;
-    string dataNode = "data." + to_string(node);
-
-    // Open the data node
-    if ((rc = smManager->OpenDb(dataNode.c_str()))) {
-        return rc;
-    }
-
-    // Insert the tuple
-    if ((rc = qlManager->Insert(relName, nValues, values))) {
-        return rc;
-    }
-
-    // Close the data node
-    if ((rc = smManager->CloseDb())) {
-        return rc;
-    }
-
-    return OK_RC;
-}
-
-
 // Method: LoadInDataNode(const char* relName, vector<string> nodeTuples, int node)
 // Load the tuples in the vector to the relation in the data node
 RC EX_CommLayer::LoadInDataNode(const char* relName, vector<string> nodeTuples, int node) {
@@ -362,11 +337,65 @@ RC EX_CommLayer::LoadInDataNode(const char* relName, vector<string> nodeTuples, 
 }
 
 
+// Method: InsertInDataNode(const char* relName, int nValues, const Value values[], int node)
+// Insert a tuple in the data node
+RC EX_CommLayer::InsertInDataNode(const char* relName, int nValues, const Value values[], int node) {
+    int rc;
+    string dataNode = "data." + to_string(node);
+
+    // Open the data node
+    if ((rc = smManager->OpenDb(dataNode.c_str()))) {
+        return rc;
+    }
+
+    // Insert the tuple
+    cout << "\n* In data node number " << node << " *" << endl;
+    if ((rc = qlManager->Insert(relName, nValues, values))) {
+        return rc;
+    }
+
+    // Close the data node
+    if ((rc = smManager->CloseDb())) {
+        return rc;
+    }
+
+    return OK_RC;
+}
+
+
+// Method: DeleteInDataNode(const char* relName, int nConditions, const Condition conditions[])
+// Pass a delete query to the data node
+RC EX_CommLayer::DeleteInDataNode(const char* relName, int nConditions, const Condition conditions[], int node) {
+    int rc;
+    string dataNode = "data." + to_string(node);
+
+    // Open the data node
+    if ((rc = smManager->OpenDb(dataNode.c_str()))) {
+        return rc;
+    }
+
+    // Execute the delete query
+    cout << "\n* In data node number " << node << " *" << endl;
+    if ((rc = qlManager->Delete(relName, nConditions, conditions))) {
+        return rc;
+    }
+
+    // Close the data node
+    if ((rc = smManager->CloseDb())) {
+        return rc;
+    }
+
+    return OK_RC;
+}
+
+
 /***** Helper methods for EX part *****/
 
-// Method: GetDataNodeForTuple(RM_Manager* rmManager, const Value key, const char* relName, const char* attrName, int &node)
+// Method: GetDataNodeForTuple(RM_Manager* rmManager, const Value key, const char* relName,
+//                             const char* attrName, int &node)
 // Get the data node number for the required tuple based on the partition vector
-RC GetDataNodeForTuple(RM_Manager* rmManager, const Value key, const char* relName, const char* attrName, int &node) {
+RC GetDataNodeForTuple(RM_Manager* rmManager, const Value key, const char* relName,
+                       const char* attrName, int &node) {
     // Get the type
     AttrType attrType = key.type;
 
@@ -438,4 +467,94 @@ RC GetDataNodeForTuple(RM_Manager* rmManager, const Value key, const char* relNa
     }
 
     return OK_RC;
+}
+
+
+// Method: CheckDataNodeForCondition(RM_Manager* rmManager, const char* relName, const char* attrName,
+//                                   Condition checkCondition, int node, bool &valid)
+// Check the data node whether its partition range satisfies the condition
+RC CheckDataNodeForCondition(RM_Manager* rmManager, const char* relName, const char* attrName,
+                             Condition checkCondition, int node, bool &valid) {
+    // Open the RM file
+    char partitionVectorFileName[255];
+    strcpy(partitionVectorFileName, relName);
+    strcat(partitionVectorFileName, "_partitions_");
+    strcat(partitionVectorFileName, attrName);
+
+    int rc;
+    RM_FileHandle rmFH;
+    if ((rc = rmManager->OpenFile(partitionVectorFileName, rmFH))) {
+        return rc;
+    }
+
+    // Scan the file for the required node
+    RM_FileScan rmFS;
+    RM_Record rec;
+    char* recordData;
+    if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, EQ_OP, &node))) {
+        return rc;
+    }
+
+    // Get the record
+    if ((rc = rmFS.GetNextRec(rec)) == RM_EOF) {
+        return EX_INCONSISTENT_PV;
+    }
+    else {
+        // Get the record data
+        if ((rc = rec.GetData(recordData))) {
+            return rc;
+        }
+
+        // Check the start and end values
+        AttrType partitionAttrType = checkCondition.rhsValue.type;
+        if (partitionAttrType == INT) {
+            EX_IntPartitionVectorRecord* pv = (EX_IntPartitionVectorRecord*) recordData;
+            int value = *static_cast<int*>(checkCondition.rhsValue.data);
+            valid = MatchValues(pv->startValue, pv->endValue, checkCondition.op, value);
+        }
+        else if (partitionAttrType == FLOAT) {
+            EX_FloatPartitionVectorRecord* pv = (EX_FloatPartitionVectorRecord*) recordData;
+            float value = *static_cast<float*>(checkCondition.rhsValue.data);
+            valid = MatchValues(pv->startValue, pv->endValue, checkCondition.op, value);
+        }
+        else {
+            EX_StringPartitionVectorRecord* pv = (EX_StringPartitionVectorRecord*) recordData;
+            char* valueChar = static_cast<char*>(checkCondition.rhsValue.data);
+            string value(valueChar);
+            string startValue(pv->startValue);
+            string endValue(pv->endValue);
+            valid = MatchValues(startValue, endValue, checkCondition.op, value);
+        }
+    }
+
+    // Close the scan and file
+    if ((rc = rmFS.CloseScan())){
+        return rc;
+    }
+    if ((rc = rmManager->CloseFile(rmFH))) {
+        return rc;
+    }
+
+    return OK_RC;
+}
+
+
+// Method: bool MatchValues(T start, T end, CompOp op, T value)
+// Check whether a record from the partition vector satisfies the condition (op value)
+template <typename T>
+bool MatchValues(T start, T end, CompOp op, T value) {
+    switch(op) {
+        case EQ_OP:
+            return (value >= start && value < end);
+        case LT_OP:
+            return (start < value);
+        case GT_OP:
+            return (end > value);
+        case LE_OP:
+            return (start <= value);
+        case GE_OP:
+            return (end > value);
+        default:
+            return true;
+    }
 }

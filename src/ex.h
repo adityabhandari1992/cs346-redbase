@@ -87,8 +87,9 @@ public:
     RC PrintInDataNode(Printer &p, const char* relName, int node);
     RC CreateIndexInDataNode(const char* relName, const char* attrName, int node);
     RC DropIndexInDataNode(const char* relName, const char* attrName, int node);
-    RC InsertInDataNode(const char* relName, int nValues, const Value values[], int node);
     RC LoadInDataNode(const char* relName, vector<string> nodeTuples, int node);
+    RC InsertInDataNode(const char* relName, int nValues, const Value values[], int node);
+    RC DeleteInDataNode(const char* relName, int nConditions, const Condition conditions[], int node);
 
 private:
     RM_Manager* rmManager;
@@ -99,7 +100,12 @@ private:
 
 
 // Helper methods for EX part
-RC GetDataNodeForTuple(RM_Manager* rmManager, const Value key, const char* relName, const char* attrName, int &node);
+RC GetDataNodeForTuple(RM_Manager* rmManager, const Value key, const char* relName,
+                       const char* attrName, int &node);
+RC CheckDataNodeForCondition(RM_Manager* rmManager, const char* relName, const char* attrName,
+                             Condition checkCondition, int node, bool &valid);
+template <typename T>
+bool MatchValues(T start, T end, CompOp op, T value);
 
 // Print-error function
 void EX_PrintError(RC rc);

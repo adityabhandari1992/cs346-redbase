@@ -614,6 +614,10 @@ RC QL_Manager::Delete(const char *relName,
         return rc;
     }
     int attrCount = rcRecord->attrCount;
+    int distributedRelation = rcRecord->distributed;
+    char partitionAttrName[MAXNAME+1];
+    strcpy(partitionAttrName, rcRecord->attrName);
+
     DataAttrInfo* attributes = new DataAttrInfo[attrCount];
     if ((rc = smManager->GetAttrInfo(relName, attrCount, (char*) attributes))) {
         return rc;
@@ -636,255 +640,306 @@ RC QL_Manager::Delete(const char *relName,
             cout << "   conditions[" << i << "]:" << conditions[i] << "\n";
     }
 
-    // Find whether index exists on some condition
-    bool indexExists = false;
-    int indexCondition = -1;
-    for (int i=0; i<nConditions; i++) {
-        if (indexExists) break;
-        Condition currentCondition = conditions[i];
-        char* lhs = (currentCondition.lhsAttr).attrName;
-        int rhsIsAttr = currentCondition.bRhsIsAttr;
-        if (!rhsIsAttr) {
-            for (int j=0; j<attrCount; j++) {
-                if (strcmp(attributes[j].attrName, lhs) == 0) {
-                    if (attributes[j].indexNo != -1) {
-                        indexExists = true;
-                        indexCondition = i;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    // Prepare the printer class
-    cout << "Deleted tuples:" << endl;
-    Printer p(attributes, attrCount);
-    p.PrintHeader(cout);
-
-    // Declare a scan operator
-    shared_ptr<QL_Op> scanOp;
-
-    // If index exists
-    if (indexExists) {
-        // Get the index attribute information
-        char* lhsRelName = (conditions[indexCondition].lhsAttr).relName;
-        char* lhsAttrName = (conditions[indexCondition].lhsAttr).attrName;
-        CompOp op = conditions[indexCondition].op;
-        DataAttrInfo* attributeData = new DataAttrInfo;
-        if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhsRelName, lhsAttrName, (char*) attributeData))) {
-            return rc;
-        }
-
-        // Open the RM file
-        RM_FileHandle rmFH;
-        RID rid;
-        RM_Record rec;
-        char* recordData;
-        if ((rc = rmManager->OpenFile(relName, rmFH))) {
-            return rc;
-        }
-
-        // Open the index scan
-        scanOp.reset(new QL_IndexScanOp(smManager, ixManager, rmManager, relName, attributeData->attrName, op, &conditions[indexCondition].rhsValue));
-        if ((rc = scanOp->Open())) {
-            return rc;
-        }
-
-        // Open all the indexes
-        IX_IndexHandle* ixIHs = new IX_IndexHandle[attrCount];
-        for (int i=0; i<attrCount; i++) {
-            if (attributes[i].indexNo != -1) {
-                if ((rc = ixManager->OpenIndex(relName, i, ixIHs[i]))) {
-                    return rc;
-                }
-            }
-        }
-
-        // Find the entries to delete
-        while ((rc = scanOp->GetNext(rid)) != QL_EOF) {
-            // Get the record from the file
-            if ((rc = rmFH.GetRec(rid, rec))) {
-                return rc;
-            }
-            if ((rc = rec.GetData(recordData))) {
-                return rc;
-            }
-
-            // Check the conditions
-            bool match = true;
-            if ((rc = CheckConditionsSingleRelation(recordData, match, (char*) attributes, attrCount, nConditions, conditions))) {
-                return rc;
-            }
-
-            // If all the conditions are satisfied
-            if (match) {
-                // Delete the tuple
-                if ((rc = rmFH.DeleteRec(rid))) {
-                    return rc;
-                }
-
-                // Delete entries from all indexes
-                for (int i=0; i<attrCount; i++) {
-                    if (attributes[i].indexNo != -1) {
-                        if ((rc = ixIHs[i].DeleteEntry(recordData + attributes[i].offset, rid))) {
-                            return rc;
-                        }
-                    }
-                }
-
-                // Print the deleted tuple
-                p.Print(cout, recordData);
-            }
-        }
-
-        // Close all the indexes
-        for (int i=0; i<attrCount; i++) {
-            if (attributes[i].indexNo != -1) {
-                if ((rc = ixManager->CloseIndex(ixIHs[i]))) {
-                    return rc;
-                }
-            }
-        }
-        delete[] ixIHs;
-        delete attributeData;
-
-        // Close the scan and RM file
-        if ((rc = scanOp->Close())) {
-            return rc;
-        }
-        if ((rc = rmManager->CloseFile(rmFH))) {
-            return rc;
-        }
-    }
-
-    // Else if no index
-    else {
-        // Open the RM file
-        RM_FileHandle rmFH;
-        RID rid;
-        RM_Record rec;
-        char* recordData;
-        if ((rc = rmManager->OpenFile(relName, rmFH))) {
-            return rc;
-        }
-
-        // Open a file scan on the first condition of the type R.A = v
-        bool conditionExists = false;
+    // EX - Distributed relation case
+    if (distributedRelation) {
+        // Check whether the partition attribute is used in a condition
+        bool condExists = false;
         int conditionNumber = -1;
         for (int i=0; i<nConditions; i++) {
             Condition currentCondition = conditions[i];
-            if (!currentCondition.bRhsIsAttr) {
-                conditionExists = true;
-                conditionNumber = i;
-                break;
+            char* lhs = (currentCondition.lhsAttr).attrName;
+            int rhsIsAttr = currentCondition.bRhsIsAttr;
+            if (!rhsIsAttr) {
+                if (strcmp(lhs, partitionAttrName) == 0) {
+                    condExists = true;
+                    conditionNumber = i;
+                    break;
+                }
             }
         }
 
-        // If such a condition exists
-        if (conditionExists) {
-            // Open a file scan on that condition
-            char* lhsRelName = (conditions[conditionNumber].lhsAttr).relName;
-            char* lhsAttrName = (conditions[conditionNumber].lhsAttr).attrName;
-            CompOp op = conditions[conditionNumber].op;
+        // If condition on partition attribute exists
+        int numberNodes = smManager->getNumberNodes();
+        EX_CommLayer commLayer(rmManager, ixManager);
+        if (condExists) {
+            // Find the nodes to delete
+            for (int i=1; i<=numberNodes; i++) {
+                bool valid = false;
+                if ((rc = CheckDataNodeForCondition(rmManager, relName, partitionAttrName, conditions[conditionNumber], i, valid))) {
+                    return rc;
+                }
+                if (valid) {
+                    // Pass the query to the node
+                    if ((rc = commLayer.DeleteInDataNode(relName, nConditions, conditions, i))) {
+                        return rc;
+                    }
+                }
+            }
+        }
 
+        // Else if no such condition
+        else {
+            // Pass the query to all data nodes
+            for (int i=1; i<=numberNodes; i++) {
+                if ((rc = commLayer.DeleteInDataNode(relName, nConditions, conditions, i))) {
+                    return rc;
+                }
+            }
+        }
+    }
+
+    // Non-distributed relation case
+    else {
+        // Prepare the printer class
+        cout << "Deleted tuples:" << endl;
+        Printer p(attributes, attrCount);
+        p.PrintHeader(cout);
+
+        // Find whether index exists on some condition
+        bool indexExists = false;
+        int indexCondition = -1;
+        for (int i=0; i<nConditions; i++) {
+            if (indexExists) break;
+            Condition currentCondition = conditions[i];
+            char* lhs = (currentCondition.lhsAttr).attrName;
+            int rhsIsAttr = currentCondition.bRhsIsAttr;
+            if (!rhsIsAttr) {
+                for (int j=0; j<attrCount; j++) {
+                    if (strcmp(attributes[j].attrName, lhs) == 0) {
+                        if (attributes[j].indexNo != -1) {
+                            indexExists = true;
+                            indexCondition = i;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Declare a scan operator
+        shared_ptr<QL_Op> scanOp;
+
+        // If index exists
+        if (indexExists) {
+            // Get the index attribute information
+            char* lhsRelName = (conditions[indexCondition].lhsAttr).relName;
+            char* lhsAttrName = (conditions[indexCondition].lhsAttr).attrName;
+            CompOp op = conditions[indexCondition].op;
             DataAttrInfo* attributeData = new DataAttrInfo;
             if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhsRelName, lhsAttrName, (char*) attributeData))) {
                 return rc;
             }
 
-            scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, true, attributeData->attrName, op, &conditions[conditionNumber].rhsValue));
+            // Open the RM file
+            RM_FileHandle rmFH;
+            RID rid;
+            RM_Record rec;
+            char* recordData;
+            if ((rc = rmManager->OpenFile(relName, rmFH))) {
+                return rc;
+            }
+
+            // Open the index scan
+            scanOp.reset(new QL_IndexScanOp(smManager, ixManager, rmManager, relName, attributeData->attrName, op, &conditions[indexCondition].rhsValue));
             if ((rc = scanOp->Open())) {
                 return rc;
             }
 
-            delete attributeData;
-        }
-
-        // Else if no such condition
-        else {
-            // Open a full file scan
-            scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, false, NULL, NO_OP, NULL));
-            if ((rc = scanOp->Open())) {
-                return rc;
-            }
-        }
-
-        // Open all the indexes
-        IX_IndexHandle* ixIHs = new IX_IndexHandle[attrCount];
-        for (int i=0; i<attrCount; i++) {
-            if (attributes[i].indexNo != -1) {
-                if ((rc = ixManager->OpenIndex(relName, i, ixIHs[i]))) {
-                    return rc;
-                }
-            }
-        }
-
-        // Get the next record to delete
-        while ((rc = scanOp->GetNext(rid)) != QL_EOF) {
-            if ((rc = rmFH.GetRec(rid, rec))) {
-                return rc;
-            }
-            if ((rc = rec.GetData(recordData))) {
-                return rc;
-            }
-
-            // Check the conditions
-            bool match = true;
-            if ((rc = CheckConditionsSingleRelation(recordData, match, (char*) attributes, attrCount, nConditions, conditions))) {
-                return rc;
-            }
-
-            // If all conditions are satisfied
-            if (match) {
-                // Delete the tuple
-                if ((rc = rmFH.DeleteRec(rid))) {
-                    return rc;
-                }
-
-                // Delete entries from all indexes
-                for (int i=0; i<attrCount; i++) {
-                    if (attributes[i].indexNo != -1) {
-                        if ((rc = ixIHs[i].DeleteEntry(recordData + attributes[i].offset, rid))) {
-                            return rc;
-                        }
+            // Open all the indexes
+            IX_IndexHandle* ixIHs = new IX_IndexHandle[attrCount];
+            for (int i=0; i<attrCount; i++) {
+                if (attributes[i].indexNo != -1) {
+                    if ((rc = ixManager->OpenIndex(relName, i, ixIHs[i]))) {
+                        return rc;
                     }
                 }
+            }
 
-                // Print the deleted tuple
-                p.Print(cout, recordData);
+            // Find the entries to delete
+            while ((rc = scanOp->GetNext(rid)) != QL_EOF) {
+                // Get the record from the file
+                if ((rc = rmFH.GetRec(rid, rec))) {
+                    return rc;
+                }
+                if ((rc = rec.GetData(recordData))) {
+                    return rc;
+                }
+
+                // Check the conditions
+                bool match = true;
+                if ((rc = CheckConditionsSingleRelation(recordData, match, (char*) attributes, attrCount, nConditions, conditions))) {
+                    return rc;
+                }
+
+                // If all the conditions are satisfied
+                if (match) {
+                    // Delete the tuple
+                    if ((rc = rmFH.DeleteRec(rid))) {
+                        return rc;
+                    }
+
+                    // Delete entries from all indexes
+                    for (int i=0; i<attrCount; i++) {
+                        if (attributes[i].indexNo != -1) {
+                            if ((rc = ixIHs[i].DeleteEntry(recordData + attributes[i].offset, rid))) {
+                                return rc;
+                            }
+                        }
+                    }
+
+                    // Print the deleted tuple
+                    p.Print(cout, recordData);
+                }
+            }
+
+            // Close all the indexes
+            for (int i=0; i<attrCount; i++) {
+                if (attributes[i].indexNo != -1) {
+                    if ((rc = ixManager->CloseIndex(ixIHs[i]))) {
+                        return rc;
+                    }
+                }
+            }
+            delete[] ixIHs;
+            delete attributeData;
+
+            // Close the scan and RM file
+            if ((rc = scanOp->Close())) {
+                return rc;
+            }
+            if ((rc = rmManager->CloseFile(rmFH))) {
+                return rc;
             }
         }
 
-        // Close all the indexes
-        for (int i=0; i<attrCount; i++) {
-            if (attributes[i].indexNo != -1) {
-                if ((rc = ixManager->CloseIndex(ixIHs[i]))) {
+        // Else if no index
+        else {
+            // Open the RM file
+            RM_FileHandle rmFH;
+            RID rid;
+            RM_Record rec;
+            char* recordData;
+            if ((rc = rmManager->OpenFile(relName, rmFH))) {
+                return rc;
+            }
+
+            // Open a file scan on the first condition of the type R.A = v
+            bool conditionExists = false;
+            int conditionNumber = -1;
+            for (int i=0; i<nConditions; i++) {
+                Condition currentCondition = conditions[i];
+                if (!currentCondition.bRhsIsAttr) {
+                    conditionExists = true;
+                    conditionNumber = i;
+                    break;
+                }
+            }
+
+            // If such a condition exists
+            if (conditionExists) {
+                // Open a file scan on that condition
+                char* lhsRelName = (conditions[conditionNumber].lhsAttr).relName;
+                char* lhsAttrName = (conditions[conditionNumber].lhsAttr).attrName;
+                CompOp op = conditions[conditionNumber].op;
+
+                DataAttrInfo* attributeData = new DataAttrInfo;
+                if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, lhsRelName, lhsAttrName, (char*) attributeData))) {
+                    return rc;
+                }
+
+                scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, true, attributeData->attrName, op, &conditions[conditionNumber].rhsValue));
+                if ((rc = scanOp->Open())) {
+                    return rc;
+                }
+
+                delete attributeData;
+            }
+
+            // Else if no such condition
+            else {
+                // Open a full file scan
+                scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, false, NULL, NO_OP, NULL));
+                if ((rc = scanOp->Open())) {
                     return rc;
                 }
             }
-        }
-        delete[] ixIHs;
 
-        // Close the file scan and RM file
-        if ((rc = scanOp->Close())) {
-            return rc;
-        }
-        if ((rc = rmManager->CloseFile(rmFH))) {
-            return rc;
-        }
-    }
+            // Open all the indexes
+            IX_IndexHandle* ixIHs = new IX_IndexHandle[attrCount];
+            for (int i=0; i<attrCount; i++) {
+                if (attributes[i].indexNo != -1) {
+                    if ((rc = ixManager->OpenIndex(relName, i, ixIHs[i]))) {
+                        return rc;
+                    }
+                }
+            }
 
-    // Print the footer
-    p.PrintFooter(cout);
+            // Get the next record to delete
+            while ((rc = scanOp->GetNext(rid)) != QL_EOF) {
+                if ((rc = rmFH.GetRec(rid, rec))) {
+                    return rc;
+                }
+                if ((rc = rec.GetData(recordData))) {
+                    return rc;
+                }
 
-    // Print the query plan
-    if (bQueryPlans) {
-        cout << "\nPhysical Query Plan :" << endl;
-        cout << "DeleteOp (" << relName << ")" << endl;
-        cout << "[" << endl;
-        scanOp->Print(1);
-        cout << "]" << endl;
+                // Check the conditions
+                bool match = true;
+                if ((rc = CheckConditionsSingleRelation(recordData, match, (char*) attributes, attrCount, nConditions, conditions))) {
+                    return rc;
+                }
+
+                // If all conditions are satisfied
+                if (match) {
+                    // Delete the tuple
+                    if ((rc = rmFH.DeleteRec(rid))) {
+                        return rc;
+                    }
+
+                    // Delete entries from all indexes
+                    for (int i=0; i<attrCount; i++) {
+                        if (attributes[i].indexNo != -1) {
+                            if ((rc = ixIHs[i].DeleteEntry(recordData + attributes[i].offset, rid))) {
+                                return rc;
+                            }
+                        }
+                    }
+
+                    // Print the deleted tuple
+                    p.Print(cout, recordData);
+                }
+            }
+
+            // Close all the indexes
+            for (int i=0; i<attrCount; i++) {
+                if (attributes[i].indexNo != -1) {
+                    if ((rc = ixManager->CloseIndex(ixIHs[i]))) {
+                        return rc;
+                    }
+                }
+            }
+            delete[] ixIHs;
+
+            // Close the file scan and RM file
+            if ((rc = scanOp->Close())) {
+                return rc;
+            }
+            if ((rc = rmManager->CloseFile(rmFH))) {
+                return rc;
+            }
+        }
+
+        // Print the footer
+        p.PrintFooter(cout);
+
+        // Print the query plan
+        if (bQueryPlans) {
+            cout << "\nPhysical Query Plan :" << endl;
+            cout << "DeleteOp (" << relName << ")" << endl;
+            cout << "[" << endl;
+            scanOp->Print(1);
+            cout << "]" << endl;
+        }
     }
 
     // Clean up

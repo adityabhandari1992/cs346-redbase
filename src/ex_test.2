@@ -1,0 +1,13 @@
+create table T (id i, name c20) distribute id (2, 4);
+
+create index T (id);
+
+load T ("../data/t.data");
+
+set partitionedPrint = "TRUE";
+
+print T;
+
+Delete From T Where id >= 2 And name > "H";
+
+print T;
