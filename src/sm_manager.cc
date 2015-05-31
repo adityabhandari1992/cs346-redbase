@@ -923,7 +923,6 @@ RC SM_Manager::DropIndex(const char *relName, const char *attrName) {
 }
 
 
-// TODO
 // Method: Load(const char *relName, const char *fileName)
 // Load relName from fileName
 /* Steps:
@@ -973,6 +972,10 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
     int tupleLength = rcRecord->tupleLength;
     int attrCount = rcRecord->attrCount;
     int indexCount = rcRecord->indexCount;
+    int distributedRelation = rcRecord->distributed;
+    char partitionAttrName[MAXNAME+1];
+    strcpy(partitionAttrName, rcRecord->attrName);
+
     DataAttrInfo* attributes = new DataAttrInfo[attrCount];
     if ((rc = GetAttrInfo(relName, attrCount, (char*) attributes))) {
         return rc;
@@ -980,41 +983,112 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
     char* tupleData = new char[tupleLength];
     memset(tupleData, 0, tupleLength);
 
-    // Open the RM file
-    RM_FileHandle rmFH;
-    RID rid;
-    if ((rc = rmManager->OpenFile(relName, rmFH))) {
-        return rc;
-    }
-
-    // Open the indexes
-    IX_IndexHandle* ixIH = new IX_IndexHandle[attrCount];
-    if (indexCount > 0) {
-        int currentIndex = 0;
-        for (int i=0; i<attrCount; i++) {
-            int indexNo = attributes[i].indexNo;
-            if (indexNo != -1) {
-                if (currentIndex == indexCount) {
-                    return SM_INCORRECT_INDEX_COUNT;
-                }
-                if ((rc = ixManager->OpenIndex(relName, indexNo, ixIH[currentIndex]))) {
-                    return rc;
-                }
-                currentIndex++;
-            }
-        }
-    }
-
     // Open the data file
     ifstream dataFile(fileName);
     if (!dataFile.is_open()) {
         delete rcRecord;
         delete[] attributes;
         delete[] tupleData;
-        delete[] ixIH;
         return SM_INVALID_DATA_FILE;
     }
+
+    // EX - Distributed relation case
+    if (distributedRelation) {
+        // Create vectors for each data node
+        vector<string> nodeTuples[numberNodes+1];
+
+        // Get the index of the partition attribute
+        bool found = false;
+        int partitionAttrIndex = -1;
+        AttrType partitionAttrType;
+        for (int i=0; i<attrCount; i++) {
+            if (strcmp(attributes[i].attrName, partitionAttrName) == 0) {
+                found = true;
+                partitionAttrIndex = i;
+                partitionAttrType = attributes[i].attrType;
+                break;
+            }
+        }
+        if (!found) {
+            return EX_INCONSISTENT_PV;
+        }
+
+        // Read each line of the file
+        string line;
+        int dataNode = 0;
+        while (getline(dataFile, line)) {
+            // Parse the line for the key
+            stringstream ss(line);
+            vector<string> dataValues;
+            string dataValue = "";
+            while (getline(ss, dataValue, ',')) {
+                dataValues.push_back(dataValue);
+            }
+
+            // Form the key
+            Value key;
+            key.type = partitionAttrType;
+            if (partitionAttrType == INT) {
+                int value = atoi(dataValues[partitionAttrIndex].c_str());
+                key.data = new int;
+                memcpy(key.data, &value, sizeof(int));
+            }
+            else if (partitionAttrType == FLOAT) {
+                float value = atof(dataValues[partitionAttrIndex].c_str());
+                key.data = &value;
+            }
+            else {
+                char value[attributes[partitionAttrIndex].attrLength];
+                strcpy(value, dataValues[partitionAttrIndex].c_str());
+                key.data = value;
+            }
+
+            // Copy the line to the appropriate vector
+            if ((rc = GetDataNodeForTuple(rmManager, key, relName, partitionAttrName, dataNode))) {
+                return rc;
+            }
+            if (dataNode <= 0 || dataNode > numberNodes) {
+                return EX_INCONSISTENT_PV;
+            }
+            nodeTuples[dataNode].push_back(line);
+        }
+
+        // Load the tuples in the data nodes
+        EX_CommLayer commLayer(rmManager, ixManager);
+        for (int i=1; i<=numberNodes; i++) {
+            if ((rc = commLayer.LoadInDataNode(relName, nodeTuples[i], i))) {
+                return rc;
+            }
+        }
+    }
+
+    // Non-distributed relation case
     else {
+        // Open the RM file
+        RM_FileHandle rmFH;
+        RID rid;
+        if ((rc = rmManager->OpenFile(relName, rmFH))) {
+            return rc;
+        }
+
+        // Open the indexes
+        IX_IndexHandle* ixIH = new IX_IndexHandle[attrCount];
+        if (indexCount > 0) {
+            int currentIndex = 0;
+            for (int i=0; i<attrCount; i++) {
+                int indexNo = attributes[i].indexNo;
+                if (indexNo != -1) {
+                    if (currentIndex == indexCount) {
+                        return SM_INCORRECT_INDEX_COUNT;
+                    }
+                    if ((rc = ixManager->OpenIndex(relName, indexNo, ixIH[currentIndex]))) {
+                        return rc;
+                    }
+                    currentIndex++;
+                }
+            }
+        }
+
         // Read each line of the file
         string line;
         while (getline(dataFile, line)) {
@@ -1073,28 +1147,30 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
                 }
             }
         }
-        dataFile.close();
-    }
 
-    // Close the RM file
-    if ((rc = rmManager->CloseFile(rmFH))) {
-        return rc;
-    }
+        // Close the RM file
+        if ((rc = rmManager->CloseFile(rmFH))) {
+            return rc;
+        }
 
-    // Close the indexes
-    if (indexCount > 0) {
-        for (int i=0; i<indexCount; i++) {
-            if ((rc = ixManager->CloseIndex(ixIH[i]))) {
-                return rc;
+        // Close the indexes
+        if (indexCount > 0) {
+            for (int i=0; i<indexCount; i++) {
+                if ((rc = ixManager->CloseIndex(ixIH[i]))) {
+                    return rc;
+                }
             }
         }
+        delete[] ixIH;
     }
+
+    // Close the data file
+    dataFile.close();
 
     // Clean up
     delete rcRecord;
     delete[] attributes;
     delete[] tupleData;
-    delete[] ixIH;
 
     // Return OK
     return OK_RC;

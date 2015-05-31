@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <string>
+#include <sstream>
 #include "redbase.h"
 #include "rm.h"
 #include "ix.h"
@@ -32,11 +33,13 @@ EX_CommLayer::EX_CommLayer(RM_Manager* rmm, IX_Manager* ixm) {
     qlManager = new QL_Manager(*smManager, *ixManager, *rmManager);
 }
 
+// Destructor
 EX_CommLayer::~EX_CommLayer() {
     // Delete SM and QL managers
     delete smManager;
     delete qlManager;
 }
+
 
 // Method: CreateTableInDataNode(const char* relName, int attrCount, AttrInfo* attributes, int node)
 // Create a table in the data node
@@ -62,6 +65,7 @@ RC EX_CommLayer::CreateTableInDataNode(const char* relName, int attrCount, AttrI
     return OK_RC;
 }
 
+
 // Method: DropTableInDataNode(const char* relName, int node)
 // Drop a table from the data node
 RC EX_CommLayer::DropTableInDataNode(const char* relName, int node) {
@@ -86,6 +90,7 @@ RC EX_CommLayer::DropTableInDataNode(const char* relName, int node) {
     return OK_RC;
 }
 
+
 // Method: PrintInDataNode(const char* relName, int node)
 // Print the tuples for a relation in the data node
 RC EX_CommLayer::PrintInDataNode(Printer &p, const char* relName, int node) {
@@ -95,8 +100,8 @@ RC EX_CommLayer::PrintInDataNode(Printer &p, const char* relName, int node) {
     string dataNode = "data." + to_string(node);
 
     // Open the data node
-    if (chdir(dataNode.c_str()) < 0) {
-        return EX_INVALID_DATA_NODE;
+    if ((rc = smManager->OpenDb(dataNode.c_str()))) {
+        return rc;
     }
 
     // Open the relation RM file
@@ -134,12 +139,13 @@ RC EX_CommLayer::PrintInDataNode(Printer &p, const char* relName, int node) {
     }
 
     // Close the data node
-    if (chdir("../") < 0) {
-        return EX_INVALID_DATA_NODE;
+    if ((rc = smManager->CloseDb())) {
+        return rc;
     }
 
     return OK_RC;
 }
+
 
 // Method: CreateIndexInDataNode(const char* relName, const char* attrName, int node)
 // Create an index in the data node
@@ -165,6 +171,7 @@ RC EX_CommLayer::CreateIndexInDataNode(const char* relName, const char* attrName
     return OK_RC;
 }
 
+
 // Method: DropIndexInDataNode(const char* relName, const char* attrName, int node)
 // Create an index in the data node
 RC EX_CommLayer::DropIndexInDataNode(const char* relName, const char* attrName, int node) {
@@ -189,6 +196,7 @@ RC EX_CommLayer::DropIndexInDataNode(const char* relName, const char* attrName, 
     return OK_RC;
 }
 
+
 // Method: InsertInDataNode(const char* relName, int nValues, const Value values[], int node)
 // Insert a tuple in the data node
 RC EX_CommLayer::InsertInDataNode(const char* relName, int nValues, const Value values[], int node) {
@@ -204,6 +212,146 @@ RC EX_CommLayer::InsertInDataNode(const char* relName, int nValues, const Value 
     if ((rc = qlManager->Insert(relName, nValues, values))) {
         return rc;
     }
+
+    // Close the data node
+    if ((rc = smManager->CloseDb())) {
+        return rc;
+    }
+
+    return OK_RC;
+}
+
+
+// Method: LoadInDataNode(const char* relName, vector<string> nodeTuples, int node)
+// Load the tuples in the vector to the relation in the data node
+RC EX_CommLayer::LoadInDataNode(const char* relName, vector<string> nodeTuples, int node) {
+    int rc;
+    string dataNode = "data." + to_string(node);
+
+    // Open the data node
+    if ((rc = smManager->OpenDb(dataNode.c_str()))) {
+        return rc;
+    }
+
+    // Get the relation and attributes information
+    SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
+    memset(rcRecord, 0, sizeof(SM_RelcatRecord));
+    if ((rc = smManager->GetRelInfo(relName, rcRecord))) {
+        delete rcRecord;
+        return rc;
+    }
+    int tupleLength = rcRecord->tupleLength;
+    int attrCount = rcRecord->attrCount;
+    int indexCount = rcRecord->indexCount;
+
+    DataAttrInfo* attributes = new DataAttrInfo[attrCount];
+    if ((rc = smManager->GetAttrInfo(relName, attrCount, (char*) attributes))) {
+        return rc;
+    }
+    char* tupleData = new char[tupleLength];
+    memset(tupleData, 0, tupleLength);
+
+    // Open the RM file
+    RM_FileHandle rmFH;
+    RID rid;
+    if ((rc = rmManager->OpenFile(relName, rmFH))) {
+        return rc;
+    }
+
+    // Open the indexes
+    IX_IndexHandle* ixIH = new IX_IndexHandle[attrCount];
+    if (indexCount > 0) {
+        int currentIndex = 0;
+        for (int i=0; i<attrCount; i++) {
+            int indexNo = attributes[i].indexNo;
+            if (indexNo != -1) {
+                if (currentIndex == indexCount) {
+                    return SM_INCORRECT_INDEX_COUNT;
+                }
+                if ((rc = ixManager->OpenIndex(relName, indexNo, ixIH[currentIndex]))) {
+                    return rc;
+                }
+                currentIndex++;
+            }
+        }
+    }
+
+    // Read each tuple from the vector
+    int numberTuples = nodeTuples.size();
+    for (int k=0; k<numberTuples; k++) {
+        // Parse the tuple
+        stringstream ss(nodeTuples[k]);
+        vector<string> dataValues;
+        string dataValue = "";
+        while (getline(ss, dataValue, ',')) {
+            dataValues.push_back(dataValue);
+        }
+
+        // Insert the tuple in the relation
+        for (int i=0; i<attrCount; i++) {
+            if (attributes[i].attrType == INT) {
+                int value = atoi(dataValues[i].c_str());
+                memcpy(tupleData+attributes[i].offset, &value, attributes[i].attrLength);
+            }
+            else if (attributes[i].attrType == FLOAT) {
+                float value = atof(dataValues[i].c_str());
+                memcpy(tupleData+attributes[i].offset, &value, attributes[i].attrLength);
+            }
+            else {
+                char value[attributes[i].attrLength];
+                memset(value, 0, attributes[i].attrLength);
+                strcpy(value, dataValues[i].c_str());
+                memcpy(tupleData+attributes[i].offset, value, attributes[i].attrLength);
+            }
+        }
+        if ((rc = rmFH.InsertRec(tupleData, rid))) {
+            return rc;
+        }
+
+        // Insert the entries in the indexes
+        int currentIndex = 0;
+        for (int i=0; i<attrCount; i++) {
+            if (attributes[i].indexNo != -1) {
+                if (attributes[i].attrType == INT) {
+                    int value = atoi(dataValues[i].c_str());
+                    if ((rc = ixIH[currentIndex].InsertEntry(&value, rid))) {
+                        return rc;
+                    }
+                }
+                else if (attributes[i].attrType == FLOAT) {
+                    float value = atof(dataValues[i].c_str());
+                    if ((rc = ixIH[currentIndex].InsertEntry(&value, rid))) {
+                        return rc;
+                    }
+                }
+                else {
+                    char* value = (char*) dataValues[i].c_str();
+                    if ((rc = ixIH[currentIndex].InsertEntry(value, rid))) {
+                        return rc;
+                    }
+                }
+                currentIndex++;
+            }
+        }
+    }
+
+    // Close the RM file
+    if ((rc = rmManager->CloseFile(rmFH))) {
+        return rc;
+    }
+
+    // Close the indexes
+    if (indexCount > 0) {
+        for (int i=0; i<indexCount; i++) {
+            if ((rc = ixManager->CloseIndex(ixIH[i]))) {
+                return rc;
+            }
+        }
+    }
+
+    delete rcRecord;
+    delete[] attributes;
+    delete[] ixIH;
 
     // Close the data node
     if ((rc = smManager->CloseDb())) {

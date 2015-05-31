@@ -9,11 +9,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include "redbase.h"
+#include <vector>
 #include "parser.h"
 #include "printer.h"
 #include "rm.h"
 #include "ix.h"
 #include "sm.h"
+using namespace std;
 
 // Data structures
 
@@ -86,6 +88,7 @@ public:
     RC CreateIndexInDataNode(const char* relName, const char* attrName, int node);
     RC DropIndexInDataNode(const char* relName, const char* attrName, int node);
     RC InsertInDataNode(const char* relName, int nValues, const Value values[], int node);
+    RC LoadInDataNode(const char* relName, vector<string> nodeTuples, int node);
 
 private:
     RM_Manager* rmManager;
