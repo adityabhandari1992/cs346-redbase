@@ -959,7 +959,6 @@ RC IX_IndexHandle::InsertEntryRecursive(void *pData, const RID &rid, PageNum nod
 
     // If the node is a LEAF
     if (type == LEAF) {
-        // TODO: HERE!
         if (attrType ==  INT) {
             // Check if pData is already a key
             int* keyArray = (int*) keyData;

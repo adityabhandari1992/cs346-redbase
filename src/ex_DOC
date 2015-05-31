@@ -1,0 +1,48 @@
+CS 346 : RedBase Part 5 (EX)
+Distributed RedBase
+
+--------------------------------------------
+
+** AUTHOR **
+Aditya Bhandari (adityasb@stanford.edu)
+
+Assistance taken:
+1) Jaeho Shin (TA) :
+    - Help with implementing the distributed nature - master and data nodes
+    - Help for the communication layer
+
+2) Data files in the shared folder on corn used for testing
+
+--------------------------------------------
+--------------------------------------------
+
+** DESIGN **
+
+
+--------------------------------------------
+--------------------------------------------
+
+** IMPLEMENTATION DETAILS **
+
+
+--------------------------------------------
+--------------------------------------------
+
+** MILESTONES **
+
+1) Basic:
+    - Implemented extended 'dbcreate' command
+    - Implemented 'create/drop table/index' commands
+    - Implemented 'insert' and 'load' commands to populate the relations
+    - Implemented a communication layer for the interaction between the master node and the
+      data nodes
+    - Implement the 'print' command which prints entire relation (system parameter
+      'partitionedPrint' for printing by partitions)
+
+--------------------------------------------
+--------------------------------------------
+
+** TESTING **
+
+
+--------------------------------------------xx EOF xx----------------------------------------
