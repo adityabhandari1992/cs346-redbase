@@ -1,9 +1,0 @@
-#!/bin/bash
-
-if [ -e ex_test.$1 ] ; then
-    ./dbcreate distributedDB -distributed 3
-    ./redbase distributedDB < ex_test.$1 > ex_test_out
-    ./dbdestroy distributedDB
-else
-    echo I can not find a test number $1
-fi

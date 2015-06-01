@@ -1,0 +1,38 @@
+create table major(majorid c5, name c50, deptid c5);
+create table class(classid i, name c21, deptid c5);
+create table dept(deptid c5, name c50);
+create table enroll(studentid i, classid i, quarter c7, year i, grade c3);
+create table student(studentid i, name c21, majorid c6, gpa f);
+
+create index major(majorid);
+create index student(studentid);
+create index class(classid);
+create index dept(deptid);
+
+load major("../data/EX/major.data");
+load student("../data/EX/student.data");
+load enroll("../data/EX/enroll.data");
+load class("../data/EX/class.data");
+load dept("../data/EX/dept.data");
+
+print dept;
+print major;
+print class;
+print student;
+print enroll;
+
+Delete From class Where classid = 7;
+Delete From enroll Where classid = 7;
+
+print class;
+print enroll;
+
+Update student Set gpa = 4.0 Where gpa > 3.9;
+Update student Set gpa = 3.9 Where gpa = 4.0 And majorid = "MSEE";
+
+print student;
+
+Delete From major Where majorid = "MSAI";
+Update student Set majorid = "MSCS" Where majorid = "MSAI";
+
+print student;

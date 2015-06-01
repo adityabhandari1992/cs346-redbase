@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Set the database names
+DB_NAME="distributedDB"
+
+# Set the test type
+TYPE="distributed"
+
+# Set the output file
+OUTPUT_FILE="ex_test_distributed_out"
+
+# Form the test name
+TEST_NAME=ex_test.$TYPE.$1
+
+if [ -e $TEST_NAME ] ; then
+    ./dbcreate $DB_NAME -distributed 4
+    ./redbase $DB_NAME < $TEST_NAME > $OUTPUT_FILE
+    ./dbdestroy $DB_NAME
+else
+    echo I can not find a test number $1
+fi
