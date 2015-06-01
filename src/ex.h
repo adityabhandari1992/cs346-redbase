@@ -63,6 +63,11 @@ struct EX_StringPartitionVectorRecord {
     int node;
     char startValue[MAXSTRINGLEN+1];
     char endValue[MAXSTRINGLEN+1];
+
+    EX_StringPartitionVectorRecord() {
+        memset(startValue, 0, MAXSTRINGLEN+1);
+        memset(endValue, 0, MAXSTRINGLEN+1);
+    }
 };
 
 // Constants

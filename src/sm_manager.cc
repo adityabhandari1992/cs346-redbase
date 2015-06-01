@@ -321,17 +321,22 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
             EX_IntPartitionVectorRecord* pV = new EX_IntPartitionVectorRecord;
             int previous = 0;
             for (int i=1; i<=numberNodes; i++) {
-                // Get the value
-                int current = *static_cast<int*>(values[i-1].data);
-
+                // Set the values
                 pV->node = i;
                 pV->startValue = previous;
-                if (i != numberNodes) pV->endValue = current;
-                else pV->endValue = MAX_INT;
+                if (i != numberNodes) {
+                    int current = *static_cast<int*>(values[i-1].data);
+                    pV->endValue = current;
+                    previous = current;
+                }
+                else {
+                    pV->endValue = MAX_INT;
+                }
+
+                // Insert the record
                 if ((rc = partitionVectorFH.InsertRec((char*) pV, rid))) {
                     return rc;
                 }
-                previous = current;
             }
 
             // Close the file
@@ -354,17 +359,22 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
             EX_FloatPartitionVectorRecord* pV = new EX_FloatPartitionVectorRecord;
             float previous = 0.0;
             for (int i=1; i<=numberNodes; i++) {
-                // Get the value
-                float current = *static_cast<float*>(values[i-1].data);
-
+                // Set the values
                 pV->node = i;
                 pV->startValue = previous;
-                if (i != numberNodes) pV->endValue = current;
-                else pV->endValue = MAX_FLOAT;
+                if (i != numberNodes) {
+                    float current = *static_cast<float*>(values[i-1].data);
+                    pV->endValue = current;
+                    previous = current;
+                }
+                else {
+                    pV->endValue = MAX_FLOAT;
+                }
+
+                // Insert the record
                 if ((rc = partitionVectorFH.InsertRec((char*) pV, rid))) {
                     return rc;
                 }
-                previous = current;
             }
 
             // Close the file
@@ -387,17 +397,22 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
             EX_StringPartitionVectorRecord* pV = new EX_StringPartitionVectorRecord;
             char previous[MAXSTRINGLEN+1] = "";
             for (int i=1; i<=numberNodes; i++) {
-                // Get the value
-                char* current = static_cast<char*>(values[i-1].data);
-
+                // Set the values
                 pV->node = i;
                 strcpy(pV->startValue, previous);
-                if (i != numberNodes) strcpy(pV->endValue, current);
-                else strcpy(pV->endValue, MAX_STRING);
+                if (i != numberNodes) {
+                    char* current = static_cast<char*>(values[i-1].data);
+                    strcpy(pV->endValue, current);
+                    strcpy(previous, current);
+                }
+                else {
+                    strcpy(pV->endValue, MAX_STRING);
+                }
+
+                // Insert the record
                 if ((rc = partitionVectorFH.InsertRec((char*) pV, rid))) {
                     return rc;
                 }
-                strcpy(previous, current);
             }
 
             // Close the file
@@ -1030,27 +1045,51 @@ RC SM_Manager::Load(const char *relName, const char *fileName) {
             key.type = partitionAttrType;
             if (partitionAttrType == INT) {
                 int value = atoi(dataValues[partitionAttrIndex].c_str());
-                key.data = new int;
-                memcpy(key.data, &value, sizeof(int));
+                int* keyValue = new int;
+                memcpy(keyValue, &value, sizeof(int));
+                key.data = keyValue;
+
+                // Copy the line to the appropriate vector
+                if ((rc = GetDataNodeForTuple(rmManager, key, relName, partitionAttrName, dataNode))) {
+                    return rc;
+                }
+                if (dataNode <= 0 || dataNode > numberNodes) {
+                    return EX_INCONSISTENT_PV;
+                }
+                nodeTuples[dataNode].push_back(line);
+                delete keyValue;
             }
             else if (partitionAttrType == FLOAT) {
                 float value = atof(dataValues[partitionAttrIndex].c_str());
-                key.data = &value;
+                float* keyValue = new float;
+                memcpy(keyValue, &value, sizeof(float));
+                key.data = keyValue;
+
+                // Copy the line to the appropriate vector
+                if ((rc = GetDataNodeForTuple(rmManager, key, relName, partitionAttrName, dataNode))) {
+                    return rc;
+                }
+                if (dataNode <= 0 || dataNode > numberNodes) {
+                    return EX_INCONSISTENT_PV;
+                }
+                nodeTuples[dataNode].push_back(line);
+                delete keyValue;
             }
             else {
-                char value[attributes[partitionAttrIndex].attrLength];
-                strcpy(value, dataValues[partitionAttrIndex].c_str());
-                key.data = value;
-            }
+                char* keyValue = new char[attributes[partitionAttrIndex].attrLength];
+                strcpy(keyValue, dataValues[partitionAttrIndex].c_str());
+                key.data = keyValue;
 
-            // Copy the line to the appropriate vector
-            if ((rc = GetDataNodeForTuple(rmManager, key, relName, partitionAttrName, dataNode))) {
-                return rc;
+                // Copy the line to the appropriate vector
+                if ((rc = GetDataNodeForTuple(rmManager, key, relName, partitionAttrName, dataNode))) {
+                    return rc;
+                }
+                if (dataNode <= 0 || dataNode > numberNodes) {
+                    return EX_INCONSISTENT_PV;
+                }
+                nodeTuples[dataNode].push_back(line);
+                delete[] keyValue;
             }
-            if (dataNode <= 0 || dataNode > numberNodes) {
-                return EX_INCONSISTENT_PV;
-            }
-            nodeTuples[dataNode].push_back(line);
         }
 
         // Load the tuples in the data nodes

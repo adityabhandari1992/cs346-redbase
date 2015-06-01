@@ -327,6 +327,7 @@ RC EX_CommLayer::LoadInDataNode(const char* relName, vector<string> nodeTuples, 
     delete rcRecord;
     delete[] attributes;
     delete[] ixIH;
+    delete[] tupleData;
 
     // Close the data node
     if ((rc = smManager->CloseDb())) {
@@ -472,9 +473,12 @@ RC GetDataNodeForTuple(RM_Manager* rmManager, const Value key, const char* relNa
         }
 
         else {
-            char* givenValue = static_cast<char*>(key.data);
+            char* givenValueChar = static_cast<char*>(key.data);
             EX_StringPartitionVectorRecord* pV = (EX_StringPartitionVectorRecord*) recordData;
-            if (strcmp(givenValue, pV->startValue) >= 0 && strcmp(givenValue, pV->endValue) < 0) {
+            string givenValue(givenValueChar);
+            string startValue(pV->startValue);
+            string endValue(pV->endValue);
+            if (givenValue >= startValue && givenValue < endValue) {
                 node = pV->node;
                 break;
             }
