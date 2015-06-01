@@ -364,6 +364,43 @@ RC EX_CommLayer::InsertInDataNode(const char* relName, int nValues, const Value 
 }
 
 
+// Method: InsertInDataNode(const char* relName, const char* recordData, int node)
+// Insert a tuple in the data node
+RC EX_CommLayer::InsertInDataNode(const char* relName, const char* recordData, int node) {
+    int rc;
+    string dataNode = "data." + to_string(node);
+
+    // Open the data node
+    if ((rc = smManager->OpenDb(dataNode.c_str()))) {
+        return rc;
+    }
+
+    // Open the RM File
+    RM_FileHandle rmFH;
+    if ((rc = rmManager->OpenFile(relName, rmFH))) {
+        return rc;
+    }
+
+    // Insert the record
+    RID rid;
+    if ((rc = rmFH.InsertRec(recordData, rid))) {
+        return rc;
+    }
+
+    // Close the file
+    if ((rc = rmManager->CloseFile(rmFH))) {
+        return rc;
+    }
+
+    // Close the data node
+    if ((rc = smManager->CloseDb())) {
+        return rc;
+    }
+
+    return OK_RC;
+}
+
+
 // Method: DeleteInDataNode(const char* relName, int nConditions, const Condition conditions[])
 // Pass a delete query to the data node
 RC EX_CommLayer::DeleteInDataNode(const char* relName, int nConditions, const Condition conditions[], int node) {
@@ -394,7 +431,7 @@ RC EX_CommLayer::DeleteInDataNode(const char* relName, int nConditions, const Co
 //                          const Value &rhsValue, int nConditions, const Condition conditions[], int node)
 // Pass an update query to the data node
 RC EX_CommLayer::UpdateInDataNode(const char* relName, const RelAttr &updAttr, const int bIsValue, const RelAttr &rhsRelAttr,
-                                  const Value &rhsValue, int nConditions, const Condition conditions[], int node) {
+                                  const Value &rhsValue, int nConditions, const Condition conditions[], int node, bool reshuffle) {
     int rc;
     string dataNode = "data." + to_string(node);
 
@@ -409,9 +446,127 @@ RC EX_CommLayer::UpdateInDataNode(const char* relName, const RelAttr &updAttr, c
         return rc;
     }
 
-    // Close the data node
-    if ((rc = smManager->CloseDb())) {
-        return rc;
+    // If need to reshuffle
+    if (reshuffle) {
+        // Get the relation and attribute information
+        SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
+        memset(rcRecord, 0, sizeof(SM_RelcatRecord));
+        if ((rc = smManager->GetRelInfo(relName, rcRecord))) {
+            delete rcRecord;
+            return rc;
+        }
+        int attrCount = rcRecord->attrCount;
+
+        DataAttrInfo* attributes = new DataAttrInfo[attrCount];
+        if ((rc = smManager->GetAttrInfo(relName, attrCount, (char*) attributes))) {
+            return rc;
+        }
+
+        int attrIndex = 0;
+        for (int i=0; i<attrCount; i++) {
+            if (strcmp(attributes[i].attrName, updAttr.attrName) == 0) {
+                attrIndex = i;
+                break;
+            }
+        }
+
+        // Open file scan on relation
+        RM_FileHandle rmFH;
+        RM_FileScan rmFS;
+        RM_Record rec;
+        char* recordData;
+        if ((rc = rmManager->OpenFile(relName, rmFH))) {
+            return rc;
+        }
+        if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, NO_OP, NULL))) {
+            return rc;
+        }
+
+        // Close the data node
+        if ((rc = smManager->CloseDb())) {
+            return rc;
+        }
+
+        // Check each record
+        while ((rc = rmFS.GetNextRec(rec)) != RM_EOF) {
+            if ((rc = rec.GetData(recordData))) {
+                return rc;
+            }
+
+            // Form the value key
+            int dataNode = 0;
+            Value key;
+            key.type = attributes[attrIndex].attrType;
+            if (attributes[attrIndex].attrType == INT) {
+                int* keyValue = new int;
+                memcpy(keyValue, recordData+attributes[attrIndex].offset, sizeof(int));
+                key.data = keyValue;
+
+                // Get the node for the key
+                if ((rc = GetDataNodeForTuple(rmManager, key, relName, updAttr.attrName, dataNode))) {
+                    return rc;
+                }
+                delete keyValue;
+            }
+            else if (attributes[attrIndex].attrType == FLOAT) {
+                float* keyValue = new float;
+                memcpy(keyValue, recordData+attributes[attrIndex].offset, sizeof(float));
+                key.data = keyValue;
+
+                // Get the node for the key
+                if ((rc = GetDataNodeForTuple(rmManager, key, relName, updAttr.attrName, dataNode))) {
+                    return rc;
+                }
+                delete keyValue;
+            }
+            else {
+                char* keyValue = new char[attributes[attrIndex].attrLength];
+                strcpy(keyValue, recordData+attributes[attrIndex].offset);
+                key.data = keyValue;
+
+                // Get the node for the key
+                if ((rc = GetDataNodeForTuple(rmManager, key, relName, updAttr.attrName, dataNode))) {
+                    return rc;
+                }
+                delete[] keyValue;
+            }
+
+            // Reshuffle the record if needed
+            if (dataNode != node) {
+                // Get the rid and delete
+                RID rid;
+                if ((rc = rec.GetRid(rid))) {
+                    return rc;
+                }
+                if ((rc = rmFH.DeleteRec(rid))) {
+                    return rc;
+                }
+
+                // Insert in the correct data node
+                if ((rc = InsertInDataNode(relName, recordData, dataNode))) {
+                    return rc;
+                }
+            }
+        }
+
+        // Close the scan and file
+        if ((rc = rmFS.CloseScan())) {
+            return rc;
+        }
+        if ((rc = rmManager->CloseFile(rmFH))) {
+            return rc;
+        }
+
+        delete rcRecord;
+        delete[] attributes;
+    }
+
+    // No need to reshuffle
+    else {
+        // Close the data node
+        if ((rc = smManager->CloseDb())) {
+            return rc;
+        }
     }
 
     return OK_RC;

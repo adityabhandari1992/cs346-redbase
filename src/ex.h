@@ -74,9 +74,12 @@ struct EX_StringPartitionVectorRecord {
 #define EX_DBINFO_ATTR_COUNT            2
 #define EX_PARTITION_VECTOR_ATTR_COUNT  3
 
-// Maximum values for keys
+// Boundary values for keys
+#define MIN_INT     0
 #define MAX_INT     99999999
+#define MIN_FLOAT   0
 #define MAX_FLOAT   99999999.0
+#define MIN_STRING  ""
 #define MAX_STRING  "zzzzzzzz"
 
 
@@ -94,9 +97,10 @@ public:
     RC DropIndexInDataNode(const char* relName, const char* attrName, int node);
     RC LoadInDataNode(const char* relName, vector<string> nodeTuples, int node);
     RC InsertInDataNode(const char* relName, int nValues, const Value values[], int node);
+    RC InsertInDataNode(const char* relName, const char* recordData, int node);
     RC DeleteInDataNode(const char* relName, int nConditions, const Condition conditions[], int node);
     RC UpdateInDataNode(const char* relName, const RelAttr &updAttr, const int bIsValue, const RelAttr &rhsRelAttr,
-                        const Value &rhsValue, int nConditions, const Condition conditions[], int node);
+                        const Value &rhsValue, int nConditions, const Condition conditions[], int node, bool reshuffle);
 
 private:
     RM_Manager* rmManager;

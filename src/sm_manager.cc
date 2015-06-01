@@ -319,7 +319,7 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
 
             // Store the partition vector values
             EX_IntPartitionVectorRecord* pV = new EX_IntPartitionVectorRecord;
-            int previous = 0;
+            int previous = MIN_INT;
             for (int i=1; i<=numberNodes; i++) {
                 // Set the values
                 pV->node = i;
@@ -357,7 +357,7 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
 
             // Store the partition vector values
             EX_FloatPartitionVectorRecord* pV = new EX_FloatPartitionVectorRecord;
-            float previous = 0.0;
+            float previous = MIN_FLOAT;
             for (int i=1; i<=numberNodes; i++) {
                 // Set the values
                 pV->node = i;
@@ -395,7 +395,7 @@ RC SM_Manager::CreateTable(const char *relName, int attrCount, AttrInfo *attribu
 
             // Store the partition vector values
             EX_StringPartitionVectorRecord* pV = new EX_StringPartitionVectorRecord;
-            char previous[MAXSTRINGLEN+1] = "";
+            char previous[MAXSTRINGLEN+1] = MIN_STRING;
             for (int i=1; i<=numberNodes; i++) {
                 // Set the values
                 pV->node = i;

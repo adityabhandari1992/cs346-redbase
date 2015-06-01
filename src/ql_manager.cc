@@ -1113,6 +1113,7 @@ RC QL_Manager::Update(const char *relName,
         }
 
         // If condition on partition attribute exists
+        bool reshuffle = (strcmp(partitionAttrName, updAttr.attrName) == 0);
         int numberNodes = smManager->getNumberNodes();
         EX_CommLayer commLayer(rmManager, ixManager);
         if (condExists) {
@@ -1124,7 +1125,7 @@ RC QL_Manager::Update(const char *relName,
                 }
                 if (valid) {
                     // Pass the query to the node
-                    if ((rc = commLayer.UpdateInDataNode(relName, updAttr, bIsValue, rhsRelAttr, rhsValue, nConditions, conditions, i))) {
+                    if ((rc = commLayer.UpdateInDataNode(relName, updAttr, bIsValue, rhsRelAttr, rhsValue, nConditions, conditions, i, reshuffle))) {
                         return rc;
                     }
                 }
@@ -1135,10 +1136,15 @@ RC QL_Manager::Update(const char *relName,
         else {
             // Pass the query to all data nodes
             for (int i=1; i<=numberNodes; i++) {
-                if ((rc = commLayer.UpdateInDataNode(relName, updAttr, bIsValue, rhsRelAttr, rhsValue, nConditions, conditions, i))) {
+                if ((rc = commLayer.UpdateInDataNode(relName, updAttr, bIsValue, rhsRelAttr, rhsValue, nConditions, conditions, i, reshuffle))) {
                     return rc;
                 }
             }
+        }
+
+        // If the partitioned attribute is updated, print message
+        if (reshuffle) {
+            cout << "\n* Reshuffling data *" << endl;
         }
     }
 
