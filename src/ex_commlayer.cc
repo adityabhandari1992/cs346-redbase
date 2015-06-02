@@ -576,14 +576,9 @@ RC EX_CommLayer::UpdateInDataNode(const char* relName, const RelAttr &updAttr, c
 
 // Method: GetDataFromDataNode
 // Get data for a relation from the data node
-RC EX_CommLayer::GetDataFromDataNode(const char* relName, RM_FileHandle &tempRMFH, int node) {
+RC EX_CommLayer::GetDataFromDataNode(const char* relName, RM_FileHandle &tempRMFH, int node, bool isCond, Condition* cond) {
     int rc;
     string dataNode = "data." + to_string(node);
-
-    // Print message
-    if (bQueryPlans) {
-        cout << "\n* Getting data for " << relName << " from data node number " << node << " *" << endl;
-    }
 
     // Open the data node
     if ((rc = smManager->OpenDb(dataNode.c_str()))) {
@@ -592,7 +587,12 @@ RC EX_CommLayer::GetDataFromDataNode(const char* relName, RM_FileHandle &tempRMF
 
     // Create the scan operator
     shared_ptr<QL_Op> scanOp;
-    scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, false, NULL, NO_OP, NULL));
+    if (isCond) {
+        scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, true, (cond->lhsAttr).attrName, cond->op, &(cond->rhsValue)));
+    }
+    else {
+        scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, false, NULL, NO_OP, NULL));
+    }
 
     // Create and open the shuffle operator
     QL_ShuffleDataOp* shuffleOp = new QL_ShuffleDataOp(rmManager, scanOp, node, 0);

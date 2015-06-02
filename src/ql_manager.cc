@@ -182,6 +182,11 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
             char partitionAttrName[MAXNAME+1];
             strcpy(partitionAttrName, rcRecords[i]->attrName);
 
+            // Print message
+            if (bQueryPlans) {
+                cout << "\n* Getting data for " << relations[i] << " *" << endl;
+            }
+
             // Get the data for the distributed relation in a temporary file
             RM_FileHandle tempRMFH;
             if ((rc = rmManager->CreateFile(relations[i], rcRecords[i]->tupleLength))) {
@@ -216,7 +221,7 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
                         return rc;
                     }
                     if (valid) {
-                        if ((rc = commLayer.GetDataFromDataNode(relations[i], tempRMFH, j))) {
+                        if ((rc = commLayer.GetDataFromDataNode(relations[i], tempRMFH, j, true, &changedConditions[conditionNumber]))) {
                             return rc;
                         }
                     }
@@ -229,7 +234,7 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
             // Else get data from all nodes
             else {
                 for (int j=1; j<=numberNodes; j++) {
-                    if ((rc = commLayer.GetDataFromDataNode(relations[i], tempRMFH, j))) {
+                    if ((rc = commLayer.GetDataFromDataNode(relations[i], tempRMFH, j, false, NULL))) {
                         return rc;
                     }
                 }
