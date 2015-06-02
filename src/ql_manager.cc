@@ -221,7 +221,7 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
                         return rc;
                     }
                     if (valid) {
-                        if ((rc = commLayer.GetDataFromDataNode(relations[i], tempRMFH, j, true, &changedConditions[conditionNumber]))) {
+                        if ((rc = commLayer.GetDataFromDataNode(relations[i], tempRMFH, j, true, &changedConditions[conditionNumber], changedConditions, nConditions))) {
                             return rc;
                         }
                     }
@@ -234,7 +234,7 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
             // Else get data from all nodes
             else {
                 for (int j=1; j<=numberNodes; j++) {
-                    if ((rc = commLayer.GetDataFromDataNode(relations[i], tempRMFH, j, false, NULL))) {
+                    if ((rc = commLayer.GetDataFromDataNode(relations[i], tempRMFH, j, false, NULL, changedConditions, nConditions))) {
                         return rc;
                     }
                 }
@@ -1871,9 +1871,10 @@ RC QL_Manager::ValidateConditionsMultipleRelations(SM_RelcatRecord* rcRecords[],
     return OK_RC;
 }
 
+
 // Method: RemoveCondition(Condition conditions[], int nConditions, int index)
 // Remove a condition from the conditions array
-void QL_Manager::RemoveCondition(Condition conditions[], int &nConditions, int index) {
+void RemoveCondition(Condition conditions[], int &nConditions, int index) {
     for (int i=index; i<nConditions-1; i++) {
         conditions[i] = conditions[i+1];
     }

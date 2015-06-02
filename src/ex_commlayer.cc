@@ -574,9 +574,11 @@ RC EX_CommLayer::UpdateInDataNode(const char* relName, const RelAttr &updAttr, c
 }
 
 
-// Method: GetDataFromDataNode
+// Method: GetDataFromDataNode(const char* relName, RM_FileHandle &tempRMFH, int node,
+//                             bool isCond, Condition* filterCond, Condition conditions[], int &nConditions)
 // Get data for a relation from the data node
-RC EX_CommLayer::GetDataFromDataNode(const char* relName, RM_FileHandle &tempRMFH, int node, bool isCond, Condition* cond) {
+RC EX_CommLayer::GetDataFromDataNode(const char* relName, RM_FileHandle &tempRMFH, int node,
+                                     bool isCond, Condition* filterCond, Condition conditions[], int &nConditions) {
     int rc;
     string dataNode = "data." + to_string(node);
 
@@ -585,17 +587,68 @@ RC EX_CommLayer::GetDataFromDataNode(const char* relName, RM_FileHandle &tempRMF
         return rc;
     }
 
-    // Create the scan operator
-    shared_ptr<QL_Op> scanOp;
-    if (isCond) {
-        scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, true, (cond->lhsAttr).attrName, cond->op, &(cond->rhsValue)));
+    // Get the relation and attributes information
+    SM_RelcatRecord* rcRecord = new SM_RelcatRecord;
+    memset(rcRecord, 0, sizeof(SM_RelcatRecord));
+    if ((rc = smManager->GetRelInfo(relName, rcRecord))) {
+        delete rcRecord;
+        return rc;
     }
-    else {
-        scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, false, NULL, NO_OP, NULL));
+    int attrCount = rcRecord->attrCount;
+    DataAttrInfo* attributes = new DataAttrInfo[attrCount];
+    if ((rc = smManager->GetAttrInfo(relName, attrCount, (char*) attributes))) {
+        return rc;
+    }
+
+    // Check if index scan is possible
+    bool indexScan = false;
+    int indexCondition = -1;
+    DataAttrInfo* attributeData = new DataAttrInfo;
+    for (int i=0; i<nConditions; i++) {
+        Condition cond = conditions[i];
+        if (strcmp((cond.lhsAttr).relName, relName) == 0 && !cond.bRhsIsAttr) {
+            if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, relName, (cond.lhsAttr).attrName, (char*) attributeData))) {
+                return rc;
+            }
+            if (attributeData->indexNo != -1) {
+                indexScan = true;
+                indexCondition = i;
+                break;
+            }
+        }
+    }
+    delete rcRecord;
+    delete attributeData;
+    delete[] attributes;
+
+    // Create the scan operator
+    shared_ptr<QL_Op> rootOp;
+    shared_ptr<QL_Op> scanOp;
+    if (indexScan) {
+        Condition cond = conditions[indexCondition];
+        scanOp.reset(new QL_IndexScanOp(smManager, ixManager, rmManager, relName, (cond.lhsAttr).attrName, cond.op, &cond.rhsValue));
+        RemoveCondition(conditions, nConditions, indexCondition);
+        rootOp = scanOp;
+
+        // Create a filter operation in case of additional condition
+        if (isCond) {
+            rootOp.reset(new QL_FilterOp(smManager, scanOp, *filterCond));
+        }
+    }
+
+    // Else do a file scan
+    if (!indexScan) {
+        if (isCond) {
+            scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, true, (filterCond->lhsAttr).attrName, filterCond->op, &(filterCond->rhsValue)));
+        }
+        else {
+            scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, false, NULL, NO_OP, NULL));
+        }
+        rootOp = scanOp;
     }
 
     // Create and open the shuffle operator
-    QL_ShuffleDataOp* shuffleOp = new QL_ShuffleDataOp(rmManager, scanOp, node, 0);
+    QL_ShuffleDataOp* shuffleOp = new QL_ShuffleDataOp(rmManager, rootOp, node, 0);
     if ((rc = shuffleOp->Open())) {
         return rc;
     }

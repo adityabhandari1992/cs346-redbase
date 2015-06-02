@@ -101,7 +101,8 @@ public:
     RC DeleteInDataNode(const char* relName, int nConditions, const Condition conditions[], int node);
     RC UpdateInDataNode(const char* relName, const RelAttr &updAttr, const int bIsValue, const RelAttr &rhsRelAttr,
                         const Value &rhsValue, int nConditions, const Condition conditions[], int node, bool reshuffle);
-    RC GetDataFromDataNode(const char* relName, RM_FileHandle &tempRMFH, int node, bool isCond, Condition* cond);
+    RC GetDataFromDataNode(const char* relName, RM_FileHandle &tempRMFH, int node,
+                           bool isCond, Condition* filterCond, Condition conditions[], int &nConditions);
 
 private:
     RM_Manager* rmManager;
