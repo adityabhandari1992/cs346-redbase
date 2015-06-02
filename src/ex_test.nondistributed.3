@@ -1,0 +1,30 @@
+create table major(majorid c5, name c50, deptid c5);
+create table class(classid i, name c21, deptid c5);
+create table dept(deptid c5, name c50);
+
+create table enroll(studentid i, classid i, quarter c7, year i, grade c3);
+create table student(studentid i, name c21, majorid c6, gpa f);
+
+create index major(majorid);
+create index student(studentid);
+create index class(classid);
+create index dept(deptid);
+
+load major("../data/EX/major.data");
+load student("../data/EX/student.data");
+load enroll("../data/EX/enroll.data");
+load class("../data/EX/class.data");
+load dept("../data/EX/dept.data");
+
+set bQueryPlans = "1";
+
+Select * From dept;
+Select * From major;
+Select * From class;
+
+Select * From student;
+Select * From student Where majorid = "MSAI";
+
+Select student.studentid, dept.name From student, major, dept Where student.majorid = major.majorid And major.deptid = dept.deptid And student.majorid = "MSCS";
+
+Select major.majorid, student.majorid, student.studentid, enroll.studentid, enroll.classid, class.classid, class.deptid, dept.deptid, student.name, class.name from major, student, enroll, class, dept where  major.majorid = student.majorid and student.majorid = "MSCS" and student.studentid = enroll.studentid and student.name < "J" and enroll.classid = class.classid and class.classid < 5 and class.deptid = dept.deptid;
