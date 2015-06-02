@@ -1295,6 +1295,7 @@ QL_ShuffleDataOp::QL_ShuffleDataOp(RM_Manager* rmManager, shared_ptr<QL_Op> chil
     for (int i=0; i<attrCount; i++) {
         tupleLength += attributes[i].attrLength;
     }
+    delete[] attributes;
 
     // Set open flag to FALSE
     isOpen = FALSE;
