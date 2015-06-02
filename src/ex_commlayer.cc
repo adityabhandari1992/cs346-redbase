@@ -573,6 +573,56 @@ RC EX_CommLayer::UpdateInDataNode(const char* relName, const RelAttr &updAttr, c
 }
 
 
+// Method: GetDataFromDataNode
+// Get data for a relation from the data node
+RC EX_CommLayer::GetDataFromDataNode(const char* relName, RM_FileHandle &tempRMFH, int node) {
+    int rc;
+    string dataNode = "data." + to_string(node);
+
+    // Print message
+    cout << "\n* Getting data for " << relName << " from data node number " << node << " *" << endl;
+
+    // Open the data node
+    if ((rc = smManager->OpenDb(dataNode.c_str()))) {
+        return rc;
+    }
+
+    // Get the records from the data node and copy to the temp RM file
+    RM_FileHandle rmFH;
+    RM_FileScan rmFS;
+    RM_Record rec;
+    RID rid;
+    char* recordData;
+    if ((rc = rmManager->OpenFile(relName, rmFH))) {
+        return rc;
+    }
+    if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, NO_OP, NULL))) {
+        return rc;
+    }
+    while ((rc = rmFS.GetNextRec(rec)) != RM_EOF) {
+        if ((rc = rec.GetData(recordData))) {
+            return rc;
+        }
+        if ((rc = tempRMFH.InsertRec(recordData, rid))) {
+            return rc;
+        }
+    }
+    if ((rc = rmFS.CloseScan())) {
+        return rc;
+    }
+    if ((rc = rmManager->CloseFile(rmFH))) {
+        return rc;
+    }
+
+    // Close the data node
+    if ((rc = smManager->CloseDb())) {
+        return rc;
+    }
+
+    return OK_RC;
+}
+
+
 /***** Helper methods for EX part *****/
 
 // Method: GetDataNodeForTuple(RM_Manager* rmManager, const Value key, const char* relName,

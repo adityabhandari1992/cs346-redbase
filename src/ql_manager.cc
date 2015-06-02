@@ -174,11 +174,79 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
         return rc;
     }
 
+    // EX - Get the data for the distributed relations
+    EX_CommLayer commLayer(rmManager, ixManager);
+    int numberNodes = smManager->getNumberNodes();
+    for (int i=0; i<nRelations; i++) {
+        if (rcRecords[i]->distributed) {
+            char partitionAttrName[MAXNAME+1];
+            strcpy(partitionAttrName, rcRecords[i]->attrName);
+
+            // Get the data for the distributed relation in a temporary file
+            RM_FileHandle tempRMFH;
+            if ((rc = rmManager->CreateFile(relations[i], rcRecords[i]->tupleLength))) {
+                return rc;
+            }
+            if ((rc = rmManager->OpenFile(relations[i], tempRMFH))) {
+                return rc;
+            }
+
+            // Check whether the partition attribute is used in a condition
+            bool condExists = false;
+            int conditionNumber = -1;
+            for (int j=0; j<nConditions; j++) {
+                Condition currentCondition = changedConditions[j];
+                char* lhsRelName = (currentCondition.lhsAttr).relName;
+                char* lhsAttrName = (currentCondition.lhsAttr).attrName;
+                int rhsIsAttr = currentCondition.bRhsIsAttr;
+                if (!rhsIsAttr) {
+                    if (strcmp(lhsRelName, relations[i]) == 0 && strcmp(lhsAttrName, partitionAttrName) == 0) {
+                        condExists = true;
+                        conditionNumber = j;
+                        break;
+                    }
+                }
+            }
+
+            // If condition exists, get the data node only from the required data nodes
+            if (condExists) {
+                for (int j=1; j<=numberNodes; j++) {
+                    bool valid = false;
+                    if ((rc = CheckDataNodeForCondition(rmManager, relations[i], partitionAttrName, changedConditions[conditionNumber], j, valid))) {
+                        return rc;
+                    }
+                    if (valid) {
+                        if ((rc = commLayer.GetDataFromDataNode(relations[i], tempRMFH, j))) {
+                            return rc;
+                        }
+                    }
+                }
+
+                // Remove the used condition
+                RemoveCondition(changedConditions, nConditions, conditionNumber);
+            }
+
+            // Else get data from all nodes
+            else {
+                for (int j=1; j<=numberNodes; j++) {
+                    if ((rc = commLayer.GetDataFromDataNode(relations[i], tempRMFH, j))) {
+                        return rc;
+                    }
+                }
+            }
+
+            // Close the temporary file
+            if ((rc = rmManager->CloseFile(tempRMFH))) {
+                return rc;
+            }
+        }
+    }
+
     // Form the physical operator tree (physical query plan)
 
     /** No optimizations
         1) FileScanOps as leaf nodes
-        2) CrossProductOps on the leaf ndoes
+        2) CrossProductOps on the leaf nodes
         3) FilterOps on top
         4) ProjectOp as the root
     **/
@@ -334,6 +402,15 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
         cout << "   nCondtions = " << nConditions << "\n";
         for (i = 0; i < nConditions; i++)
             cout << "   conditions[" << i << "]:" << conditions[i] << "\n";
+    }
+
+    // EX - Destroy the temporary files
+    for (int i=0; i<nRelations; i++) {
+        if (rcRecords[i]->distributed) {
+            if ((rc = rmManager->DestroyFile(relations[i]))) {
+                return rc;
+            }
+        }
     }
 
     // Clean up
