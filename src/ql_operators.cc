@@ -1275,6 +1275,115 @@ void QL_NLJoinOp::Print(int indentationLevel) {
 }
 
 
+/********** QL_ShuffleDataOp **********/
+
+// Constructor
+QL_ShuffleDataOp::QL_ShuffleDataOp(RM_Manager* rmManager, shared_ptr<QL_Op> childOp, int fromNode, int toNode) {
+    // Copy the members
+    this->rmManager = rmManager;
+    this->rmFH = rmFH;
+    this->childOp = childOp;
+    this->fromNode = fromNode;
+    this->toNode = toNode;
+
+    // Find the tuple length
+    int attrCount;
+    childOp->GetAttributeCount(attrCount);
+    DataAttrInfo* attributes = new DataAttrInfo[attrCount];
+    childOp->GetAttributeInfo(attributes);
+    tupleLength = 0;
+    for (int i=0; i<attrCount; i++) {
+        tupleLength += attributes[i].attrLength;
+    }
+
+    // Set open flag to FALSE
+    isOpen = FALSE;
+}
+
+// Destructor
+QL_ShuffleDataOp::~QL_ShuffleDataOp() {
+    // Nothing to free
+}
+
+// Open the operator
+RC QL_ShuffleDataOp::Open() {
+    // Check if already open
+    if (isOpen) {
+        return QL_OPERATOR_OPEN;
+    }
+
+    // Open the child operator
+    int rc;
+    if ((rc = childOp->Open())) {
+        return rc;
+    }
+
+    // Set the flag
+    isOpen = TRUE;
+
+    return OK_RC;
+}
+
+// Close the operator
+RC QL_ShuffleDataOp::Close() {
+    // Check if already closed
+    if (!isOpen) {
+        return QL_OPERATOR_CLOSED;
+    }
+
+    // Close the child operator
+    int rc;
+    if ((rc = childOp->Close())) {
+        return rc;
+    }
+
+    // Set the flag
+    isOpen = FALSE;
+
+    return OK_RC;
+}
+
+// Get the data from the child operator
+/* Steps:
+    1) Check if operator is open
+    2) Insert the records from the child operator
+*/
+RC QL_ShuffleDataOp::GetData(RM_FileHandle &rmFH) {
+    // Check if open
+    if (!isOpen) {
+        return QL_OPERATOR_CLOSED;
+    }
+
+    // Insert the records from the child operator
+    int rc;
+    RID rid;
+    char* recordData = new char[tupleLength];
+    while ((rc = childOp->GetNext(recordData)) != QL_EOF) {
+        if ((rc = rmFH.InsertRec(recordData, rid))) {
+            return rc;
+        }
+    }
+    delete[] recordData;
+
+    return OK_RC;
+}
+
+// Print the operator
+void QL_ShuffleDataOp::Print(int indentationLevel) {
+    for (int i=0; i<indentationLevel; i++) cout << "\t";
+
+    cout << "ShuffleDataOp (";
+    cout << fromNode << ", " << toNode;
+    cout << ")" << endl;
+
+    for (int i=0; i<indentationLevel; i++) cout << "\t";
+    cout << "[" << endl;
+    childOp->Print(indentationLevel+1);
+    for (int i=0; i<indentationLevel; i++) cout << "\t";
+    cout << "]" << endl;
+}
+
+
 /********** Helper Methods **********/
 
 // Get the string form of the operator

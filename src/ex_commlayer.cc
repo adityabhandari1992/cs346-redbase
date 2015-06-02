@@ -14,6 +14,7 @@
 #include "ix.h"
 #include "sm.h"
 #include "ql.h"
+#include "ql_internal.h"
 #include "ex.h"
 #include "printer.h"
 #include "parser.h"
@@ -580,39 +581,40 @@ RC EX_CommLayer::GetDataFromDataNode(const char* relName, RM_FileHandle &tempRMF
     string dataNode = "data." + to_string(node);
 
     // Print message
-    cout << "\n* Getting data for " << relName << " from data node number " << node << " *" << endl;
+    if (bQueryPlans) {
+        cout << "\n* Getting data for " << relName << " from data node number " << node << " *" << endl;
+    }
 
     // Open the data node
     if ((rc = smManager->OpenDb(dataNode.c_str()))) {
         return rc;
     }
 
-    // Get the records from the data node and copy to the temp RM file
-    RM_FileHandle rmFH;
-    RM_FileScan rmFS;
-    RM_Record rec;
-    RID rid;
-    char* recordData;
-    if ((rc = rmManager->OpenFile(relName, rmFH))) {
+    // Create the scan operator
+    shared_ptr<QL_Op> scanOp;
+    scanOp.reset(new QL_FileScanOp(smManager, rmManager, relName, false, NULL, NO_OP, NULL));
+
+    // Create and open the shuffle operator
+    QL_ShuffleDataOp* shuffleOp = new QL_ShuffleDataOp(rmManager, scanOp, node, 0);
+    if ((rc = shuffleOp->Open())) {
         return rc;
     }
-    if ((rc = rmFS.OpenScan(rmFH, INT, 4, 0, NO_OP, NULL))) {
+
+    // Get the data via the shuffle operator
+    if ((rc = shuffleOp->GetData(tempRMFH))) {
         return rc;
     }
-    while ((rc = rmFS.GetNextRec(rec)) != RM_EOF) {
-        if ((rc = rec.GetData(recordData))) {
-            return rc;
-        }
-        if ((rc = tempRMFH.InsertRec(recordData, rid))) {
-            return rc;
-        }
-    }
-    if ((rc = rmFS.CloseScan())) {
+
+    // Close the operator
+    if ((rc = shuffleOp->Close())) {
         return rc;
     }
-    if ((rc = rmManager->CloseFile(rmFH))) {
-        return rc;
+
+    // Print the shuffle operator
+    if (bQueryPlans) {
+        shuffleOp->Print(0);
     }
+    delete shuffleOp;
 
     // Close the data node
     if ((rc = smManager->CloseDb())) {

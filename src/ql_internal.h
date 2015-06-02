@@ -205,6 +205,29 @@ private:
     int isOpen;
 };
 
+// EX
+// QL_ShuffleDataOp
+// Operator for shuffling data across nodes
+class QL_ShuffleDataOp {
+public:
+    QL_ShuffleDataOp(RM_Manager* rmManager, std::shared_ptr<QL_Op> childOp, int fromNode, int toNode);
+    ~QL_ShuffleDataOp();
+
+    RC Open();
+    RC Close();
+    RC GetData(RM_FileHandle &rmFH);
+    void Print(int indentationLevel);
+
+private:
+    RM_Manager* rmManager;
+    RM_FileHandle rmFH;
+    std::shared_ptr<QL_Op> childOp;
+    int tupleLength;
+    int fromNode;
+    int toNode;
+    int isOpen;
+};
+
 // Helper methods
 void PrintOperator(CompOp op);
 void PrintValue(const Value* v);
