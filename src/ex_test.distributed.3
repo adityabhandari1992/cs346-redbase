@@ -28,4 +28,8 @@ Select * From student Where majorid = "MSAI";
 
 Select student.studentid, dept.name From student, major, dept Where student.majorid = major.majorid And major.deptid = dept.deptid And student.majorid = "MSCS";
 
+Select student.studentid, enroll.classid, class.name, dept.name From student, enroll, class, dept Where student.studentid = enroll.studentid And enroll.classid = class.classid And class.deptid = dept.deptid;
+
+Select student.studentid, enroll.classid, class.name, dept.name From student, enroll, class, dept Where student.studentid = enroll.studentid And enroll.classid = class.classid And class.deptid = dept.deptid And enroll.year > 1999 And student.majorid = "MSCB";
+
 Select major.majorid, student.majorid, student.studentid, enroll.studentid, enroll.classid, class.classid, class.deptid, dept.deptid, student.name, class.name from major, student, enroll, class, dept where  major.majorid = student.majorid and student.majorid = "MSCS" and student.studentid = enroll.studentid and student.name < "J" and enroll.classid = class.classid and class.classid < 5 and class.deptid = dept.deptid;
