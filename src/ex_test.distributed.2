@@ -18,12 +18,6 @@ load dept("../data/EX/dept.data");
 
 set partitionedPrint = "TRUE";
 
-print dept;
-print major;
-print class;
-print student;
-print enroll;
-
 Delete From class Where classid = 7;
 Delete From enroll Where classid = 7;
 
