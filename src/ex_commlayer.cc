@@ -607,6 +607,11 @@ RC EX_CommLayer::GetDataFromDataNode(const char* relName, RM_FileHandle &tempRMF
     for (int i=0; i<nConditions; i++) {
         Condition cond = conditions[i];
         if (strcmp((cond.lhsAttr).relName, relName) == 0 && !cond.bRhsIsAttr) {
+            if (isCond) {
+                if (strcmp(cond.lhsAttr.relName, filterCond->lhsAttr.relName) == 0 && strcmp(cond.lhsAttr.attrName, filterCond->lhsAttr.attrName) == 0) {
+                    continue;
+                }
+            }
             if ((rc = GetAttrInfoFromArray((char*) attributes, attrCount, relName, (cond.lhsAttr).attrName, (char*) attributeData))) {
                 return rc;
             }

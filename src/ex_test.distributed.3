@@ -16,7 +16,6 @@ load enroll("../data/EX/enroll.data");
 load class("../data/EX/class.data");
 load dept("../data/EX/dept.data");
 
-set partitionedPrint = "TRUE";
 set bQueryPlans = "1";
 
 Select * From dept;
@@ -32,4 +31,4 @@ Select student.studentid, enroll.classid, class.name, dept.name From student, en
 
 Select student.studentid, enroll.classid, class.name, dept.name From student, enroll, class, dept Where student.studentid = enroll.studentid And enroll.classid = class.classid And class.deptid = dept.deptid And enroll.year > 1999 And student.majorid = "MSCB";
 
-Select major.majorid, student.majorid, student.studentid, enroll.studentid, enroll.classid, class.classid, class.deptid, dept.deptid, student.name, class.name from major, student, enroll, class, dept where  major.majorid = student.majorid and student.majorid = "MSCS" and student.studentid = enroll.studentid and student.studentid < 20 and enroll.classid = class.classid and class.classid < 5 and class.deptid = dept.deptid;
+Select major.majorid, student.studentid, class.classid, dept.deptid, student.name, class.name from major, student, enroll, class, dept where  major.majorid = student.majorid and student.majorid = "MSCS" and student.studentid = enroll.studentid and student.studentid < 20 and enroll.classid = class.classid and class.classid < 5 and class.deptid = dept.deptid;
