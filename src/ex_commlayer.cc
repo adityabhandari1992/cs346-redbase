@@ -683,6 +683,77 @@ RC EX_CommLayer::GetDataFromDataNode(const char* relName, RM_FileHandle &tempRMF
 }
 
 
+// Optimize by performing join in data node
+// Method: JoinInDataNode(const char* rel1, const char* rel2, Condition* joinCond, int node, RM_FileHandle &rmFH,
+//                        bool isCond1, Condition* filterCond1, bool isCond2, Condition* filterCond2)
+// Join relations in the data node
+RC EX_CommLayer::JoinInDataNode(const char* rel1, const char* rel2, Condition* joinCond, int node, RM_FileHandle &rmFH,
+                                bool isCond1, Condition* filterCond1, bool isCond2, Condition* filterCond2) {
+    int rc;
+    string dataNode = "data." + to_string(node);
+
+    // Open the data node
+    if ((rc = smManager->OpenDb(dataNode.c_str()))) {
+        return rc;
+    }
+
+    // Create the scan operators
+    shared_ptr<QL_Op> scanOp1;
+    shared_ptr<QL_Op> scanOp2;
+
+    // Do file scan for rel1
+    if (isCond1) {
+        scanOp1.reset(new QL_FileScanOp(smManager, rmManager, rel1, true, (filterCond1->lhsAttr).attrName, filterCond1->op, &(filterCond1->rhsValue)));
+    }
+    else {
+        scanOp1.reset(new QL_FileScanOp(smManager, rmManager, rel1, false, NULL, NO_OP, NULL));
+    }
+
+    // Do file scan for rel2
+    if (isCond2) {
+        scanOp2.reset(new QL_FileScanOp(smManager, rmManager, rel2, true, (filterCond2->lhsAttr).attrName, filterCond2->op, &(filterCond2->rhsValue)));
+    }
+    else {
+        scanOp2.reset(new QL_FileScanOp(smManager, rmManager, rel2, false, NULL, NO_OP, NULL));
+    }
+
+    // Create the join operator
+    shared_ptr<QL_Op> joinOp;
+    joinOp.reset(new QL_NLJoinOp(smManager, scanOp1, scanOp2, *joinCond));
+
+    // Create and open the shuffle operator
+    QL_ShuffleDataOp* shuffleOp = new QL_ShuffleDataOp(rmManager, joinOp, node, 0);
+    if ((rc = shuffleOp->Open())) {
+        return rc;
+    }
+
+    // Get the data via the shuffle operator
+    if ((rc = shuffleOp->GetData(rmFH))) {
+        return rc;
+    }
+
+    // Close the operator
+    if ((rc = shuffleOp->Close())) {
+        return rc;
+    }
+
+    // Print the shuffle operator
+    if (bQueryPlans) {
+        shuffleOp->Print(0);
+    }
+
+    // Close the data node
+    if ((rc = smManager->CloseDb())) {
+        return rc;
+    }
+
+    // Clean up
+    delete shuffleOp;
+
+    return OK_RC;
+}
+
+
 /***** Helper methods for EX part *****/
 
 // Method: GetDataNodeForTuple(RM_Manager* rmManager, const Value key, const char* relName,

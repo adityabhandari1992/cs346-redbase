@@ -248,6 +248,28 @@ QL_FileScanOp::QL_FileScanOp(SM_Manager* smManager, RM_Manager* rmManager, const
     isOpen = FALSE;
 }
 
+// Alternative constructor
+QL_FileScanOp::QL_FileScanOp(SM_Manager* smManager, RM_Manager* rmManager, const char* relName, int attrCount, DataAttrInfo* attributes) {
+    // Store the objects
+    this->smManager = smManager;
+    this->rmManager = rmManager;
+    memset(this->relName, 0, MAXNAME+1);
+    strcpy(this->relName, relName);
+    cond = false;
+
+    // Store the attributes information
+    this->attrCount = attrCount;
+    this->attributes = new DataAttrInfo[attrCount];
+    this->tupleLength = 0;
+    for (int i=0; i<attrCount; i++) {
+        this->attributes[i] = attributes[i];
+        this->tupleLength += attributes[i].attrLength;
+    }
+
+    // Set open flag to FALSE
+    isOpen = FALSE;
+}
+
 // Destructor
 QL_FileScanOp::~QL_FileScanOp() {
     // Delete the attributes array

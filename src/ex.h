@@ -104,6 +104,10 @@ public:
     RC GetDataFromDataNode(const char* relName, RM_FileHandle &tempRMFH, int node,
                            bool isCond, Condition* filterCond, Condition conditions[], int &nConditions);
 
+    // Optimize joins
+    RC JoinInDataNode(const char* rel1, const char* rel2, Condition* joinCond, int node, RM_FileHandle &rmFH,
+                      bool isCond1, Condition* filterCond1, bool isCond2, Condition* filterCond2);
+
 private:
     RM_Manager* rmManager;
     IX_Manager* ixManager;

@@ -175,141 +175,183 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
     }
 
     // EX - Get the data for the distributed relations
-    EX_CommLayer commLayer(rmManager, ixManager);
+    // Find if an efficient join in the data node is possible
     int numberNodes = smManager->getNumberNodes();
-    for (int i=0; i<nRelations; i++) {
-        if (rcRecords[i]->distributed) {
-            char partitionAttrName[MAXNAME+1];
-            strcpy(partitionAttrName, rcRecords[i]->attrName);
-
-            // Print message
-            if (bQueryPlans) {
-                cout << "\n* Getting data for " << relations[i] << " *" << endl;
-            }
-
-            // Get the data for the distributed relation in a temporary file
-            RM_FileHandle tempRMFH;
-            if ((rc = rmManager->CreateFile(relations[i], rcRecords[i]->tupleLength))) {
-                return rc;
-            }
-            if ((rc = rmManager->OpenFile(relations[i], tempRMFH))) {
-                return rc;
-            }
-
-            // Check whether the partition attribute is used in a condition
-            bool condExists = false;
-            int conditionNumber = -1;
-            for (int j=0; j<nConditions; j++) {
-                Condition currentCondition = changedConditions[j];
-                char* lhsRelName = (currentCondition.lhsAttr).relName;
-                char* lhsAttrName = (currentCondition.lhsAttr).attrName;
-                int rhsIsAttr = currentCondition.bRhsIsAttr;
-                if (!rhsIsAttr) {
-                    if (strcmp(lhsRelName, relations[i]) == 0 && strcmp(lhsAttrName, partitionAttrName) == 0) {
-                        condExists = true;
-                        conditionNumber = j;
-                        break;
-                    }
-                }
-            }
-
-            // If condition exists, get the data node only from the required data nodes
-            if (condExists) {
-                for (int j=1; j<=numberNodes; j++) {
-                    bool valid = false;
-                    if ((rc = CheckDataNodeForCondition(rmManager, relations[i], partitionAttrName, changedConditions[conditionNumber], j, valid))) {
-                        return rc;
-                    }
-                    if (valid) {
-                        if ((rc = commLayer.GetDataFromDataNode(relations[i], tempRMFH, j, true, &changedConditions[conditionNumber], changedConditions, nConditions))) {
-                            return rc;
+    EX_CommLayer commLayer(rmManager, ixManager);
+    bool joinPossible = false;
+    int joinCondition = -1;
+    int relationIndex = -1;
+    for (int i=0; i<nRelations-1; i++) {
+        if (rcRecords[i]->distributed && rcRecords[i+1]->distributed) {
+            if (strcmp(rcRecords[i]->attrName, rcRecords[i+1]->attrName) == 0) {
+                for (int j=0; j<nConditions; j++) {
+                    Condition cond = changedConditions[j];
+                    if (cond.bRhsIsAttr) {
+                        if (strcmp((cond.lhsAttr).relName, relations[i]) == 0 && strcmp((cond.lhsAttr).attrName, rcRecords[i]->attrName) == 0) {
+                            if (strcmp((cond.rhsAttr).relName, relations[i+1]) == 0 && strcmp((cond.rhsAttr).attrName, rcRecords[i+1]->attrName) == 0) {
+                                joinPossible = true;
+                                joinCondition = j;
+                                relationIndex = i;
+                                break;
+                            }
+                        }
+                        else if (strcmp((cond.lhsAttr).relName, relations[i+1]) == 0 && strcmp((cond.lhsAttr).attrName, rcRecords[i+1]->attrName) == 0) {
+                            if (strcmp((cond.rhsAttr).relName, relations[i]) == 0 && strcmp((cond.rhsAttr).attrName, rcRecords[i]->attrName) == 0) {
+                                joinPossible = true;
+                                joinCondition = j;
+                                relationIndex = i;
+                                break;
+                            }
                         }
                     }
                 }
-
-                // Remove the used condition
-                RemoveCondition(changedConditions, nConditions, conditionNumber);
             }
+        }
+    }
 
-            // Else get data from all nodes
-            else {
-                for (int j=1; j<=numberNodes; j++) {
-                    if ((rc = commLayer.GetDataFromDataNode(relations[i], tempRMFH, j, false, NULL, changedConditions, nConditions))) {
+    // If a join is possible
+    if (joinPossible) {
+        // Get the attribute information about the join
+        int attrCount1 = rcRecords[relationIndex]->attrCount;
+        int attrCount2 = rcRecords[relationIndex+1]->attrCount;
+
+        int joinAttrCount = attrCount1 + attrCount2;
+        DataAttrInfo* joinAttrributes = new DataAttrInfo[joinAttrCount];
+        int joinTupleLength = 0;
+        for (int i=0; i<attrCount1; i++) {
+            joinAttrributes[i] = attributes[relationIndex][i];
+            joinTupleLength += joinAttrributes[i].attrLength;
+        }
+        for (int i=0; i<attrCount2; i++) {
+            joinAttrributes[attrCount1+i] = attributes[relationIndex+1][i];
+            joinAttrributes[attrCount1+i].offset = joinTupleLength;
+            joinTupleLength += joinAttrributes[attrCount1+i].attrLength;
+        }
+
+        // Create a file to get the results
+        string joinFileName(rcRecords[relationIndex]->relName);
+        joinFileName += "_";
+        joinFileName += rcRecords[relationIndex+1]->relName;
+        if ((rc = rmManager->CreateFile(joinFileName.c_str(), joinTupleLength))) {
+            return rc;
+        }
+        RM_FileHandle joinRMFH;
+        if ((rc = rmManager->OpenFile(joinFileName.c_str(), joinRMFH))) {
+            return rc;
+        }
+
+        // Check whether the partition attribute is used in a condition
+        bool condExists = false;
+        int conditionNumber = -1;
+        for (int j=0; j<nConditions; j++) {
+            Condition currentCondition = changedConditions[j];
+            char* lhsRelName = (currentCondition.lhsAttr).relName;
+            char* lhsAttrName = (currentCondition.lhsAttr).attrName;
+            int rhsIsAttr = currentCondition.bRhsIsAttr;
+            if (!rhsIsAttr) {
+                if (strcmp(lhsRelName, rcRecords[relationIndex]->relName) == 0 && strcmp(lhsAttrName, rcRecords[relationIndex]->attrName) == 0) {
+                    condExists = true;
+                    conditionNumber = j;
+                    break;
+                }
+            }
+        }
+
+        // If condition exists, get the data node only from the required data nodes
+        if (condExists) {
+            for (int j=1; j<=numberNodes; j++) {
+                bool valid = false;
+                if ((rc = CheckDataNodeForCondition(rmManager, rcRecords[relationIndex]->relName, rcRecords[relationIndex]->attrName, changedConditions[conditionNumber], j, valid))) {
+                    return rc;
+                }
+                if (valid) {
+                    if ((rc = commLayer.JoinInDataNode(rcRecords[relationIndex]->relName, rcRecords[relationIndex+1]->relName, &changedConditions[joinCondition], j, joinRMFH, true, &changedConditions[conditionNumber], false, NULL))) {
                         return rc;
                     }
                 }
             }
 
-            // Close the temporary file
-            if ((rc = rmManager->CloseFile(tempRMFH))) {
-                return rc;
+            // Remove the used condition
+            RemoveCondition(changedConditions, nConditions, conditionNumber);
+        }
+
+        // Else get data from all nodes
+        else {
+            for (int j=1; j<=numberNodes; j++) {
+                if ((rc = commLayer.JoinInDataNode(rcRecords[relationIndex]->relName, rcRecords[relationIndex+1]->relName, &changedConditions[joinCondition], j, joinRMFH, false, NULL, false, NULL))) {
+                    return rc;
+                }
             }
         }
-    }
 
-    // Form the physical operator tree (physical query plan)
+        // Close the file
+        if ((rc = rmManager->CloseFile(joinRMFH))) {
+            return rc;
+        }
 
-    /** No optimizations
-        1) FileScanOps as leaf nodes
-        2) CrossProductOps on the leaf nodes
-        3) FilterOps on top
-        4) ProjectOp as the root
-    **/
-    shared_ptr<QL_Op> lastOp;
-    if (!smManager->getOptimizeFlag()) {
+        RemoveCondition(changedConditions, nConditions, joinCondition);
+
+        // Form the physical operator tree (physical query plan)
+        shared_ptr<QL_Op> lastOp;
+
         // Scan ops - FileScans on the relations
-        shared_ptr<QL_Op> scanOps[nRelations];
+        shared_ptr<QL_Op> scanOps[nRelations-1];
         for (int i=0; i<nRelations; i++) {
-            scanOps[i].reset(new QL_FileScanOp(smManager, rmManager, relations[i], false, NULL, NO_OP, NULL));
-        }
-        lastOp = scanOps[0];
-
-        // CrossProductOps on the scan ops
-        if (nRelations > 1) {
-            shared_ptr<QL_Op> cpOps[nRelations-1];
-            for (int i=0; i<nRelations-1; i++) {
-                cpOps[i].reset(new QL_CrossProductOp(smManager, lastOp, scanOps[i+1]));
-                lastOp = cpOps[i];
-            }
-        }
-    }
-
-    /** Optimizations when possible -
-        1) IndexScanOp at leaf nodes in place of FileScanOp
-        2) NLJoinOp in place of CrossProductOp
-    **/
-    else {
-        // Scan ops - FileScans or IndexScans on the relations
-        shared_ptr<QL_Op> scanOps[nRelations];
-        for (int i=0; i<nRelations; i++) {
-            // Check the conditions if an index scan can be done
-            bool indexScan = false;
-            DataAttrInfo* attributeData = new DataAttrInfo;
-            for (int j=0; j<nConditions; j++) {
-                Condition cond = changedConditions[j];
-                if (strcmp((cond.lhsAttr).relName, relations[i]) == 0 && !cond.bRhsIsAttr) {
-                    if ((rc = GetAttrInfoFromArray((char*) attributes[i], rcRecords[i]->attrCount, rcRecords[i]->relName, (cond.lhsAttr).attrName, (char*) attributeData))) {
-                        return rc;
-                    }
-                    if (attributeData->indexNo != -1) {
-                        scanOps[i].reset(new QL_IndexScanOp(smManager, ixManager, rmManager, relations[i], (cond.lhsAttr).attrName, cond.op, &cond.rhsValue));
-                        RemoveCondition(changedConditions, nConditions, j);
-                        indexScan = true;
-                        break;
+            if (i < relationIndex) {
+                bool indexScan = false;
+                DataAttrInfo* attributeData = new DataAttrInfo;
+                for (int j=0; j<nConditions; j++) {
+                    Condition cond = changedConditions[j];
+                    if (strcmp((cond.lhsAttr).relName, relations[i]) == 0 && !cond.bRhsIsAttr) {
+                        if ((rc = GetAttrInfoFromArray((char*) attributes[i], rcRecords[i]->attrCount, rcRecords[i]->relName, (cond.lhsAttr).attrName, (char*) attributeData))) {
+                            return rc;
+                        }
+                        if (attributeData->indexNo != -1) {
+                            scanOps[i].reset(new QL_IndexScanOp(smManager, ixManager, rmManager, relations[i], (cond.lhsAttr).attrName, cond.op, &cond.rhsValue));
+                            RemoveCondition(changedConditions, nConditions, j);
+                            indexScan = true;
+                            break;
+                        }
                     }
                 }
+                if (!indexScan) {
+                    scanOps[i].reset(new QL_FileScanOp(smManager, rmManager, relations[i], false, NULL, NO_OP, NULL));
+                }
+                delete attributeData;
             }
-            if (!indexScan) {
-                scanOps[i].reset(new QL_FileScanOp(smManager, rmManager, relations[i], false, NULL, NO_OP, NULL));
+            else if (i == relationIndex) {
+                scanOps[i].reset(new QL_FileScanOp(smManager, rmManager, joinFileName.c_str(), joinAttrCount, joinAttrributes));
             }
-            delete attributeData;
+            else if (i > relationIndex+1) {
+                bool indexScan = false;
+                DataAttrInfo* attributeData = new DataAttrInfo;
+                for (int j=0; j<nConditions; j++) {
+                    Condition cond = changedConditions[j];
+                    if (strcmp((cond.lhsAttr).relName, relations[i]) == 0 && !cond.bRhsIsAttr) {
+                        if ((rc = GetAttrInfoFromArray((char*) attributes[i], rcRecords[i]->attrCount, rcRecords[i]->relName, (cond.lhsAttr).attrName, (char*) attributeData))) {
+                            return rc;
+                        }
+                        if (attributeData->indexNo != -1) {
+                            scanOps[i-1].reset(new QL_IndexScanOp(smManager, ixManager, rmManager, relations[i], (cond.lhsAttr).attrName, cond.op, &cond.rhsValue));
+                            RemoveCondition(changedConditions, nConditions, j);
+                            indexScan = true;
+                            break;
+                        }
+                    }
+                }
+                if (!indexScan) {
+                    scanOps[i-1].reset(new QL_FileScanOp(smManager, rmManager, relations[i], false, NULL, NO_OP, NULL));
+                }
+                delete attributeData;
+            }
         }
         lastOp = scanOps[0];
 
-        // Join ops - CrossProductOps or NLJoinOps on the scan ops
-        if (nRelations > 1) {
-            shared_ptr<QL_Op> joinOps[nRelations-1];
-            for (int i=0; i<nRelations-1; i++) {
+        // NLJoinOp or CrossProductOp on the scan ops
+        if (nRelations > 2) {
+            shared_ptr<QL_Op> joinOps[nRelations-2];
+            int relNumber = 1;
+            for (int i=0; i<nRelations-2; i++) {
                 // Get the attributes of the last op
                 int lastOpAttrCount;
                 lastOp->GetAttributeCount(lastOpAttrCount);
@@ -319,10 +361,14 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
 
                 // Check whether condition exists to perform a join
                 bool conditionFound = false;
+                if (i == relationIndex) {
+                    relNumber++;
+                }
+
                 for (int j=0; j<nConditions; j++) {
                     Condition cond = changedConditions[j];
                     if (cond.bRhsIsAttr) {
-                        if (strcmp((cond.lhsAttr).relName, relations[i+1]) == 0) {
+                        if (strcmp((cond.lhsAttr).relName, relations[relNumber]) == 0) {
                             if (!(rc = GetAttrInfoFromArray((char*) lastOpAttributes, lastOpAttrCount, (cond.rhsAttr).relName, (cond.rhsAttr).attrName, (char*) attributeData))) {
                                 joinOps[i].reset(new QL_NLJoinOp(smManager, scanOps[i+1], lastOp, cond));
                                 RemoveCondition(changedConditions, nConditions, j);
@@ -330,7 +376,7 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
                                 break;
                             }
                         }
-                        else if (strcmp((cond.rhsAttr).relName, relations[i+1]) == 0) {
+                        else if (strcmp((cond.rhsAttr).relName, relations[relNumber]) == 0) {
                             if (!(rc = GetAttrInfoFromArray((char*) lastOpAttributes, lastOpAttrCount, (cond.lhsAttr).relName, (cond.lhsAttr).attrName, (char*) attributeData))) {
                                 joinOps[i].reset(new QL_NLJoinOp(smManager, lastOp, scanOps[i+1], cond));
                                 RemoveCondition(changedConditions, nConditions, j);
@@ -346,52 +392,295 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
                 }
 
                 lastOp = joinOps[i];
+                relNumber++;
 
                 delete[] lastOpAttributes;
                 delete attributeData;
             }
         }
-    }
 
-    // FilterOps
-    if (nConditions > 0) {
-        shared_ptr<QL_Op> filterOps[nConditions];
-        for (int i=0; i<nConditions; i++) {
-            filterOps[i].reset(new QL_FilterOp(smManager, lastOp, changedConditions[i]));
-            lastOp = filterOps[i];
+        // FilterOps
+        if (nConditions > 0) {
+            shared_ptr<QL_Op> filterOps[nConditions];
+            for (int i=0; i<nConditions; i++) {
+                filterOps[i].reset(new QL_FilterOp(smManager, lastOp, changedConditions[i]));
+                lastOp = filterOps[i];
+            }
         }
+
+        // Root node - ProjectOp
+        shared_ptr<QL_Op> rootOp;
+        rootOp.reset(new QL_ProjectOp(smManager, lastOp, nSelAttrs, changedSelAttrs));
+
+        int finalAttrCount;
+        rootOp->GetAttributeCount(finalAttrCount);
+        DataAttrInfo* finalAttributes = new DataAttrInfo[finalAttrCount];
+        rootOp->GetAttributeInfo(finalAttributes);
+        int tupleLength = 0;
+        for (int i=0; i<finalAttrCount; i++) {
+            tupleLength += finalAttributes[i].attrLength;
+        }
+
+        Printer p(finalAttributes, finalAttrCount);
+        p.PrintHeader(cout);
+
+        // Get the tuples from the root node
+        char* recordData = new char[tupleLength];
+        rootOp->Open();
+        while((rc = rootOp->GetNext(recordData)) != QL_EOF) {
+            p.Print(cout, recordData);
+        }
+        rootOp->Close();
+
+        p.PrintFooter(cout);
+
+        // Print the physical query plan
+        if (bQueryPlans) {
+            cout << "\nPhysical Query Plan:" << endl;
+            rootOp->Print(0);
+        }
+
+        // Clean up
+        delete[] recordData;
+        delete[] finalAttributes;
+
+        if ((rc = rmManager->DestroyFile(joinFileName.c_str()))) {
+            return rc;
+        }
+        delete[] joinAttrributes;
     }
 
-    // Root node - ProjectOp
-    shared_ptr<QL_Op> rootOp;
-    rootOp.reset(new QL_ProjectOp(smManager, lastOp, nSelAttrs, changedSelAttrs));
+    // Else get the data in the master node
+    else {
+        for (int i=0; i<nRelations; i++) {
+            if (rcRecords[i]->distributed) {
+                char partitionAttrName[MAXNAME+1];
+                strcpy(partitionAttrName, rcRecords[i]->attrName);
 
-    int finalAttrCount;
-    rootOp->GetAttributeCount(finalAttrCount);
-    DataAttrInfo* finalAttributes = new DataAttrInfo[finalAttrCount];
-    rootOp->GetAttributeInfo(finalAttributes);
-    int tupleLength = 0;
-    for (int i=0; i<finalAttrCount; i++) {
-        tupleLength += finalAttributes[i].attrLength;
-    }
+                // Print message
+                if (bQueryPlans) {
+                    cout << "\n* Getting data for " << relations[i] << " *" << endl;
+                }
 
-    Printer p(finalAttributes, finalAttrCount);
-    p.PrintHeader(cout);
+                // Get the data for the distributed relation in a temporary file
+                RM_FileHandle tempRMFH;
+                if ((rc = rmManager->CreateFile(relations[i], rcRecords[i]->tupleLength))) {
+                    return rc;
+                }
+                if ((rc = rmManager->OpenFile(relations[i], tempRMFH))) {
+                    return rc;
+                }
 
-    // Get the tuples from the root node
-    char* recordData = new char[tupleLength];
-    rootOp->Open();
-    while((rc = rootOp->GetNext(recordData)) != QL_EOF) {
-        p.Print(cout, recordData);
-    }
-    rootOp->Close();
+                // Check whether the partition attribute is used in a condition
+                bool condExists = false;
+                int conditionNumber = -1;
+                for (int j=0; j<nConditions; j++) {
+                    Condition currentCondition = changedConditions[j];
+                    char* lhsRelName = (currentCondition.lhsAttr).relName;
+                    char* lhsAttrName = (currentCondition.lhsAttr).attrName;
+                    int rhsIsAttr = currentCondition.bRhsIsAttr;
+                    if (!rhsIsAttr) {
+                        if (strcmp(lhsRelName, relations[i]) == 0 && strcmp(lhsAttrName, partitionAttrName) == 0) {
+                            condExists = true;
+                            conditionNumber = j;
+                            break;
+                        }
+                    }
+                }
 
-    p.PrintFooter(cout);
+                // If condition exists, get the data node only from the required data nodes
+                if (condExists) {
+                    for (int j=1; j<=numberNodes; j++) {
+                        bool valid = false;
+                        if ((rc = CheckDataNodeForCondition(rmManager, relations[i], partitionAttrName, changedConditions[conditionNumber], j, valid))) {
+                            return rc;
+                        }
+                        if (valid) {
+                            if ((rc = commLayer.GetDataFromDataNode(relations[i], tempRMFH, j, true, &changedConditions[conditionNumber], changedConditions, nConditions))) {
+                                return rc;
+                            }
+                        }
+                    }
 
-    // Print the physical query plan
-    if (bQueryPlans) {
-        cout << "\nPhysical Query Plan:" << endl;
-        rootOp->Print(0);
+                    // Remove the used condition
+                    RemoveCondition(changedConditions, nConditions, conditionNumber);
+                }
+
+                // Else get data from all nodes
+                else {
+                    for (int j=1; j<=numberNodes; j++) {
+                        if ((rc = commLayer.GetDataFromDataNode(relations[i], tempRMFH, j, false, NULL, changedConditions, nConditions))) {
+                            return rc;
+                        }
+                    }
+                }
+
+                // Close the temporary file
+                if ((rc = rmManager->CloseFile(tempRMFH))) {
+                    return rc;
+                }
+            }
+        }
+
+        // Form the physical operator tree (physical query plan)
+
+        /** No optimizations
+            1) FileScanOps as leaf nodes
+            2) CrossProductOps on the leaf nodes
+            3) FilterOps on top
+            4) ProjectOp as the root
+        **/
+        shared_ptr<QL_Op> lastOp;
+        if (!smManager->getOptimizeFlag()) {
+            // Scan ops - FileScans on the relations
+            shared_ptr<QL_Op> scanOps[nRelations];
+            for (int i=0; i<nRelations; i++) {
+                scanOps[i].reset(new QL_FileScanOp(smManager, rmManager, relations[i], false, NULL, NO_OP, NULL));
+            }
+            lastOp = scanOps[0];
+
+            // CrossProductOps on the scan ops
+            if (nRelations > 1) {
+                shared_ptr<QL_Op> cpOps[nRelations-1];
+                for (int i=0; i<nRelations-1; i++) {
+                    cpOps[i].reset(new QL_CrossProductOp(smManager, lastOp, scanOps[i+1]));
+                    lastOp = cpOps[i];
+                }
+            }
+        }
+
+        /** Optimizations when possible -
+            1) IndexScanOp at leaf nodes in place of FileScanOp
+            2) NLJoinOp in place of CrossProductOp
+        **/
+        else {
+            // Scan ops - FileScans or IndexScans on the relations
+            shared_ptr<QL_Op> scanOps[nRelations];
+            for (int i=0; i<nRelations; i++) {
+                // Check the conditions if an index scan can be done
+                bool indexScan = false;
+                DataAttrInfo* attributeData = new DataAttrInfo;
+                for (int j=0; j<nConditions; j++) {
+                    Condition cond = changedConditions[j];
+                    if (strcmp((cond.lhsAttr).relName, relations[i]) == 0 && !cond.bRhsIsAttr) {
+                        if ((rc = GetAttrInfoFromArray((char*) attributes[i], rcRecords[i]->attrCount, rcRecords[i]->relName, (cond.lhsAttr).attrName, (char*) attributeData))) {
+                            return rc;
+                        }
+                        if (attributeData->indexNo != -1) {
+                            scanOps[i].reset(new QL_IndexScanOp(smManager, ixManager, rmManager, relations[i], (cond.lhsAttr).attrName, cond.op, &cond.rhsValue));
+                            RemoveCondition(changedConditions, nConditions, j);
+                            indexScan = true;
+                            break;
+                        }
+                    }
+                }
+                if (!indexScan) {
+                    scanOps[i].reset(new QL_FileScanOp(smManager, rmManager, relations[i], false, NULL, NO_OP, NULL));
+                }
+                delete attributeData;
+            }
+            lastOp = scanOps[0];
+
+            // Join ops - CrossProductOps or NLJoinOps on the scan ops
+            if (nRelations > 1) {
+                shared_ptr<QL_Op> joinOps[nRelations-1];
+                for (int i=0; i<nRelations-1; i++) {
+                    // Get the attributes of the last op
+                    int lastOpAttrCount;
+                    lastOp->GetAttributeCount(lastOpAttrCount);
+                    DataAttrInfo* lastOpAttributes = new DataAttrInfo[lastOpAttrCount];
+                    lastOp->GetAttributeInfo(lastOpAttributes);
+                    DataAttrInfo* attributeData = new DataAttrInfo;
+
+                    // Check whether condition exists to perform a join
+                    bool conditionFound = false;
+                    for (int j=0; j<nConditions; j++) {
+                        Condition cond = changedConditions[j];
+                        if (cond.bRhsIsAttr) {
+                            if (strcmp((cond.lhsAttr).relName, relations[i+1]) == 0) {
+                                if (!(rc = GetAttrInfoFromArray((char*) lastOpAttributes, lastOpAttrCount, (cond.rhsAttr).relName, (cond.rhsAttr).attrName, (char*) attributeData))) {
+                                    joinOps[i].reset(new QL_NLJoinOp(smManager, scanOps[i+1], lastOp, cond));
+                                    RemoveCondition(changedConditions, nConditions, j);
+                                    conditionFound = true;
+                                    break;
+                                }
+                            }
+                            else if (strcmp((cond.rhsAttr).relName, relations[i+1]) == 0) {
+                                if (!(rc = GetAttrInfoFromArray((char*) lastOpAttributes, lastOpAttrCount, (cond.lhsAttr).relName, (cond.lhsAttr).attrName, (char*) attributeData))) {
+                                    joinOps[i].reset(new QL_NLJoinOp(smManager, lastOp, scanOps[i+1], cond));
+                                    RemoveCondition(changedConditions, nConditions, j);
+                                    conditionFound = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!conditionFound) {
+                        joinOps[i].reset(new QL_CrossProductOp(smManager, lastOp, scanOps[i+1]));
+                    }
+
+                    lastOp = joinOps[i];
+
+                    delete[] lastOpAttributes;
+                    delete attributeData;
+                }
+            }
+        }
+
+        // FilterOps
+        if (nConditions > 0) {
+            shared_ptr<QL_Op> filterOps[nConditions];
+            for (int i=0; i<nConditions; i++) {
+                filterOps[i].reset(new QL_FilterOp(smManager, lastOp, changedConditions[i]));
+                lastOp = filterOps[i];
+            }
+        }
+
+        // Root node - ProjectOp
+        shared_ptr<QL_Op> rootOp;
+        rootOp.reset(new QL_ProjectOp(smManager, lastOp, nSelAttrs, changedSelAttrs));
+
+        int finalAttrCount;
+        rootOp->GetAttributeCount(finalAttrCount);
+        DataAttrInfo* finalAttributes = new DataAttrInfo[finalAttrCount];
+        rootOp->GetAttributeInfo(finalAttributes);
+        int tupleLength = 0;
+        for (int i=0; i<finalAttrCount; i++) {
+            tupleLength += finalAttributes[i].attrLength;
+        }
+
+        Printer p(finalAttributes, finalAttrCount);
+        p.PrintHeader(cout);
+
+        // Get the tuples from the root node
+        char* recordData = new char[tupleLength];
+        rootOp->Open();
+        while((rc = rootOp->GetNext(recordData)) != QL_EOF) {
+            p.Print(cout, recordData);
+        }
+        rootOp->Close();
+
+        p.PrintFooter(cout);
+
+        // Print the physical query plan
+        if (bQueryPlans) {
+            cout << "\nPhysical Query Plan:" << endl;
+            rootOp->Print(0);
+        }
+
+        // Destroy the temporary files
+        for (int i=0; i<nRelations; i++) {
+            if (rcRecords[i]->distributed) {
+                if ((rc = rmManager->DestroyFile(relations[i]))) {
+                    return rc;
+                }
+            }
+        }
+
+        // Clean up
+        delete[] recordData;
+        delete[] finalAttributes;
     }
 
     // Print the command
@@ -408,19 +697,6 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
         for (i = 0; i < nConditions; i++)
             cout << "   conditions[" << i << "]:" << conditions[i] << "\n";
     }
-
-    // EX - Destroy the temporary files
-    for (int i=0; i<nRelations; i++) {
-        if (rcRecords[i]->distributed) {
-            if ((rc = rmManager->DestroyFile(relations[i]))) {
-                return rc;
-            }
-        }
-    }
-
-    // Clean up
-    delete[] recordData;
-    delete[] finalAttributes;
 
     for (int i=0; i<nRelations; i++) {
         delete rcRecords[i];

@@ -74,6 +74,7 @@ class QL_FileScanOp : public QL_Op {
 public:
     QL_FileScanOp(SM_Manager* smManager, RM_Manager* rmManager, const char* relName,
                   bool cond, char* attrName, CompOp op, const Value* v);
+    QL_FileScanOp(SM_Manager* smManager, RM_Manager* rmManager, const char* relName, int attrCount, DataAttrInfo* attributes);
     ~QL_FileScanOp();
 
     RC Open();
